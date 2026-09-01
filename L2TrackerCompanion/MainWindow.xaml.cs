@@ -32,5 +32,39 @@ public partial class MainWindow : Window
               + $"Title: {gameWindow.Title}\n"
               + $"Size: {gameWindow.Width} x {gameWindow.Height}\n"
               + $"PID: {gameWindow.ProcessId}";
+
+        CaptureOnceButton.IsEnabled = gameWindow is not null;
+    }
+
+    private void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
+    {
+        CaptureOnceButton.IsEnabled = false;
+        CaptureStatusLabel.Text = "Capturing...";
+
+        try
+        {
+            var outputPath = WindowCaptureService.GetDefaultCapturePath();
+            var result = _windowCaptureService.TryCaptureOnce(outputPath);
+
+            CaptureStatusLabel.Text = result.Success
+                ? FormatCaptureSuccess(result)
+                : $"Capture failed: {result.ErrorMessage}";
+        }
+        finally
+        {
+            RefreshGameWindowStatus();
+        }
+    }
+
+    private static string FormatCaptureSuccess(CaptureResult result)
+    {
+        var message = $"Saved {result.OutputPath}";
+
+        if (result.IsLikelyBlank)
+        {
+            message += "\n\nWarning: the image looks blank or all-black. PrintWindow may not work with this client — try step 3 (Windows.Graphics.Capture) instead.";
+        }
+
+        return message;
     }
 }

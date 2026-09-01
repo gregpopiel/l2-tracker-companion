@@ -14,7 +14,19 @@
                        Text="Checking..."
                        TextWrapping="Wrap"
                        FontFamily="Consolas"
-                       FontSize="13" />
+                       FontSize="13"
+                       Margin="0,0,0,16" />
+            <Button x:Name="CaptureOnceButton"
+                    Content="Capture once"
+                    Padding="12,6"
+                    HorizontalAlignment="Left"
+                    Click="CaptureOnceButton_Click" />
+            <TextBlock x:Name="CaptureStatusLabel"
+                       Text=""
+                       TextWrapping="Wrap"
+                       FontFamily="Consolas"
+                       FontSize="13"
+                       Margin="0,12,0,0" />
         </StackPanel>
     </Grid>
 </Window>

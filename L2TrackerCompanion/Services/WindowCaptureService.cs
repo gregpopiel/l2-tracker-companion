@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -8,6 +10,10 @@ public sealed class WindowCaptureService
 {
     public const string GameProcessName = "L2.bin";
     public const string ExpectedWindowTitle = "Lineage II";
+    public const string DefaultCaptureFileName = "capture.png";
+
+    public static string GetDefaultCapturePath() =>
+        Path.Combine(AppContext.BaseDirectory, DefaultCaptureFileName);
 
     public GameWindowInfo? TryFindGameWindow()
     {
@@ -69,6 +75,104 @@ public sealed class WindowCaptureService
         return titledMatch ?? fallbackMatch;
     }
 
+    public CaptureResult TryCaptureOnce(string? outputPath = null)
+    {
+        var gameWindow = TryFindGameWindow();
+        if (gameWindow is null)
+        {
+            return new CaptureResult
+            {
+                Success = false,
+                ErrorMessage = $"Game not running (no {GameProcessName} process with a visible window).",
+            };
+        }
+
+        return CaptureWindow(gameWindow, outputPath ?? GetDefaultCapturePath());
+    }
+
+    public CaptureResult CaptureWindow(GameWindowInfo window, string outputPath)
+    {
+        if (window.Width <= 0 || window.Height <= 0)
+        {
+            return new CaptureResult
+            {
+                Success = false,
+                ErrorMessage = "Game window has zero size.",
+            };
+        }
+
+        try
+        {
+            using var bitmap = new Bitmap(window.Width, window.Height, PixelFormat.Format32bppArgb);
+            using var graphics = Graphics.FromImage(bitmap);
+            var hdc = graphics.GetHdc();
+            try
+            {
+                if (!NativeMethods.PrintWindow(window.Hwnd, hdc, NativeMethods.PwRenderFullContent))
+                {
+                    return new CaptureResult
+                    {
+                        Success = false,
+                        ErrorMessage = $"PrintWindow failed (Win32 error {Marshal.GetLastWin32Error()}).",
+                    };
+                }
+            }
+            finally
+            {
+                graphics.ReleaseHdc(hdc);
+            }
+
+            var directory = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            bitmap.Save(outputPath, ImageFormat.Png);
+
+            return new CaptureResult
+            {
+                Success = true,
+                OutputPath = outputPath,
+                IsLikelyBlank = IsLikelyBlankFrame(bitmap),
+            };
+        }
+        catch (Exception ex)
+        {
+            return new CaptureResult
+            {
+                Success = false,
+                ErrorMessage = ex.Message,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Samples pixels to detect an all-black or near-black PrintWindow result (common with DirectX clients).
+    /// </summary>
+    private static bool IsLikelyBlankFrame(Bitmap bitmap)
+    {
+        const int sampleStride = 37;
+        const int darkThreshold = 8;
+        var darkSamples = 0;
+        var totalSamples = 0;
+
+        for (var y = 0; y < bitmap.Height; y += sampleStride)
+        {
+            for (var x = 0; x < bitmap.Width; x += sampleStride)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                totalSamples++;
+                if (pixel.R <= darkThreshold && pixel.G <= darkThreshold && pixel.B <= darkThreshold)
+                {
+                    darkSamples++;
+                }
+            }
+        }
+
+        return totalSamples > 0 && darkSamples == totalSamples;
+    }
+
     private static string GetWindowTitle(IntPtr hwnd)
     {
         var length = NativeMethods.GetWindowTextLength(hwnd);
@@ -118,6 +222,11 @@ public sealed class WindowCaptureService
 
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
+
+        public const uint PwRenderFullContent = 0x00000002;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool PrintWindow(IntPtr hwnd, IntPtr hDC, uint nFlags);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct Rect
