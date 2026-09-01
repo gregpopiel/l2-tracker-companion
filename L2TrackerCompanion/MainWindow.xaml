@@ -4,5 +4,17 @@
         Title="L2 Tracker Companion"
         Height="450"
         Width="800">
-    <Grid />
+    <Grid Margin="16">
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Text="Game window"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,8" />
+            <TextBlock x:Name="GameWindowStatusLabel"
+                       Text="Checking..."
+                       TextWrapping="Wrap"
+                       FontFamily="Consolas"
+                       FontSize="13" />
+        </StackPanel>
+    </Grid>
 </Window>

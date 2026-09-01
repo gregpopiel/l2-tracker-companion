@@ -1,0 +1,131 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace L2TrackerCompanion.Services;
+
+public sealed class WindowCaptureService
+{
+    public const string GameProcessName = "L2.bin";
+    public const string ExpectedWindowTitle = "Lineage II";
+
+    public GameWindowInfo? TryFindGameWindow()
+    {
+        var processIds = Process.GetProcessesByName(GameProcessName)
+            .Select(process => process.Id)
+            .ToHashSet();
+
+        if (processIds.Count == 0)
+        {
+            return null;
+        }
+
+        GameWindowInfo? titledMatch = null;
+        GameWindowInfo? fallbackMatch = null;
+
+        NativeMethods.EnumWindows((hwnd, _) =>
+        {
+            if (!NativeMethods.IsWindowVisible(hwnd))
+            {
+                return true;
+            }
+
+            NativeMethods.GetWindowThreadProcessId(hwnd, out uint windowProcessId);
+            if (!processIds.Contains((int)windowProcessId))
+            {
+                return true;
+            }
+
+            var title = GetWindowTitle(hwnd);
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                return true;
+            }
+
+            if (!TryGetClientSize(hwnd, out var width, out var height))
+            {
+                return true;
+            }
+
+            var candidate = new GameWindowInfo
+            {
+                Hwnd = hwnd,
+                Title = title,
+                Width = width,
+                Height = height,
+                ProcessId = (int)windowProcessId,
+            };
+
+            if (string.Equals(title, ExpectedWindowTitle, StringComparison.Ordinal))
+            {
+                titledMatch = candidate;
+                return false;
+            }
+
+            fallbackMatch ??= candidate;
+            return true;
+        }, IntPtr.Zero);
+
+        return titledMatch ?? fallbackMatch;
+    }
+
+    private static string GetWindowTitle(IntPtr hwnd)
+    {
+        var length = NativeMethods.GetWindowTextLength(hwnd);
+        if (length == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(length + 1);
+        _ = NativeMethods.GetWindowText(hwnd, builder, builder.Capacity);
+        return builder.ToString();
+    }
+
+    private static bool TryGetClientSize(IntPtr hwnd, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+
+        if (!NativeMethods.GetWindowRect(hwnd, out var rect))
+        {
+            return false;
+        }
+
+        width = rect.Right - rect.Left;
+        height = rect.Bottom - rect.Top;
+        return width > 0 && height > 0;
+    }
+
+    private static class NativeMethods
+    {
+        public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(IntPtr hwnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern int GetWindowTextLength(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Rect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+    }
+}
