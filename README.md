@@ -174,11 +174,22 @@ chmod +x scripts/save.sh   # once
 
 Uses the stored JWT. Switching character in the window reloads spots.
 
-## Publish (later)
+## Publish (plan step 22)
+
+Self-contained `win-x64` single-file `.exe` — no separate .NET install on the user's machine. Native SQLite is extracted from the bundle (`IncludeNativeLibrariesForSelfExtract`). Output is gitignored (`artifacts/win-x64/`).
 
 ```bash
-dotnet publish -r win-x64 --self-contained -p:PublishSingleFile=true
+chmod +x scripts/publish.sh   # once
+./scripts/publish.sh
 ```
+
+From Windows:
+
+```bash
+dotnet publish L2TrackerCompanion/L2TrackerCompanion.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o artifacts/win-x64
+```
+
+Ship the resulting `L2TrackerCompanion.exe` as a GitHub Release on this repo (not the VPS / Docker stack).
 
 ## Implementation plan
 

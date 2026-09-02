@@ -8,6 +8,11 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>L2TrackerCompanion</RootNamespace>
     <AssemblyName>L2TrackerCompanion</AssemblyName>
+    <Version>1.0.0</Version>
+    <Product>L2 Tracker Companion</Product>
+    <!-- e_sqlite3.dll (and any other native assets) must extract from the
+         single-file bundle at runtime; without this, session.db fails to open. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
