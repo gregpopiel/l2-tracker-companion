@@ -44,6 +44,17 @@ if (args.Length >= 1 && string.Equals(args[0], "--lamps", StringComparison.Ordin
     return await RunLampBatchAsync(args[1], args.Length >= 3 ? args[2] : LampXpPass.GetDefaultLampsDirectory());
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "--location", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump --location <images-dir> [output-dir]");
+        return 1;
+    }
+
+    return await RunLocationBatchAsync(args[1], args.Length >= 3 ? args[2] : LocationHintPass.GetDefaultLocationDirectory());
+}
+
 if (args.Length < 1)
 {
     Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump <image.png|images-dir> [output.txt|output-dir]");
@@ -51,6 +62,7 @@ if (args.Length < 1)
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --farm <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --playtime <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --lamps <images-dir> [output-dir]");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --location <images-dir> [output-dir]");
     return 1;
 }
 
@@ -250,6 +262,50 @@ static async Task<int> RunLampBatchAsync(string imageDirectory, string outputDir
         var baseline = LampXpPass.LoadBaselineTsv(baselinePath);
         Console.WriteLine();
         Console.WriteLine(LampXpPass.FormatBaselineComparison(results, baseline));
+    }
+    else
+    {
+        Console.WriteLine($"No tesseract baseline at {baselinePath} — skipped comparison.");
+    }
+
+    return results.All(r => r.Success) ? 0 : 2;
+}
+
+static async Task<int> RunLocationBatchAsync(string imageDirectory, string outputDirectory)
+{
+    var pngs = OcrWordDump.ListPngsInDirectory(imageDirectory);
+    if (pngs.Count == 0)
+    {
+        Console.Error.WriteLine($"No PNG files in {imageDirectory} (top-level only; processed/ is skipped).");
+        return 1;
+    }
+
+    Directory.CreateDirectory(outputDirectory);
+    Console.WriteLine($"Location hint {pngs.Count} PNG(s) from {imageDirectory}");
+    Console.WriteLine($"Writing dumps to {outputDirectory}");
+
+    var results = new List<LocationHintResult>(pngs.Count);
+    for (var i = 0; i < pngs.Count; i++)
+    {
+        var png = pngs[i];
+        Console.WriteLine($"[{i + 1}/{pngs.Count}] {Path.GetFileName(png)}");
+        var location = await LocationHintPass.RunFileAsync(png, outputDirectory, CancellationToken.None);
+        Console.WriteLine(LocationHintPass.FormatStatus(location));
+        results.Add(location);
+    }
+
+    var summaryPath = Path.Combine(outputDirectory, "_location.tsv");
+    await File.WriteAllTextAsync(summaryPath, LocationHintPass.FormatBatchSummary(results));
+    Console.WriteLine();
+    Console.WriteLine(LocationHintPass.FormatBatchStatus(results));
+    Console.WriteLine($"Summary: {summaryPath}");
+
+    var baselinePath = Path.Combine(Directory.GetCurrentDirectory(), "baselines", "tesseract-location.tsv");
+    if (File.Exists(baselinePath))
+    {
+        var baseline = LocationHintPass.LoadBaselineTsv(baselinePath);
+        Console.WriteLine();
+        Console.WriteLine(LocationHintPass.FormatBaselineComparison(results, baseline));
     }
     else
     {

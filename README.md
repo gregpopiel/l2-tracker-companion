@@ -109,6 +109,15 @@ chmod +x scripts/ocr-lamps.sh   # once
 
 Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-lamps\` and compares to `baselines/tesseract-lamps.tsv`. **Windows required.**
 
+**Location hint (plan step 12):** minimap zone header, off the same full-image pass that locates the dialog. Width/position gates; at least two words. Dialog-only crops return nothing rather than a single-word guess.
+
+```bash
+chmod +x scripts/ocr-location.sh   # once
+./scripts/ocr-location.sh
+```
+
+Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-location\` and compares to `baselines/tesseract-location.tsv`. **Windows required.**
+
 A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)
