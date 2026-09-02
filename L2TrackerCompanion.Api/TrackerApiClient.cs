@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace L2TrackerCompanion.Api;
 
@@ -67,6 +68,49 @@ public sealed class TrackerApiClient
         string token,
         CancellationToken cancellationToken = default)
         => GetAsync<UserSettingsInfo>("api/settings", token, cancellationToken);
+
+    public async Task<ApiCallResult<FarmLogResponse>> PostFarmLogAsync(
+        string token,
+        FarmLogRequest body,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        ArgumentNullException.ThrowIfNull(body);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/farm-logs");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(body, JsonOptions),
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return ApiCallResult<FarmLogResponse>.Fail(ex.Message);
+        }
+
+        var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return ApiCallResult<FarmLogResponse>.Fail(ReadMessage(text, response.StatusCode));
+        }
+
+        try
+        {
+            var value = JsonSerializer.Deserialize<FarmLogResponse>(text, JsonOptions);
+            return value is null
+                ? ApiCallResult<FarmLogResponse>.Fail("Empty JSON response.")
+                : ApiCallResult<FarmLogResponse>.Ok(value);
+        }
+        catch (JsonException)
+        {
+            return ApiCallResult<FarmLogResponse>.Fail("Response was not JSON.");
+        }
+    }
 
     private async Task<ApiCallResult<IReadOnlyList<T>>> GetListAsync<T>(
         string relativeUri,
@@ -167,6 +211,22 @@ public sealed record UserSettingsInfo(int DefaultBonus, int DefaultMinutes)
 {
     public static UserSettingsInfo SchemaDefaults { get; } = new(25, 60);
 }
+
+public sealed record FarmLogRequest(
+    int CharacterId,
+    int SpotId,
+    long XpFarmed,
+    long Adena,
+    int Minutes,
+    double AcquiredXpSp,
+    long RedLampXP,
+    long PurpleLampXP,
+    long BlueLampXP,
+    long GreenLampXP,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    DateTimeOffset? Date = null);
+
+public sealed record FarmLogResponse(int Id, int CharacterId, int SpotId);
 
 public sealed record ApiCallResult<T>(bool Success, T? Value, string? Error)
 {

@@ -8,7 +8,7 @@ namespace L2TrackerCompanion.Session;
 
 /// <summary>
 /// Append-only SQLite snapshots for the active session (plan step 14).
-/// Clear-on-save is later; <see cref="NewSession"/> wipes the file now.
+/// <see cref="NewSession"/> wipes the file after a successful save.
 /// </summary>
 public sealed class SessionStore : IDisposable
 {
@@ -123,6 +123,18 @@ public sealed class SessionStore : IDisposable
         }
 
         return SnapshotAcceptResult.Accepted(Append(report, capturedAt));
+    }
+
+    /// <summary>
+    /// Last accepted − first accepted, in thousands, wall-clock minutes.
+    /// </summary>
+    public SessionDeltaResult TryDelta()
+    {
+        var rows = List();
+        var snapshots = rows
+            .Select(row => new PlayReportSnapshot(row.Report, row.CapturedAt))
+            .ToArray();
+        return SessionDelta.TryCreate(snapshots);
     }
 
     public IReadOnlyList<SnapshotRow> List()

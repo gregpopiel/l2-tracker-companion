@@ -68,6 +68,54 @@ public class TrackerApiClientTests
     }
 
     [Fact]
+    public async Task PostFarmLogSendsThousandsAndCapitalXpLampFieldsWithoutOrigin()
+    {
+        HttpRequestMessage? seen = null;
+        string? body = null;
+        var handler = new StubHandler(request =>
+        {
+            seen = request;
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Json(HttpStatusCode.OK, """{"id":99,"characterId":7,"spotId":160}""");
+        });
+        var client = new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+
+        var call = await client.PostFarmLogAsync(
+            "jwt",
+            new FarmLogRequest(
+                CharacterId: 7,
+                SpotId: 160,
+                XpFarmed: 13587,
+                Adena: 1000,
+                Minutes: 12,
+                AcquiredXpSp: 567,
+                RedLampXP: 1000,
+                PurpleLampXP: 0,
+                BlueLampXP: 0,
+                GreenLampXP: 0,
+                Date: DateTimeOffset.Parse("2026-09-02T10:12:20Z")));
+
+        Assert.True(call.Success);
+        Assert.Equal(99, call.Value!.Id);
+        Assert.NotNull(seen);
+        Assert.Equal(HttpMethod.Post, seen!.Method);
+        Assert.Equal("/api/farm-logs", seen.RequestUri?.AbsolutePath);
+        Assert.False(seen.Headers.Contains("Origin"));
+        Assert.Equal("jwt", seen.Headers.Authorization?.Parameter);
+        Assert.Contains("\"xpFarmed\":13587", body, StringComparison.Ordinal);
+        Assert.Contains("\"redLampXP\":1000", body, StringComparison.Ordinal);
+        Assert.Contains("\"purpleLampXP\":0", body, StringComparison.Ordinal);
+        Assert.Contains("\"blueLampXP\":0", body, StringComparison.Ordinal);
+        Assert.Contains("\"greenLampXP\":0", body, StringComparison.Ordinal);
+        Assert.Contains("\"acquiredXpSp\":567", body, StringComparison.Ordinal);
+        Assert.Contains("\"minutes\":12", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("redLampXp\":", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SaveIsDisabledUntilCharacterAndSpotAreChosen()
     {
         var character = new CharacterInfo(1, "Player174", "S", 80, 0, 85);

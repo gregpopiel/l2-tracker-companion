@@ -158,6 +158,14 @@ A single window titled **L2 Tracker Companion** should open.
 
 Must print `HTTP 200` and `JSON: yes` for `/api/characters` and `/api/settings`.
 
+**Save session (plan step 20):** Save POSTs last−first accepted snapshots as a `FarmLog` (`xpFarmed` / `adena` / lamp XP **in thousands**, `minutes` = wall-clock, `% Bonus` = `acquiredXpSp`). Blocked until both pickers are chosen, there are two accepted snapshots, and lamp XP was read at both ends (no silent zeros). On 2xx the local session file is cleared.
+
+```bash
+chmod +x scripts/save.sh   # once
+./scripts/save.sh --character-id <id> --spot-id <id> [--bonus <n>]
+./scripts/save.sh --smoke   # posts a 1-minute 1000k-XP probe using the first character/spot
+```
+
 Uses the stored JWT. Switching character in the window reloads spots.
 
 ## Publish (later)

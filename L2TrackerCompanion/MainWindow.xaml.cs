@@ -203,12 +203,24 @@ public partial class MainWindow : Window
 
     private void RefreshSaveEnabled()
     {
-        SaveButton.IsEnabled = SessionPickers.SaveEnabled(SelectedCharacter, SelectedSpot);
-        if (SaveButton.IsEnabled)
+        var pickersReady = SessionPickers.SaveEnabled(SelectedCharacter, SelectedSpot);
+        var delta = _sessionStore.TryDelta();
+        SaveButton.IsEnabled = pickersReady && delta.Ok;
+        if (!pickersReady)
         {
-            PickerStatusLabel.Text =
-                $"Ready: {SelectedCharacter!.Name} at {SelectedSpot!.Label}. Save posts in the next step.";
+            return;
         }
+
+        if (!delta.Ok)
+        {
+            PickerStatusLabel.Text = delta.Error;
+            return;
+        }
+
+        PickerStatusLabel.Text =
+            $"Ready to save {SelectedCharacter!.Name} at {SelectedSpot!.Label}: "
+            + $"{delta.Totals!.XpFarmed}k XP, {delta.Totals.Adena}k Adena, "
+            + $"{delta.Totals.Minutes} min wall-clock.";
     }
 
     private async Task LoadSpotsAsync(CharacterInfo? character)
@@ -293,10 +305,79 @@ public partial class MainWindow : Window
         MinutesBox.IsEnabled = true;
     }
 
-    private void SaveButton_Click(object sender, RoutedEventArgs e)
+    private async void SaveButton_Click(object sender, RoutedEventArgs e)
     {
-        PickerStatusLabel.Text =
-            "Save does not POST yet (plan step 20). Character and spot are selected.";
+        if (_polling.IsRunning)
+        {
+            StopTracking("Stopped to save.");
+        }
+
+        if (!SessionPickers.SaveEnabled(SelectedCharacter, SelectedSpot))
+        {
+            RefreshSaveEnabled();
+            return;
+        }
+
+        var delta = _sessionStore.TryDelta();
+        if (!delta.Ok || delta.Totals is null)
+        {
+            RefreshSaveEnabled();
+            return;
+        }
+
+        if (!double.TryParse(BonusBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var bonus))
+        {
+            PickerStatusLabel.Text = "Bonus must be a number (Acquired XP/SP %).";
+            return;
+        }
+
+        var token = _auth.TryLoadToken();
+        if (token is null)
+        {
+            ClearPickers("Sign in to save.");
+            return;
+        }
+
+        SaveButton.IsEnabled = false;
+        PickerStatusLabel.Text = "Saving session…";
+        var saved = false;
+        try
+        {
+            var totals = delta.Totals;
+            var request = new FarmLogRequest(
+                CharacterId: SelectedCharacter!.Id,
+                SpotId: SelectedSpot!.Id,
+                XpFarmed: totals.XpFarmed,
+                Adena: totals.Adena,
+                Minutes: totals.Minutes,
+                AcquiredXpSp: bonus,
+                RedLampXP: totals.RedLampXP,
+                PurpleLampXP: totals.PurpleLampXP,
+                BlueLampXP: totals.BlueLampXP,
+                GreenLampXP: totals.GreenLampXP,
+                Date: totals.EndedAt);
+            var call = await Api.PostFarmLogAsync(token, request);
+            if (!call.Success)
+            {
+                PickerStatusLabel.Text = $"Save failed: {call.Error}";
+                return;
+            }
+
+            _sessionStore.NewSession();
+            ShowLiveStatus(LiveStatus.Idle());
+            SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
+            saved = true;
+            PickerStatusLabel.Text =
+                $"Saved farm log #{call.Value!.Id} for {SelectedCharacter.Name} at {SelectedSpot.Label} "
+                + $"({totals.XpFarmed}k XP, {totals.Minutes} min). Local session cleared.";
+        }
+        finally
+        {
+            if (!saved)
+            {
+                RefreshSaveEnabled();
+            }
+        }
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -328,6 +409,7 @@ public partial class MainWindow : Window
     private void RefreshSessionStatus()
     {
         SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
+        RefreshSaveEnabled();
     }
 
     private void RefreshPollStatus(string message)

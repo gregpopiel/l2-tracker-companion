@@ -34,6 +34,26 @@ public class SessionStoreTests
     }
 
     [Fact]
+    public void TryDeltaUsesFirstAndLastAcceptedInThousands()
+    {
+        using var store = new SessionStore(":memory:");
+        var firstAt = DateTimeOffset.Parse("2026-09-02T09:00:00Z");
+        var secondAt = DateTimeOffset.Parse("2026-09-02T09:10:00Z");
+        store.Append(OpenRead(1_000_000, 1_000, 1), firstAt);
+        store.Append(OpenRead(2_000_000, 3_000, 2), secondAt);
+
+        var delta = store.TryDelta();
+        Assert.True(delta.Ok);
+        Assert.Equal(1000, delta.Totals!.XpFarmed);
+        Assert.Equal(2, delta.Totals.Adena);
+        Assert.Equal(10, delta.Totals.Minutes);
+
+        store.NewSession();
+        Assert.False(store.TryDelta().Ok);
+        Assert.Equal(0, store.Count);
+    }
+
+    [Fact]
     public void NullFarmFieldsRoundTripAsNull()
     {
         using var store = new SessionStore(":memory:");
