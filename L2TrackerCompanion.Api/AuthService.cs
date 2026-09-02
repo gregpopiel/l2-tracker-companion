@@ -23,6 +23,11 @@ public sealed class AuthService
 
     public string TokenPath => _store.TokenPath;
 
+    /// <summary>
+    /// JWT for later GETs/POSTs. <see cref="AuthResult"/> does not carry the token.
+    /// </summary>
+    public string? TryLoadToken() => _store.TryLoadToken();
+
     public void SetBaseUrl(string baseUrl)
     {
         BaseUrl = TokenStore.NormalizeBaseUrl(baseUrl);

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -5,10 +6,13 @@ namespace L2TrackerCompanion.Api;
 
 /// <summary>
 /// Native <see cref="HttpClient"/> calls — no browser <c>Origin</c> header.
+/// <see cref="Create"/> reuses one client per base URL.
 /// </summary>
 public sealed class TrackerApiClient
 {
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
+
+    private static readonly ConcurrentDictionary<string, TrackerApiClient> ClientsByBaseUrl = new(StringComparer.Ordinal);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -29,20 +33,63 @@ public sealed class TrackerApiClient
 
     public static TrackerApiClient Create(string baseUrl)
     {
-        var http = new HttpClient
+        var key = TokenStore.NormalizeBaseUrl(baseUrl);
+        return ClientsByBaseUrl.GetOrAdd(key, static url =>
         {
-            BaseAddress = new Uri(TokenStore.NormalizeBaseUrl(baseUrl) + "/", UriKind.Absolute),
-            Timeout = Timeout,
-        };
-        return new TrackerApiClient(http);
+            var http = new HttpClient
+            {
+                BaseAddress = new Uri(url + "/", UriKind.Absolute),
+                Timeout = Timeout,
+            };
+            return new TrackerApiClient(http);
+        });
     }
 
-    public async Task<ApiCallResult<IReadOnlyList<CharacterInfo>>> GetCharactersAsync(
+    public Task<ApiCallResult<IReadOnlyList<CharacterInfo>>> GetCharactersAsync(
         string token,
         CancellationToken cancellationToken = default)
+        => GetListAsync<CharacterInfo>("api/characters", token, cancellationToken);
+
+    public Task<ApiCallResult<IReadOnlyList<SpotInfo>>> GetSpotsAsync(
+        string token,
+        int characterId,
+        CancellationToken cancellationToken = default)
+    {
+        if (characterId <= 0)
+        {
+            return Task.FromResult(ApiCallResult<IReadOnlyList<SpotInfo>>.Fail("characterId is required"));
+        }
+
+        return GetListAsync<SpotInfo>($"api/spots?characterId={characterId}", token, cancellationToken);
+    }
+
+    public Task<ApiCallResult<UserSettingsInfo>> GetSettingsAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+        => GetAsync<UserSettingsInfo>("api/settings", token, cancellationToken);
+
+    private async Task<ApiCallResult<IReadOnlyList<T>>> GetListAsync<T>(
+        string relativeUri,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        var call = await GetAsync<List<T>>(relativeUri, token, cancellationToken).ConfigureAwait(false);
+        if (!call.Success)
+        {
+            return ApiCallResult<IReadOnlyList<T>>.Fail(call.Error ?? "Request failed.");
+        }
+
+        IReadOnlyList<T> list = call.Value ?? [];
+        return ApiCallResult<IReadOnlyList<T>>.Ok(list);
+    }
+
+    private async Task<ApiCallResult<T>> GetAsync<T>(
+        string relativeUri,
+        string token,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
-        using var request = new HttpRequestMessage(HttpMethod.Get, "api/characters");
+        using var request = new HttpRequestMessage(HttpMethod.Get, relativeUri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
 
         HttpResponseMessage response;
@@ -52,23 +99,25 @@ public sealed class TrackerApiClient
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            return ApiCallResult<IReadOnlyList<CharacterInfo>>.Fail(ex.Message);
+            return ApiCallResult<T>.Fail(ex.Message);
         }
 
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            return ApiCallResult<IReadOnlyList<CharacterInfo>>.Fail(ReadMessage(body, response.StatusCode));
+            return ApiCallResult<T>.Fail(ReadMessage(body, response.StatusCode));
         }
 
         try
         {
-            var characters = JsonSerializer.Deserialize<List<CharacterInfo>>(body, JsonOptions) ?? [];
-            return ApiCallResult<IReadOnlyList<CharacterInfo>>.Ok(characters);
+            var value = JsonSerializer.Deserialize<T>(body, JsonOptions);
+            return value is null
+                ? ApiCallResult<T>.Fail("Empty JSON response.")
+                : ApiCallResult<T>.Ok(value);
         }
         catch (JsonException)
         {
-            return ApiCallResult<IReadOnlyList<CharacterInfo>>.Fail("Characters response was not JSON.");
+            return ApiCallResult<T>.Fail("Response was not JSON.");
         }
     }
 
@@ -100,9 +149,34 @@ public sealed record CharacterInfo(
     double Percentage,
     int TargetLevel);
 
+public sealed record SpotAreaInfo(int Id, string Name);
+
+public sealed record SpotInfo(int Id, string Name, int AreaId, SpotAreaInfo? Area)
+{
+    public string Label
+    {
+        get
+        {
+            var areaName = Area?.Name;
+            return string.IsNullOrEmpty(areaName) ? Name : $"{Name} ({areaName})";
+        }
+    }
+}
+
+public sealed record UserSettingsInfo(int DefaultBonus, int DefaultMinutes)
+{
+    public static UserSettingsInfo SchemaDefaults { get; } = new(25, 60);
+}
+
 public sealed record ApiCallResult<T>(bool Success, T? Value, string? Error)
 {
     public static ApiCallResult<T> Ok(T value) => new(true, value, null);
 
     public static ApiCallResult<T> Fail(string error) => new(false, default, error);
+}
+
+public static class SessionPickers
+{
+    public static bool SaveEnabled(CharacterInfo? character, SpotInfo? spot)
+        => character is not null && character.Id > 0 && spot is not null && spot.Id > 0;
 }

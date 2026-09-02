@@ -144,6 +144,14 @@ chmod +x scripts/auth.sh   # once
 
 A single window titled **L2 Tracker Companion** should open.
 
+**Character + spot pickers (plan step 18):** after a valid token, the window lists characters from `GET /api/characters` and, on character change, spots from `GET /api/spots?characterId=`. Save stays disabled until both are chosen (the POST is step 20). `% Bonus` / `Minutes` prefill from `GET /api/settings` (`defaultBonus` / `defaultMinutes` only — not lamp values). Headless:
+
+```bash
+./scripts/auth.sh --spots
+```
+
+Uses the stored JWT. Switching character in the window reloads spots.
+
 ## Publish (later)
 
 ```bash

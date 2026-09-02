@@ -47,6 +47,81 @@
                            FontFamily="Consolas"
                            FontSize="13"
                            Margin="0,0,0,16" />
+                <TextBlock Text="Session"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,8" />
+                <TextBlock Text="Character and spot are required. Lists come from the website — this app does not create or edit them."
+                           TextWrapping="Wrap"
+                           FontSize="13"
+                           Margin="0,0,0,8" />
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Character"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="CharacterCombo"
+                              Grid.Column="1"
+                              DisplayMemberPath="Name"
+                              IsEnabled="False"
+                              Padding="6,4"
+                              SelectionChanged="CharacterCombo_SelectionChanged" />
+                </Grid>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Spot"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="SpotCombo"
+                              Grid.Column="1"
+                              DisplayMemberPath="Label"
+                              IsEnabled="False"
+                              Padding="6,4"
+                              IsEditable="False"
+                              IsTextSearchEnabled="True"
+                              SelectionChanged="SpotCombo_SelectionChanged" />
+                </Grid>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="% Bonus"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="BonusBox"
+                             Grid.Column="1"
+                             Padding="6,4"
+                             Margin="0,0,8,0"
+                             IsEnabled="False" />
+                    <TextBlock Text="Minutes"
+                               Grid.Column="2"
+                               VerticalAlignment="Center"
+                               Margin="8,0,8,0" />
+                    <TextBox x:Name="MinutesBox"
+                             Grid.Column="3"
+                             Padding="6,4"
+                             IsEnabled="False" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button x:Name="SaveButton"
+                            Content="Save"
+                            Padding="12,6"
+                            IsEnabled="False"
+                            Click="SaveButton_Click" />
+                    <TextBlock x:Name="PickerStatusLabel"
+                               Text="Sign in to load characters."
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               Margin="12,0,0,0" />
+                </StackPanel>
                 <TextBlock Text="Game window"
                            FontSize="16"
                            FontWeight="SemiBold"

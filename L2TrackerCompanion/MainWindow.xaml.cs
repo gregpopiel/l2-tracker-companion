@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
@@ -20,7 +21,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _pollTimer;
     private CancellationTokenSource _pollCts = new();
+    private CancellationTokenSource _spotsCts = new();
     private int _pollTickBusy;
+    private bool _suppressPickerEvents;
 
     public MainWindow()
     {
@@ -56,6 +59,7 @@ public partial class MainWindow : Window
         if (!_auth.HasStoredToken)
         {
             AuthStatusLabel.Text = "Not signed in. Paste a token to continue.";
+            ClearPickers("Sign in to load characters.");
             return;
         }
 
@@ -93,6 +97,7 @@ public partial class MainWindow : Window
         _auth.SignOut();
         TokenBox.Clear();
         AuthStatusLabel.Text = "Signed out. Token removed from disk.";
+        ClearPickers("Sign in to load characters.");
     }
 
     private void ShowAuthResult(AuthResult result)
@@ -100,6 +105,198 @@ public partial class MainWindow : Window
         AuthStatusLabel.Text = result.Success
             ? result.Message
             : $"Not signed in. {result.Message}";
+
+        if (result.Success)
+        {
+            BindCharacters(result.Characters);
+            _ = LoadSettingsAsync();
+        }
+        else
+        {
+            ClearPickers("Sign in to load characters.");
+        }
+    }
+
+    private CharacterInfo? SelectedCharacter => CharacterCombo.SelectedItem as CharacterInfo;
+
+    private SpotInfo? SelectedSpot => SpotCombo.SelectedItem as SpotInfo;
+
+    private TrackerApiClient Api => TrackerApiClient.Create(_auth.BaseUrl);
+
+    private void BindCharacters(IReadOnlyList<CharacterInfo> characters)
+    {
+        _suppressPickerEvents = true;
+        try
+        {
+            CharacterCombo.ItemsSource = characters;
+            CharacterCombo.IsEnabled = characters.Count > 0;
+            CharacterCombo.SelectedItem = characters.Count > 0 ? characters[0] : null;
+            SpotCombo.ItemsSource = null;
+            SpotCombo.SelectedItem = null;
+            SpotCombo.IsEnabled = false;
+            BonusBox.IsEnabled = true;
+            MinutesBox.IsEnabled = true;
+            SaveButton.IsEnabled = false;
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
+
+        if (SelectedCharacter is null)
+        {
+            PickerStatusLabel.Text = characters.Count == 0
+                ? "Signed in, but this account has no characters yet."
+                : "Pick a character.";
+            return;
+        }
+
+        _ = LoadSpotsAsync(SelectedCharacter);
+    }
+
+    private void ClearPickers(string message)
+    {
+        _spotsCts.Cancel();
+        _suppressPickerEvents = true;
+        try
+        {
+            CharacterCombo.ItemsSource = null;
+            CharacterCombo.SelectedItem = null;
+            CharacterCombo.IsEnabled = false;
+            SpotCombo.ItemsSource = null;
+            SpotCombo.SelectedItem = null;
+            SpotCombo.IsEnabled = false;
+            BonusBox.Text = string.Empty;
+            MinutesBox.Text = string.Empty;
+            BonusBox.IsEnabled = false;
+            MinutesBox.IsEnabled = false;
+            SaveButton.IsEnabled = false;
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
+
+        PickerStatusLabel.Text = message;
+    }
+
+    private void CharacterCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressPickerEvents)
+        {
+            return;
+        }
+
+        _ = LoadSpotsAsync(SelectedCharacter);
+        RefreshSaveEnabled();
+    }
+
+    private void SpotCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressPickerEvents)
+        {
+            return;
+        }
+
+        RefreshSaveEnabled();
+    }
+
+    private void RefreshSaveEnabled()
+    {
+        SaveButton.IsEnabled = SessionPickers.SaveEnabled(SelectedCharacter, SelectedSpot);
+        if (SaveButton.IsEnabled)
+        {
+            PickerStatusLabel.Text =
+                $"Ready: {SelectedCharacter!.Name} at {SelectedSpot!.Label}. Save posts in the next step.";
+        }
+    }
+
+    private async Task LoadSpotsAsync(CharacterInfo? character)
+    {
+        _spotsCts.Cancel();
+        _spotsCts = new CancellationTokenSource();
+        var cancellationToken = _spotsCts.Token;
+
+        _suppressPickerEvents = true;
+        try
+        {
+            SpotCombo.ItemsSource = null;
+            SpotCombo.SelectedItem = null;
+            SpotCombo.IsEnabled = false;
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
+
+        RefreshSaveEnabled();
+
+        if (character is null)
+        {
+            PickerStatusLabel.Text = "Pick a character.";
+            return;
+        }
+
+        var token = _auth.TryLoadToken();
+        if (token is null)
+        {
+            ClearPickers("Sign in to load characters.");
+            return;
+        }
+
+        PickerStatusLabel.Text = $"Loading spots for {character.Name}…";
+        var call = await Api.GetSpotsAsync(token, character.Id, cancellationToken);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (!call.Success || call.Value is null)
+        {
+            PickerStatusLabel.Text = $"Could not load spots: {call.Error}";
+            return;
+        }
+
+        _suppressPickerEvents = true;
+        try
+        {
+            SpotCombo.ItemsSource = call.Value;
+            SpotCombo.SelectedItem = null;
+            SpotCombo.IsEnabled = call.Value.Count > 0;
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
+
+        RefreshSaveEnabled();
+        PickerStatusLabel.Text = call.Value.Count == 0
+            ? "No spots on this account. Add them on the website."
+            : $"{call.Value.Count} spot{(call.Value.Count == 1 ? "" : "s")} for {character.Name}. Pick one to enable Save.";
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        var token = _auth.TryLoadToken();
+        if (token is null)
+        {
+            return;
+        }
+
+        var call = await Api.GetSettingsAsync(token);
+        var settings = call.Success && call.Value is not null
+            ? call.Value
+            : UserSettingsInfo.SchemaDefaults;
+        BonusBox.Text = settings.DefaultBonus.ToString(CultureInfo.InvariantCulture);
+        MinutesBox.Text = settings.DefaultMinutes.ToString(CultureInfo.InvariantCulture);
+        BonusBox.IsEnabled = true;
+        MinutesBox.IsEnabled = true;
+    }
+
+    private void SaveButton_Click(object sender, RoutedEventArgs e)
+    {
+        PickerStatusLabel.Text =
+            "Save does not POST yet (plan step 20). Character and spot are selected.";
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -107,6 +304,7 @@ public partial class MainWindow : Window
         _polling.Stop();
         _pollTimer.Stop();
         _pollCts.Cancel();
+        _spotsCts.Cancel();
         _sessionStore.Dispose();
     }
 

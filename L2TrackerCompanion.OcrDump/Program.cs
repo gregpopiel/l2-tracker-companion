@@ -108,6 +108,11 @@ if (args.Length >= 1 && string.Equals(args[0], "--auth", StringComparison.Ordina
     return signedIn.Success ? 0 : 2;
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "--spots", StringComparison.OrdinalIgnoreCase))
+{
+    return await RunSpotsAsync();
+}
+
 if (args.Length >= 1 && string.Equals(args[0], "--new-session", StringComparison.OrdinalIgnoreCase))
 {
     using var wiped = new SessionStore(SessionStore.GetDefaultPath());
@@ -162,6 +167,7 @@ if (args.Length < 1)
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --auth <jwt>");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --auth-garbage");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --auth-status");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --spots");
     return 1;
 }
 
@@ -182,6 +188,69 @@ if (!result.Success)
 }
 
 return result.SmokePassed ? 0 : 3;
+
+static async Task<int> RunSpotsAsync()
+{
+    var auth = new AuthService(TokenStore.GetDefault());
+    if (!auth.HasStoredToken)
+    {
+        Console.WriteLine("No stored token. Sign in first: ./scripts/auth.sh --token '<jwt>'");
+        return 1;
+    }
+
+    var restored = await auth.TryRestoreAsync();
+    Console.WriteLine(restored.Message);
+    if (!restored.Success)
+    {
+        return 2;
+    }
+
+    var token = auth.TryLoadToken();
+    if (token is null)
+    {
+        Console.WriteLine("Token missing after restore.");
+        return 2;
+    }
+
+    var client = TrackerApiClient.Create(auth.BaseUrl);
+    if (restored.Characters.Count == 0)
+    {
+        Console.WriteLine("No characters to load spots for.");
+        return 0;
+    }
+
+    foreach (var character in restored.Characters)
+    {
+        var spots = await client.GetSpotsAsync(token, character.Id);
+        if (!spots.Success || spots.Value is null)
+        {
+            Console.WriteLine($"{character.Name} ({character.Id}): failed — {spots.Error}");
+            return 2;
+        }
+
+        Console.WriteLine($"{character.Name} ({character.Id}): {spots.Value.Count} spot(s)");
+        var preview = spots.Value.Take(8).ToArray();
+        foreach (var spot in preview)
+        {
+            Console.WriteLine($"  {spot.Id}\t{spot.Label}");
+        }
+
+        if (spots.Value.Count > preview.Length)
+        {
+            Console.WriteLine($"  … {spots.Value.Count - preview.Length} more");
+        }
+    }
+
+    var settings = await client.GetSettingsAsync(token);
+    if (!settings.Success || settings.Value is null)
+    {
+        Console.WriteLine($"settings: failed — {settings.Error} (using schema defaults {UserSettingsInfo.SchemaDefaults.DefaultBonus}/{UserSettingsInfo.SchemaDefaults.DefaultMinutes})");
+        return 0;
+    }
+
+    Console.WriteLine($"settings: defaultBonus={settings.Value.DefaultBonus} defaultMinutes={settings.Value.DefaultMinutes}");
+    return 0;
+}
 
 static async Task<int> RunBatchAsync(string imageDirectory, string outputDirectory)
 {
