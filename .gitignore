@@ -43,3 +43,7 @@ ocr-poc-playtime/
 ocr-poc-lamps/
 ocr-poc-location/
 ocr-poc-parse/
+session.db
+session.db-wal
+session.db-shm
+*.db

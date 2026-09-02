@@ -6,7 +6,7 @@ namespace L2TrackerCompanion.Ocr;
 
 /// <summary>
 /// Step 13: one-shot Play Report pipeline. One full-image locate, then farm
-/// fields, play time, lamp XP and the minimap hint. No loop, no SQLite, no API.
+/// fields, play time, lamp XP and the minimap hint. No polling loop, no API.
 /// </summary>
 public static class PlayReportPipeline
 {

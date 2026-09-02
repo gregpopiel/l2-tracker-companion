@@ -4,17 +4,20 @@ using System.Windows.Threading;
 using L2TrackerCompanion.Capture;
 using L2TrackerCompanion.Ocr;
 using L2TrackerCompanion.Services;
+using L2TrackerCompanion.Session;
 
 namespace L2TrackerCompanion;
 
 public partial class MainWindow : Window
 {
     private readonly WindowCaptureService _windowCaptureService = new();
+    private readonly SessionStore _sessionStore = new(SessionStore.GetDefaultPath());
     private readonly DispatcherTimer _refreshTimer;
 
     public MainWindow()
     {
         InitializeComponent();
+        Closed += (_, _) => _sessionStore.Dispose();
 
         _refreshTimer = new DispatcherTimer
         {
@@ -26,6 +29,7 @@ public partial class MainWindow : Window
         RefreshGameWindowStatus();
         CaptureStatusLabel.Text = $"Captures save to:\n{WindowCaptureService.GetDefaultCapturePath()}";
         ParseStatusLabel.Text = "Capture once, or parse a PNG, to read XP / Adena / play time / lamps / location.";
+        RefreshSessionStatus();
     }
 
     private void RefreshGameWindowStatus()
@@ -39,6 +43,11 @@ public partial class MainWindow : Window
               + $"PID: {gameWindow.ProcessId}";
 
         CaptureOnceButton.IsEnabled = gameWindow is not null;
+    }
+
+    private void RefreshSessionStatus()
+    {
+        SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
     }
 
     private async void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
@@ -114,6 +123,12 @@ public partial class MainWindow : Window
         await RunParseAsync(dialog.FileName);
     }
 
+    private void NewSessionButton_Click(object sender, RoutedEventArgs e)
+    {
+        _sessionStore.NewSession();
+        RefreshSessionStatus();
+    }
+
     private async Task RunParseAsync(string imagePath)
     {
         ParseLastButton.IsEnabled = false;
@@ -124,6 +139,11 @@ public partial class MainWindow : Window
         {
             var result = await PlayReportPipeline.RunFileAsync(imagePath);
             ParseStatusLabel.Text = PlayReportPipeline.FormatWindow(result);
+            if (result.Success && result.Report is not null)
+            {
+                _sessionStore.Append(result.Report);
+                RefreshSessionStatus();
+            }
         }
         finally
         {

@@ -127,6 +127,8 @@ chmod +x scripts/ocr-parse.sh   # once
 
 Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **Windows required.**
 
+**Session store (plan step 14):** each successful parse (WPF or `ocr-parse.sh`) appends a snapshot to `%LOCALAPPDATA%\L2TrackerCompanion\session.db`. The WPF window lists those rows; **New session** (or `./scripts/ocr-parse.sh --new-session`) wipes the file. No polling yet.
+
 A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)

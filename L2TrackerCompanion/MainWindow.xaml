@@ -38,13 +38,23 @@
                             Padding="12,6"
                             Margin="8,0,0,0"
                             Click="ParsePngButton_Click" />
+                    <Button x:Name="NewSessionButton"
+                            Content="New session"
+                            Padding="12,6"
+                            Margin="8,0,0,0"
+                            Click="NewSessionButton_Click" />
                 </StackPanel>
                 <TextBlock x:Name="ParseStatusLabel"
                            Text=""
                            TextWrapping="Wrap"
                            FontFamily="Consolas"
                            FontSize="13"
-                           Margin="0,12,0,0" />
+                           Margin="0,12,0,12" />
+                <TextBlock x:Name="SessionStatusLabel"
+                           Text=""
+                           TextWrapping="Wrap"
+                           FontFamily="Consolas"
+                           FontSize="13" />
             </StackPanel>
         </ScrollViewer>
     </Grid>

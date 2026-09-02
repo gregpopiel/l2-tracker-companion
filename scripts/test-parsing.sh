@@ -7,4 +7,4 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WIN_ROOT="$(wslpath -w "$ROOT")"
 
 exec powershell.exe -NoProfile -Command \
-  "Set-Location -LiteralPath '$WIN_ROOT'; dotnet test L2TrackerCompanion.Parsing.Tests/L2TrackerCompanion.Parsing.Tests.csproj"
+  "Set-Location -LiteralPath '$WIN_ROOT'; dotnet test L2TrackerCompanion.sln"

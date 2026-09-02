@@ -1,4 +1,5 @@
 using L2TrackerCompanion.Ocr;
+using L2TrackerCompanion.Session;
 
 if (args.Length >= 1 && string.Equals(args[0], "--crop", StringComparison.OrdinalIgnoreCase))
 {
@@ -55,6 +56,14 @@ if (args.Length >= 1 && string.Equals(args[0], "--location", StringComparison.Or
     return await RunLocationBatchAsync(args[1], args.Length >= 3 ? args[2] : LocationHintPass.GetDefaultLocationDirectory());
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "--new-session", StringComparison.OrdinalIgnoreCase))
+{
+    using var wiped = new SessionStore(SessionStore.GetDefaultPath());
+    wiped.NewSession();
+    Console.WriteLine(SessionStore.FormatInspect(wiped.List(), wiped.Path));
+    return 0;
+}
+
 if (args.Length >= 1 && string.Equals(args[0], "--parse", StringComparison.OrdinalIgnoreCase))
 {
     if (args.Length < 2)
@@ -65,6 +74,14 @@ if (args.Length >= 1 && string.Equals(args[0], "--parse", StringComparison.Ordin
 
     var parsed = await PlayReportPipeline.RunFileAsync(args[1], CancellationToken.None);
     Console.WriteLine(PlayReportPipeline.FormatWindow(parsed));
+    if (parsed.Success && parsed.Report is not null)
+    {
+        using var store = new SessionStore(SessionStore.GetDefaultPath());
+        store.Append(parsed.Report);
+        Console.WriteLine();
+        Console.WriteLine(SessionStore.FormatInspect(store.List(), store.Path));
+    }
+
     return parsed.Success ? 0 : 2;
 }
 
@@ -77,6 +94,7 @@ if (args.Length < 1)
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --lamps <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --location <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --parse <image.png>");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --new-session");
     return 1;
 }
 
