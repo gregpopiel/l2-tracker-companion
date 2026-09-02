@@ -26,6 +26,8 @@ public partial class MainWindow : Window
     private int _pollTickBusy;
     private bool _suppressPickerEvents;
     private bool _suppressModeEvents;
+    private bool _ratePerHour = UserSettingsInfo.SchemaDefaults.RatePerHour;
+    private LiveStatusSnapshot _liveStatus = LiveStatus.Idle();
 
     public MainWindow()
     {
@@ -106,6 +108,8 @@ public partial class MainWindow : Window
         _options.SetDebugMode(debug);
         ApplyUiMode();
     }
+
+    private RateUnit DisplayRateUnit => _ratePerHour ? RateUnit.Hour : RateUnit.Minute;
 
     private void ApplyUiMode()
     {
@@ -190,6 +194,7 @@ public partial class MainWindow : Window
         _auth.SignOut();
         TokenBox.Clear();
         AuthStatusLabel.Text = "Signed out. Token removed from disk.";
+        ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
         ClearPickers(SessionPickers.SignInToLoad);
     }
 
@@ -206,6 +211,7 @@ public partial class MainWindow : Window
         }
         else
         {
+            ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
             ClearPickers(SessionPickers.SignInToLoad);
         }
     }
@@ -399,7 +405,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task LoadSettingsAsync()
+    private async Task LoadSettingsAsync(bool keepExistingOnFailure = false)
     {
         var token = _auth.TryLoadToken();
         if (token is null)
@@ -410,17 +416,30 @@ public partial class MainWindow : Window
         var call = await Api.GetSettingsAsync(token);
         if (!call.Success || call.Value is null)
         {
-            var fallback = UserSettingsInfo.SchemaDefaults.DefaultBonus;
-            BonusBox.Text = fallback.ToString(CultureInfo.InvariantCulture);
+            if (keepExistingOnFailure)
+            {
+                return;
+            }
+
+            var fallback = UserSettingsInfo.SchemaDefaults;
+            BonusBox.Text = fallback.DefaultBonus.ToString(CultureInfo.InvariantCulture);
             BonusBox.IsEnabled = true;
+            ApplyRateUnit(fallback);
             ShowBonusHint(
-                $"Could not load default bonus ({call.Error ?? "empty response"}). Using {fallback}.");
+                $"Could not load default bonus ({call.Error ?? "empty response"}). Using {fallback.DefaultBonus}.");
             return;
         }
 
         BonusBox.Text = call.Value.DefaultBonus.ToString(CultureInfo.InvariantCulture);
         BonusBox.IsEnabled = true;
+        ApplyRateUnit(call.Value);
         HideBonusHint();
+    }
+
+    private void ApplyRateUnit(UserSettingsInfo settings)
+    {
+        _ratePerHour = settings.RatePerHour;
+        ShowLiveStatus(_liveStatus);
     }
 
     private void ShowBonusHint(string message)
@@ -563,10 +582,11 @@ public partial class MainWindow : Window
 
     private void ShowLiveStatus(LiveStatusSnapshot status)
     {
+        _liveStatus = status;
         LiveLight.Fill = LightBrush(status.Light);
         LiveLightLabel.Text = status.Light == TrafficLight.Idle ? "Idle" : status.Light.ToString();
         LiveDetailLabel.Text = status.Detail;
-        var rates = LiveRates.Format(status.Report);
+        var rates = LiveRates.Format(status.Report, DisplayRateUnit);
         LiveRatesLabel.Text = rates;
         LiveRatesLabel.Visibility = string.IsNullOrEmpty(rates)
             ? Visibility.Collapsed
@@ -675,6 +695,7 @@ public partial class MainWindow : Window
         StartStopButton.Content = "Stop tracking";
         RefreshPollStatus("Starting…");
         _pollTimer.Start();
+        await LoadSettingsAsync(keepExistingOnFailure: true);
         await RunPollTickAsync();
     }
 

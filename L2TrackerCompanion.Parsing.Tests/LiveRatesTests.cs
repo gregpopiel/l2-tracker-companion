@@ -89,6 +89,41 @@ public class LiveRatesTests
     public void FormatIsEmptyWhenThereIsNoReport()
     {
         Assert.Equal(string.Empty, LiveRates.Format(null));
+        Assert.Equal(string.Empty, LiveRates.Format(null, RateUnit.Hour));
+    }
+
+    [Fact]
+    public void FormatHourUsesRawTotalsTimesSixtyNotPerMinTimesSixty()
+    {
+        // 5/2 min rounds to 3 XP/min; 3*60 would be 180. Hourly is 5*60/2 = 150.
+        var text = LiveRates.Format(Report(5, 1, 2), RateUnit.Hour);
+        Assert.Contains("XP/h: 150", text, StringComparison.Ordinal);
+        Assert.Contains("Adena/h: 30", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("/min", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FormatHourScalesTheUsualSample()
+    {
+        var text = LiveRates.Format(Report(506_625, 59_493, 4), RateUnit.Hour);
+        Assert.Contains("XP/h: 7,599,375", text, StringComparison.Ordinal);
+        Assert.Contains("Adena/h: 892,395", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FormatHourStillReportsNeedPlayTime()
+    {
+        var text = LiveRates.Format(Report(506_625, 59_493, 0), RateUnit.Hour);
+        Assert.Contains("XP/h: (need play time)", text, StringComparison.Ordinal);
+        Assert.Contains("Adena/h: (need play time)", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FormatHourUnreadStillAllowsTheOtherRate()
+    {
+        var text = LiveRates.Format(Report(null, 59_493, 4), RateUnit.Hour);
+        Assert.Contains("XP/h: (unread)", text, StringComparison.Ordinal);
+        Assert.Contains("Adena/h: 892,395", text, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -44,7 +44,7 @@ public class TrackerApiClientTests
     }
 
     [Fact]
-    public async Task GetSettingsReadsBonusAndIgnoresLampAndMinutesFields()
+    public async Task GetSettingsReadsBonusAndRateUnitAndIgnoresLampAndMinutesFields()
     {
         HttpRequestMessage? seen = null;
         var handler = new StubHandler(request =>
@@ -62,8 +62,69 @@ public class TrackerApiClientTests
         var result = await client.GetSettingsAsync("jwt");
         Assert.True(result.Success);
         Assert.Equal(30, result.Value!.DefaultBonus);
+        Assert.Equal("hour", result.Value.RateUnit);
+        Assert.True(result.Value.RatePerHour);
         Assert.False(seen!.Headers.Contains("Origin"));
         Assert.Equal("/api/settings", seen.RequestUri?.AbsolutePath);
+    }
+
+    [Theory]
+    [InlineData("hour", true)]
+    [InlineData("HOUR", true)]
+    [InlineData(" hour ", true)]
+    [InlineData(null, true)]
+    [InlineData("", true)]
+    [InlineData("  ", true)]
+    [InlineData("minute", false)]
+    [InlineData("MINUTE", false)]
+    [InlineData("minutes", false)]
+    [InlineData("nope", false)]
+    public void RatePerHourFollowsHourOrSchemaDefault(string? rateUnit, bool perHour)
+    {
+        Assert.Equal(perHour, new UserSettingsInfo(25, rateUnit).RatePerHour);
+    }
+
+    [Fact]
+    public void SchemaDefaultRateUnitIsHour()
+    {
+        Assert.Equal(UserSettingsInfo.HourValue, UserSettingsInfo.SchemaDefaults.RateUnit);
+        Assert.Equal(25, UserSettingsInfo.SchemaDefaults.DefaultBonus);
+        Assert.True(UserSettingsInfo.SchemaDefaults.RatePerHour);
+        Assert.Equal("minute", UserSettingsInfo.MinuteValue);
+    }
+
+    [Fact]
+    public async Task GetSettingsMissingRateUnitUsesSchemaDefaultHour()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, """
+            {"id":1,"userId":"u1","defaultBonus":25}
+            """));
+        var client = new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+
+        var result = await client.GetSettingsAsync("jwt");
+        Assert.True(result.Success);
+        Assert.Null(result.Value!.RateUnit);
+        Assert.True(result.Value.RatePerHour);
+    }
+
+    [Fact]
+    public async Task GetSettingsReadsMinuteRateUnit()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, """
+            {"id":1,"userId":"u1","defaultBonus":25,"rateUnit":"minute"}
+            """));
+        var client = new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+
+        var result = await client.GetSettingsAsync("jwt");
+        Assert.True(result.Success);
+        Assert.Equal("minute", result.Value!.RateUnit);
+        Assert.False(result.Value.RatePerHour);
     }
 
     [Fact]

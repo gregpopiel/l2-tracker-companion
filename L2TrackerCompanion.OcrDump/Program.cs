@@ -272,7 +272,7 @@ static async Task<int> RunSpotsAsync()
         return 0;
     }
 
-    Console.WriteLine($"settings: defaultBonus={settings.Value.DefaultBonus}");
+    Console.WriteLine($"settings: defaultBonus={settings.Value.DefaultBonus} rateUnit={settings.Value.RateUnit ?? UserSettingsInfo.HourValue}");
     return 0;
 }
 
@@ -324,7 +324,7 @@ static async Task<int> RunHttpSmokeAsync()
         return 2;
     }
 
-    Console.WriteLine($"  defaultBonus={settings.Value!.DefaultBonus}");
+    Console.WriteLine($"  defaultBonus={settings.Value!.DefaultBonus} rateUnit={settings.Value.RateUnit ?? UserSettingsInfo.HourValue}");
     Console.WriteLine();
     Console.WriteLine("CORS/auth middleware accepted a native GET with Bearer and no Origin.");
     return 0;

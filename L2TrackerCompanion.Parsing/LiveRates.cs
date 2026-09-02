@@ -4,6 +4,16 @@ using System.Text;
 namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
+/// Which time unit the live XP / Adena rates are shown in. Hour is the
+/// website schema default; Minute is <c>user_settings.rate_unit = minute</c>.
+/// </summary>
+public enum RateUnit
+{
+    Minute,
+    Hour,
+}
+
+/// <summary>
 /// Plan step 23: XP/min and Adena/min from the latest Play Report screenshot
 /// (raw OCR totals ÷ play-time minutes). Display-only — not the Save delta.
 /// </summary>
@@ -19,12 +29,12 @@ public static class LiveRates
 
         var minutes = report.Minutes.Value;
         return new LiveRatesSnapshot(
-            PerMin(report.Xp, minutes),
-            PerMin(report.Adena, minutes),
+            PerUnit(report.Xp, minutes, scale: 1),
+            PerUnit(report.Adena, minutes, scale: 1),
             NeedPlayTime: false);
     }
 
-    public static string Format(PlayReport? report)
+    public static string Format(PlayReport? report, RateUnit unit = RateUnit.Minute)
     {
         if (report is null)
         {
@@ -32,14 +42,25 @@ public static class LiveRates
         }
 
         var rates = From(report);
+        var suffix = unit == RateUnit.Hour ? "h" : "min";
+        var scale = unit == RateUnit.Hour ? 60 : 1;
         var inv = CultureInfo.InvariantCulture;
+        long? xp = null;
+        long? adena = null;
+        if (!rates.NeedPlayTime)
+        {
+            var minutes = report.Minutes!.Value;
+            xp = PerUnit(report.Xp, minutes, scale);
+            adena = PerUnit(report.Adena, minutes, scale);
+        }
+
         var builder = new StringBuilder();
-        builder.AppendLine($"XP/min: {Amt(rates.XpPerMin, rates.NeedPlayTime, inv)}");
-        builder.Append($"Adena/min: {Amt(rates.AdenaPerMin, rates.NeedPlayTime, inv)}");
+        builder.AppendLine($"XP/{suffix}: {Amt(xp, rates.NeedPlayTime, inv)}");
+        builder.Append($"Adena/{suffix}: {Amt(adena, rates.NeedPlayTime, inv)}");
         return builder.ToString();
     }
 
-    private static long? PerMin(long? amount, int minutes)
+    private static long? PerUnit(long? amount, int minutes, int scale)
     {
         if (amount is null)
         {
@@ -47,7 +68,7 @@ public static class LiveRates
         }
 
         // decimal keeps every Int64 digit; double is only exact through 2^53.
-        return (long)Math.Round(amount.Value / (decimal)minutes, MidpointRounding.AwayFromZero);
+        return (long)Math.Round(amount.Value * (decimal)scale / minutes, MidpointRounding.AwayFromZero);
     }
 
     private static string Amt(long? value, bool needPlayTime, CultureInfo inv)

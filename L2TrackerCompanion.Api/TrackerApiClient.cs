@@ -207,9 +207,34 @@ public sealed record SpotInfo(int Id, string Name, int AreaId, SpotAreaInfo? Are
     }
 }
 
-public sealed record UserSettingsInfo(int DefaultBonus)
+public sealed record UserSettingsInfo(int DefaultBonus, string? RateUnit)
 {
-    public static UserSettingsInfo SchemaDefaults { get; } = new(25);
+    public const string MinuteValue = "minute";
+    public const string HourValue = "hour";
+
+    /// <summary>
+    /// Prisma <c>UserSettings</c> defaults: <c>defaultBonus</c> 25,
+    /// <c>rateUnit</c> <c>hour</c>.
+    /// </summary>
+    public static UserSettingsInfo SchemaDefaults { get; } = new(25, HourValue);
+
+    /// <summary>
+    /// Website <c>user_settings.rate_unit</c> is <c>hour</c> or <c>minute</c>
+    /// (Prisma default <c>hour</c>). Missing/blank follows that default;
+    /// any other value shows XP/min.
+    /// </summary>
+    public bool RatePerHour
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(RateUnit))
+            {
+                return true;
+            }
+
+            return string.Equals(RateUnit.Trim(), HourValue, StringComparison.OrdinalIgnoreCase);
+        }
+    }
 }
 
 public sealed record FarmLogRequest(
