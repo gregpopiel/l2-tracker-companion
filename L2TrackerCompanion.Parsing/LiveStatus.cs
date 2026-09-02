@@ -54,6 +54,12 @@ public static class LiveStatus
         builder.Append("Light: ");
         builder.AppendLine(status.Light.ToString());
         builder.AppendLine(status.Detail);
+        var rates = LiveRates.Format(status.Report);
+        if (rates.Length > 0)
+        {
+            builder.AppendLine(rates);
+        }
+
         var values = FormatValues(status.Report);
         if (values.Length > 0)
         {

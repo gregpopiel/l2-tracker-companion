@@ -108,6 +108,8 @@ public class LiveStatusTests
         var report = PlayReport.From(506_625, 59_493, 4, OpenLamps(260_000, 0, 0, 0, 506_625), "Dragon Valley (east)");
         var text = LiveStatus.Format(LiveStatus.FromReport(report));
         Assert.Contains("Light: Green", text, StringComparison.Ordinal);
+        Assert.Contains("XP/min: 126,656", text, StringComparison.Ordinal);
+        Assert.Contains("Adena/min: 14,873", text, StringComparison.Ordinal);
         Assert.Contains("XP: 506,625", text, StringComparison.Ordinal);
         Assert.Contains("Dragon Valley (east)", text, StringComparison.Ordinal);
     }

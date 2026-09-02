@@ -131,7 +131,7 @@ Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **W
 
 **Polling (plan step 15):** **Start tracking** captures → OCR → accept-or-discard every 10s until **Stop tracking**. A tick whose XP / Adena / play time dropped versus the last accepted snapshot is discarded (OCR misread). Lamp XP is monotonic only when both ticks had `lampXpRead`; a closed Magic Lamp panel is not a misread. A tick that finishes after Stop does not append.
 
-**Live status (plan step 16):** a traffic light on the latest parse (not only accepted snapshots). Red = unread farm field or a lamp table that is in frame but unreadable; orange = Magic Lamp panel closed; green = farm + lamps read. Missing minimap hint does not change the colour. Updates every poll tick.
+**Live status (plan step 16):** a traffic light on the latest parse (not only accepted snapshots). Red = unread farm field or a lamp table that is in frame but unreadable; orange = Magic Lamp panel closed; green = farm + lamps read. Missing minimap hint does not change the colour. Updates every poll tick. The card also shows live XP/min and Adena/min from that same parse (plan step 23).
 
 **Auth (plan step 17):** paste the website JWT (`localStorage` key `l2_jwt_token`). It is stored DPAPI-encrypted (`%LOCALAPPDATA%\L2TrackerCompanion\auth.bin`, current-user scope) only after `GET /api/characters` succeeds. A rejected token is deleted, not left on disk. Default API base is `https://l2tracker.cc` (editable in **Debug** mode).
 
@@ -191,6 +191,8 @@ dotnet publish L2TrackerCompanion/L2TrackerCompanion.csproj -c Release -r win-x6
 ```
 
 Ship the resulting `L2TrackerCompanion.exe` as a GitHub Release on this repo (not the VPS / Docker stack).
+
+**Live rates (plan step 23):** the live-status card (and `ocr-parse.sh` / `--parse`) shows XP/min and Adena/min from the **current screenshot**: raw OCR XP and Adena divided by OCR play-time minutes, rounded away from zero. Display-only — Save still uses last−first / wall-clock, and these figures are not converted to thousands. Play time must be greater than 0; otherwise both rates show `(need play time)`. Unread XP still allows Adena/min and the reverse. Dialog XP includes lamps, so a Magic Lamp pop jumps XP/min. Play Report time is whole minutes (the rate only moves when that digit or the totals change) and is the panel's own duration, not this companion session.
 
 ## Implementation plan
 

@@ -566,6 +566,11 @@ public partial class MainWindow : Window
         LiveLight.Fill = LightBrush(status.Light);
         LiveLightLabel.Text = status.Light == TrafficLight.Idle ? "Idle" : status.Light.ToString();
         LiveDetailLabel.Text = status.Detail;
+        var rates = LiveRates.Format(status.Report);
+        LiveRatesLabel.Text = rates;
+        LiveRatesLabel.Visibility = string.IsNullOrEmpty(rates)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         LiveValuesLabel.Text = LiveStatus.FormatValues(status.Report);
     }
 
