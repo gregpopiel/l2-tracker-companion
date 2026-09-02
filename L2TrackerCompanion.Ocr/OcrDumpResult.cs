@@ -30,6 +30,8 @@ public sealed class OcrDumpResult
 
     public IReadOnlyList<string> FoundLampColors { get; init; } = [];
 
+    public bool FoundLocateAnchor => FoundPlay || FoundReport || FoundCharacters;
+
     /// <summary>
     /// Step 5 gate: adena + at least one lamp colour + Play or Report.
     /// Exact "Report" is often misread (Rewrt/Recort); Play + Characters still locate the dialog.
@@ -38,4 +40,6 @@ public sealed class OcrDumpResult
         FoundAdena
         && FoundLampColors.Count > 0
         && (FoundPlay || FoundReport);
+
+    public string FrameKind => ImageWidth >= 1600 ? "desktop" : ImageWidth >= 800 ? "framed" : "dialog";
 }

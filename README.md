@@ -57,6 +57,49 @@ Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-words.txt` (words + bounding boxes
 dotnet run --project L2TrackerCompanion.OcrDump -- path\to\screenshot.png
 ```
 
+**OCR batch dump (plan step 6):** all top-level PNGs in the frontend POC set (`experiments/ocr-poc/images/`, skips `processed/`):
+
+```bash
+./scripts/ocr-batch.sh
+```
+
+Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-dumps\` — one `.txt` per image plus `_summary.tsv`. Stay on `Windows.Media.Ocr` for now; see `PLAN.md` "OCR engine / libraries" before adding Tesseract or PaddleOCR.
+
+**Parsers (plan step 7):** WinRT-free `net8.0` library (`L2TrackerCompanion.Parsing`) — digit look-alike fold, magnitude-group sum, play-time line, `/1000`. No OCR types. From WSL:
+
+```bash
+chmod +x scripts/test-parsing.sh   # once
+./scripts/test-parsing.sh
+```
+
+From Windows: `dotnet test L2TrackerCompanion.Parsing.Tests`.
+
+**Dialog crop (plan step 8):** locate "Report" (fallback topmost "Characters"), crop with equal 550px left/right margins, second OCR pass. Over the 41-set:
+
+```bash
+chmod +x scripts/ocr-crop.sh   # once
+./scripts/ocr-crop.sh
+```
+
+Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-crops\` — one crop PNG + `.txt` per image plus `_summary.tsv`. **Windows required.**
+
+**Farm fields (plan step 9):** XP + Adena from the dialog crop. Token bands around the `adena` unit word, XP splice, Adena fallback crop.
+
+```bash
+./scripts/ocr-farm.sh
+```
+
+Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-farm\` and compares to `baselines/tesseract-farm.tsv`. **Windows required.**
+
+**Play time (plan step 10):** dual-read of the duration line (tokens + micro-crop). Contradiction or hours>23 / minutes>59 refuses the read.
+
+```bash
+chmod +x scripts/ocr-playtime.sh   # once
+./scripts/ocr-playtime.sh
+```
+
+Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-playtime\` and compares to `baselines/tesseract-playtime.tsv`. **Windows required.**
+
 A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)
