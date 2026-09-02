@@ -1,4 +1,5 @@
 using L2TrackerCompanion.Ocr;
+using L2TrackerCompanion.Parsing;
 using L2TrackerCompanion.Session;
 
 if (args.Length >= 1 && string.Equals(args[0], "--crop", StringComparison.OrdinalIgnoreCase))
@@ -76,6 +77,8 @@ if (args.Length >= 1 && string.Equals(args[0], "--parse", StringComparison.Ordin
     Console.WriteLine(PlayReportPipeline.FormatWindow(parsed));
     if (parsed.Success && parsed.Report is not null)
     {
+        Console.WriteLine();
+        Console.WriteLine(LiveStatus.Format(LiveStatus.FromReport(parsed.Report)));
         using var store = new SessionStore(SessionStore.GetDefaultPath());
         var accepted = store.TryAccept(parsed.Report);
         Console.WriteLine();
@@ -85,6 +88,11 @@ if (args.Length >= 1 && string.Equals(args[0], "--parse", StringComparison.Ordin
         }
 
         Console.WriteLine(SessionStore.FormatInspect(store.List(), store.Path));
+    }
+    else
+    {
+        Console.WriteLine();
+        Console.WriteLine(LiveStatus.Format(LiveStatus.ParseFailed(parsed.ErrorMessage ?? "Parse failed")));
     }
 
     return parsed.Success ? 0 : 2;

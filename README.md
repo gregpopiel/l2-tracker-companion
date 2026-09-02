@@ -131,6 +131,8 @@ Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **W
 
 **Polling (plan step 15):** **Start tracking** captures → OCR → accept-or-discard every 10s until **Stop tracking**. A tick whose XP / Adena / play time dropped versus the last accepted snapshot is discarded (OCR misread). Lamp XP is monotonic only when both ticks had `lampXpRead`; a closed Magic Lamp panel is not a misread. A tick that finishes after Stop does not append.
 
+**Live status (plan step 16):** a traffic light on the latest parse (not only accepted snapshots). Red = unread farm field or a lamp table that is in frame but unreadable; orange = Magic Lamp panel closed; green = farm + lamps read. Missing minimap hint does not change the colour. Updates every poll tick.
+
 A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)

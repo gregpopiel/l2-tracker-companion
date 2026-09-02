@@ -1,8 +1,10 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Threading;
 using L2TrackerCompanion.Capture;
 using L2TrackerCompanion.Ocr;
+using L2TrackerCompanion.Parsing;
 using L2TrackerCompanion.Services;
 using L2TrackerCompanion.Session;
 
@@ -41,6 +43,7 @@ public partial class MainWindow : Window
         ParseStatusLabel.Text = "Capture once, or parse a PNG, to read XP / Adena / play time / lamps / location.";
         RefreshSessionStatus();
         RefreshPollStatus("Not tracking.");
+        ShowLiveStatus(LiveStatus.Idle());
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -62,6 +65,10 @@ public partial class MainWindow : Window
               + $"PID: {gameWindow.ProcessId}";
 
         CaptureOnceButton.IsEnabled = gameWindow is not null;
+        if (_polling.IsRunning && gameWindow is null)
+        {
+            ShowLiveStatus(LiveStatus.GameNotRunning());
+        }
     }
 
     private void RefreshSessionStatus()
@@ -76,6 +83,22 @@ public partial class MainWindow : Window
             : "Not tracking. ";
         PollStatusLabel.Text = prefix + message;
     }
+
+    private void ShowLiveStatus(LiveStatusSnapshot status)
+    {
+        LiveLight.Fill = LightBrush(status.Light);
+        LiveLightLabel.Text = status.Light == TrafficLight.Idle ? "Idle" : status.Light.ToString();
+        LiveDetailLabel.Text = status.Detail;
+        LiveValuesLabel.Text = LiveStatus.FormatValues(status.Report);
+    }
+
+    private static Brush LightBrush(TrafficLight light) => light switch
+    {
+        TrafficLight.Green => new SolidColorBrush(Color.FromRgb(0x3F, 0xB9, 0x50)),
+        TrafficLight.Orange => new SolidColorBrush(Color.FromRgb(0xD2, 0x99, 0x22)),
+        TrafficLight.Red => new SolidColorBrush(Color.FromRgb(0xF8, 0x51, 0x49)),
+        _ => new SolidColorBrush(Color.FromRgb(0x6E, 0x76, 0x81)),
+    };
 
     private async void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
     {
@@ -154,6 +177,7 @@ public partial class MainWindow : Window
     {
         _sessionStore.NewSession();
         RefreshSessionStatus();
+        ShowLiveStatus(LiveStatus.Idle());
     }
 
     private async void StartStopButton_Click(object sender, RoutedEventArgs e)
@@ -201,6 +225,10 @@ public partial class MainWindow : Window
             if (!capture.Success)
             {
                 RefreshPollStatus($"Skipped: {capture.ErrorMessage}");
+                ShowLiveStatus(capture.ErrorMessage is not null
+                        && capture.ErrorMessage.Contains("Game not running", StringComparison.Ordinal)
+                    ? LiveStatus.GameNotRunning()
+                    : LiveStatus.CaptureFailed(capture.ErrorMessage ?? "Capture failed"));
                 return;
             }
 
@@ -234,6 +262,7 @@ public partial class MainWindow : Window
             ParseStatusLabel.Text = PlayReportPipeline.FormatWindow(result);
             if (!result.Success || result.Report is null)
             {
+                ShowLiveStatus(LiveStatus.ParseFailed(result.ErrorMessage ?? "Parse failed"));
                 if (fromPoll)
                 {
                     RefreshPollStatus($"Skipped: {result.ErrorMessage ?? "parse failed"}");
@@ -241,6 +270,8 @@ public partial class MainWindow : Window
 
                 return;
             }
+
+            ShowLiveStatus(LiveStatus.FromReport(result.Report));
 
             if (fromPoll)
             {
