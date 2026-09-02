@@ -45,6 +45,18 @@ powershell.exe -NoProfile -Command \
 
 **Capture output:** `capture.png` is written to `%LOCALAPPDATA%\L2TrackerCompanion\capture.png` (e.g. `C:\Users\<you>\AppData\Local\L2TrackerCompanion\capture.png`), not beside the build output — so the path stays the same whether you launch from WSL, PowerShell, or a published `.exe`.
 
+**OCR word dump (plan step 5):** `OCR last capture` / `OCR a PNG...` in the window, or headless:
+
+```bash
+./scripts/ocr-dump.sh /path/to/screenshot.png
+```
+
+Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-words.txt` (words + bounding boxes, no parsing). From Windows:
+
+```bash
+dotnet run --project L2TrackerCompanion.OcrDump -- path\to\screenshot.png
+```
+
 A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)

@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\L2TrackerCompanion.Capture\L2TrackerCompanion.Capture.csproj" />
+    <ProjectReference Include="..\L2TrackerCompanion.Ocr\L2TrackerCompanion.Ocr.csproj" />
   </ItemGroup>
 
 </Project>

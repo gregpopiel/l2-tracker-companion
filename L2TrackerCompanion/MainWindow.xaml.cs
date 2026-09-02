@@ -1,6 +1,8 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using L2TrackerCompanion.Capture;
+using L2TrackerCompanion.Ocr;
 using L2TrackerCompanion.Services;
 
 namespace L2TrackerCompanion;
@@ -23,6 +25,7 @@ public partial class MainWindow : Window
 
         RefreshGameWindowStatus();
         CaptureStatusLabel.Text = $"Captures save to:\n{WindowCaptureService.GetDefaultCapturePath()}";
+        OcrStatusLabel.Text = $"OCR dumps save to:\n{OcrWordDump.GetDefaultDumpPath()}";
     }
 
     private void RefreshGameWindowStatus()
@@ -68,5 +71,59 @@ public partial class MainWindow : Window
         }
 
         return message;
+    }
+
+    private async void OcrDumpButton_Click(object sender, RoutedEventArgs e)
+    {
+        var capturePath = WindowCaptureService.GetDefaultCapturePath();
+        if (!File.Exists(capturePath))
+        {
+            OcrStatusLabel.Text = $"No capture at {capturePath}\nCapture once, or use OCR a PNG...";
+            return;
+        }
+
+        await RunOcrDumpAsync(capturePath);
+    }
+
+    private async void OcrPngButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Choose a Play Report screenshot",
+            Filter = "PNG images|*.png|All files|*.*",
+            CheckFileExists = true,
+        };
+
+        var capturePath = WindowCaptureService.GetDefaultCapturePath();
+        if (File.Exists(capturePath))
+        {
+            dialog.InitialDirectory = Path.GetDirectoryName(capturePath);
+            dialog.FileName = Path.GetFileName(capturePath);
+        }
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        await RunOcrDumpAsync(dialog.FileName);
+    }
+
+    private async Task RunOcrDumpAsync(string imagePath)
+    {
+        OcrDumpButton.IsEnabled = false;
+        OcrPngButton.IsEnabled = false;
+        OcrStatusLabel.Text = $"OCR: {imagePath}";
+
+        try
+        {
+            var result = await OcrWordDump.DumpFileAsync(imagePath);
+            OcrStatusLabel.Text = OcrWordDump.FormatStatus(result);
+        }
+        finally
+        {
+            OcrDumpButton.IsEnabled = true;
+            OcrPngButton.IsEnabled = true;
+        }
     }
 }

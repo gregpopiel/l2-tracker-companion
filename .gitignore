@@ -35,3 +35,4 @@ Desktop.ini
 # Local captures / debug output (added in later steps)
 capture.png
 captures/
+ocr-words.txt
