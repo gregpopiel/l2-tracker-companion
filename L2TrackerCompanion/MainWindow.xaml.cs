@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using L2TrackerCompanion.Capture;
 using L2TrackerCompanion.Services;
 
 namespace L2TrackerCompanion;
@@ -56,13 +57,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string FormatCaptureSuccess(CaptureResult result)
+    private static string FormatCaptureSuccess(L2TrackerCompanion.Capture.CaptureResult result)
     {
         var message = $"Saved {result.OutputPath}";
 
         if (result.IsLikelyBlank)
         {
-            message += "\n\nWarning: the image looks blank or all-black. PrintWindow may not work with this client — try step 3 (Windows.Graphics.Capture) instead.";
+            message += "\n\nWarning: the image looks blank or all-black.";
         }
 
         return message;
