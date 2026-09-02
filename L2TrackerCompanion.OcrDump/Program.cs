@@ -33,12 +33,24 @@ if (args.Length >= 1 && string.Equals(args[0], "--playtime", StringComparison.Or
     return await RunPlayTimeBatchAsync(args[1], args.Length >= 3 ? args[2] : PlayTimePass.GetDefaultPlayTimeDirectory());
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "--lamps", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump --lamps <images-dir> [output-dir]");
+        return 1;
+    }
+
+    return await RunLampBatchAsync(args[1], args.Length >= 3 ? args[2] : LampXpPass.GetDefaultLampsDirectory());
+}
+
 if (args.Length < 1)
 {
     Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump <image.png|images-dir> [output.txt|output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --crop <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --farm <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --playtime <images-dir> [output-dir]");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --lamps <images-dir> [output-dir]");
     return 1;
 }
 
@@ -200,12 +212,44 @@ static async Task<int> RunPlayTimeBatchAsync(string imageDirectory, string outpu
     Console.WriteLine(PlayTimePass.FormatBatchStatus(results));
     Console.WriteLine($"Summary: {summaryPath}");
 
-    var baselinePath = Path.Combine(Directory.GetCurrentDirectory(), "baselines", "tesseract-playtime.tsv");
+    return results.All(r => r.Success) ? 0 : 2;
+}
+
+static async Task<int> RunLampBatchAsync(string imageDirectory, string outputDirectory)
+{
+    var pngs = OcrWordDump.ListPngsInDirectory(imageDirectory);
+    if (pngs.Count == 0)
+    {
+        Console.Error.WriteLine($"No PNG files in {imageDirectory} (top-level only; processed/ is skipped).");
+        return 1;
+    }
+
+    Directory.CreateDirectory(outputDirectory);
+    Console.WriteLine($"Lamp XP {pngs.Count} PNG(s) from {imageDirectory}");
+    Console.WriteLine($"Writing dumps to {outputDirectory}");
+
+    var results = new List<LampXpResult>(pngs.Count);
+    for (var i = 0; i < pngs.Count; i++)
+    {
+        var png = pngs[i];
+        Console.WriteLine($"[{i + 1}/{pngs.Count}] {Path.GetFileName(png)}");
+        var lamps = await LampXpPass.RunFileAsync(png, outputDirectory, CancellationToken.None);
+        Console.WriteLine(LampXpPass.FormatStatus(lamps));
+        results.Add(lamps);
+    }
+
+    var summaryPath = Path.Combine(outputDirectory, "_lamps.tsv");
+    await File.WriteAllTextAsync(summaryPath, LampXpPass.FormatBatchSummary(results));
+    Console.WriteLine();
+    Console.WriteLine(LampXpPass.FormatBatchStatus(results));
+    Console.WriteLine($"Summary: {summaryPath}");
+
+    var baselinePath = Path.Combine(Directory.GetCurrentDirectory(), "baselines", "tesseract-lamps.tsv");
     if (File.Exists(baselinePath))
     {
-        var baseline = PlayTimePass.LoadBaselineTsv(baselinePath);
+        var baseline = LampXpPass.LoadBaselineTsv(baselinePath);
         Console.WriteLine();
-        Console.WriteLine(PlayTimePass.FormatBaselineComparison(results, baseline));
+        Console.WriteLine(LampXpPass.FormatBaselineComparison(results, baseline));
     }
     else
     {

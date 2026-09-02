@@ -100,6 +100,15 @@ chmod +x scripts/ocr-playtime.sh   # once
 
 Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-playtime\` and compares to `baselines/tesseract-playtime.tsv`. **Windows required.**
 
+**Lamp table XP (plan step 11):** 3× table crop from row-name anchors + row pitch, re-locate rows, read the four XP cells. All-or-none. Sum must not exceed dialog XP. A collapsed Magic Lamp panel is `lampPanelClosed`, not a failed read.
+
+```bash
+chmod +x scripts/ocr-lamps.sh   # once
+./scripts/ocr-lamps.sh
+```
+
+Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-lamps\` and compares to `baselines/tesseract-lamps.tsv`. **Windows required.**
+
 A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)

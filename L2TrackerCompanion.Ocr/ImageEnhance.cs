@@ -54,6 +54,53 @@ public static class ImageEnhance
         return upscaled;
     }
 
+    /// <summary>
+    /// Table crop: resample only (no grayscale/contrast). Matches the
+    /// browser's 3× lamp-table pass, which upscales then recognizes colour
+    /// names — contrast-stretching that strip smears the labels.
+    /// </summary>
+    public static async Task<SoftwareBitmap> ScaleCropAsync(
+        SoftwareBitmap source,
+        CropRect crop,
+        double scale,
+        CancellationToken cancellationToken)
+    {
+        using var sourceBmp = await ToBitmapAsync(source, cancellationToken).ConfigureAwait(false);
+        using var scaled = ScaleCrop(sourceBmp, crop, scale);
+        var png = EncodeBitmapPng(scaled);
+        return await OcrRecognize.DecodePngBytesAsync(png, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static DrawingBitmap ScaleCrop(DrawingBitmap source, CropRect crop, double scale)
+    {
+        if (scale <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(scale));
+        }
+
+        var x = Math.Max(0, crop.Left);
+        var y = Math.Max(0, crop.Top);
+        var w = Math.Min(crop.Width, source.Width - x);
+        var h = Math.Min(crop.Height, source.Height - y);
+        if (w <= 0 || h <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(crop), "Crop is empty or outside the source.");
+        }
+
+        var outW = Math.Max(1, (int)Math.Round(w * scale, MidpointRounding.AwayFromZero));
+        var outH = Math.Max(1, (int)Math.Round(h * scale, MidpointRounding.AwayFromZero));
+        var upscaled = new DrawingBitmap(outW, outH, PixelFormat.Format24bppRgb);
+        using (var g = Graphics.FromImage(upscaled))
+        {
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.SmoothingMode = SmoothingMode.HighQuality;
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            g.DrawImage(source, new Rectangle(0, 0, outW, outH), new Rectangle(x, y, w, h), GraphicsUnit.Pixel);
+        }
+
+        return upscaled;
+    }
+
     public static void SavePng(DrawingBitmap bitmap, string path)
     {
         var directory = Path.GetDirectoryName(path);

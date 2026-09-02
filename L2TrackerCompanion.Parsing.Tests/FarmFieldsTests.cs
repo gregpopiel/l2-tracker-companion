@@ -109,7 +109,7 @@ public class FarmFieldsTests
     }
 
     [Fact]
-    public void NegativePitchDoesNotMoveTheXpBandBelowAdena()
+    public void ColourNameColumnPitchDoesNotMoveTheXpBandBelowAdena()
     {
         var unit = Box("adena", left: 126, top: 154, width: 34, height: 10);
         var words = new[]
@@ -124,7 +124,7 @@ public class FarmFieldsTests
         };
 
         var read = FarmFields.ReadTokens(words);
-        Assert.Null(read.Pitch);
+        Assert.Equal(37, read.Pitch);
         Assert.Equal(857_010, read.XpFromTokens);
     }
 
