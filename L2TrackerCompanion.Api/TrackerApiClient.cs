@@ -46,6 +46,11 @@ public sealed class TrackerApiClient
         });
     }
 
+    public Task<ApiCallResult<MeResponse>> GetMeAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+        => GetAsync<MeResponse>("api/me", token, cancellationToken);
+
     public Task<ApiCallResult<IReadOnlyList<CharacterInfo>>> GetCharactersAsync(
         string token,
         CancellationToken cancellationToken = default)
@@ -184,6 +189,17 @@ public sealed class TrackerApiClient
         return string.IsNullOrWhiteSpace(body) ? $"HTTP {(int)status}" : body;
     }
 }
+
+/// <summary>
+/// <c>GET /api/me</c>. <c>DesktopAppEnabled</c> gates this app only — a user with it
+/// off keeps full access to the website.
+/// </summary>
+public sealed record MeResponse(
+    string Id,
+    string Username,
+    string? Avatar,
+    bool IsAdmin,
+    bool DesktopAppEnabled);
 
 public sealed record CharacterInfo(
     int Id,

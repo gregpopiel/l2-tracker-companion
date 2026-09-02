@@ -77,6 +77,33 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task DesktopAccessDisabledIsRefusedAndLeavesNoToken()
+    {
+        var dir = NewTempDir();
+        try
+        {
+            var store = new TokenStore(dir);
+            store.SaveToken("previous-good-token");
+
+            var auth = new AuthService(store, _ => ClientThatReturns(
+                HttpStatusCode.OK,
+                """[{"id":1,"name":"TestChar","characterClass":"S","level":80,"percentage":12.5,"targetLevel":85}]""",
+                MeDesktopDisabledJson));
+
+            var result = await auth.SignInAsync("real.jwt.value");
+
+            Assert.False(result.Success);
+            Assert.False(store.HasToken);
+            Assert.False(File.Exists(store.TokenPath));
+            Assert.Contains("Desktop access is not enabled", result.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task GetCharactersDoesNotSendOriginHeader()
     {
         HttpRequestMessage? seen = null;
@@ -142,11 +169,31 @@ public class AuthServiceTests
         return dir;
     }
 
-    private static TrackerApiClient ClientThatReturns(HttpStatusCode status, string json)
+    private const string MeDesktopEnabledJson =
+        """{"id":"u1","username":"Tester","avatar":null,"isAdmin":false,"desktopAppEnabled":true}""";
+
+    private const string MeDesktopDisabledJson =
+        """{"id":"u1","username":"Tester","avatar":null,"isAdmin":false,"desktopAppEnabled":false}""";
+
+    /// <summary>
+    /// <c>ValidateAndStoreAsync</c> calls <c>/api/me</c> before <c>/api/characters</c>, so the
+    /// stub answers per endpoint. A non-OK <paramref name="status"/> applies to both: the
+    /// <c>/api/me</c> failure short-circuits before the characters GET is ever made.
+    /// </summary>
+    private static TrackerApiClient ClientThatReturns(
+        HttpStatusCode status,
+        string json,
+        string meJson = MeDesktopEnabledJson)
     {
-        var handler = new StubHandler(_ => new HttpResponseMessage(status)
+        var handler = new StubHandler(request =>
         {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            var body = status == HttpStatusCode.OK && request.RequestUri?.AbsolutePath == "/api/me"
+                ? meJson
+                : json;
+            return new HttpResponseMessage(status)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            };
         });
         return new TrackerApiClient(new HttpClient(handler)
         {

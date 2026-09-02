@@ -1,8 +1,9 @@
 namespace L2TrackerCompanion.Api;
 
 /// <summary>
-/// Paste a website JWT, validate it with <c>GET /api/characters</c>, persist
-/// only on success (DPAPI). A failed call clears any stored token.
+/// Paste a website JWT, validate it with <c>GET /api/me</c> (which must also report
+/// desktop access as enabled) then <c>GET /api/characters</c>, persist only on success
+/// (DPAPI). A failed call clears any stored token.
 /// </summary>
 public sealed class AuthService
 {
@@ -61,6 +62,22 @@ public sealed class AuthService
     private async Task<AuthResult> ValidateAndStoreAsync(string token, CancellationToken cancellationToken)
     {
         var client = _clientFactory(BaseUrl);
+
+        // Runs on every sign-in AND on every restore at startup, so revoking desktop access
+        // takes effect the next time the app launches, not only on the next paste.
+        var me = await client.GetMeAsync(token, cancellationToken).ConfigureAwait(false);
+        if (!me.Success || me.Value is null)
+        {
+            _store.ClearToken();
+            return AuthResult.Fail(me.Error ?? "Token was rejected.");
+        }
+
+        if (!me.Value.DesktopAppEnabled)
+        {
+            _store.ClearToken();
+            return AuthResult.Fail("Desktop access is not enabled for this account.");
+        }
+
         var call = await client.GetCharactersAsync(token, cancellationToken).ConfigureAwait(false);
         if (!call.Success || call.Value is null)
         {
