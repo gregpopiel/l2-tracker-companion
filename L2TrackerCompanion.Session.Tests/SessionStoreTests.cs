@@ -103,6 +103,50 @@ public class SessionStoreTests
         }
     }
 
+    [Fact]
+    public void TryAcceptKeepsLastAcceptedWhenValueDrops()
+    {
+        using var store = new SessionStore(":memory:");
+        var first = store.TryAccept(OpenRead(200, 20, 2));
+        Assert.True(first.Appended);
+        Assert.Equal(200, store.Last()!.Report.Xp);
+
+        var dropped = store.TryAccept(OpenRead(100, 20, 2));
+        Assert.False(dropped.Appended);
+        Assert.Contains("XP dropped", dropped.Reason, StringComparison.Ordinal);
+        Assert.Equal(1, store.Count);
+        Assert.Equal(200, store.Last()!.Report.Xp);
+    }
+
+    [Fact]
+    public void PollingLoopOnlyAppendsWhileRunning()
+    {
+        using var store = new SessionStore(":memory:");
+        var loop = new PollingLoop();
+        Assert.Equal(TimeSpan.FromSeconds(10), PollingLoop.Interval);
+
+        var stopped = loop.Tick(store, OpenRead(100, 10, 1));
+        Assert.False(stopped.Tracking);
+        Assert.False(stopped.Appended);
+        Assert.Equal(0, store.Count);
+
+        loop.Start();
+        var first = loop.Tick(store, OpenRead(200, 20, 2));
+        Assert.True(first.Appended);
+        Assert.Equal(1, store.Count);
+
+        var discarded = loop.Tick(store, OpenRead(50, 20, 2));
+        Assert.True(discarded.Tracking);
+        Assert.False(discarded.Appended);
+        Assert.Contains("Discarded:", discarded.Message, StringComparison.Ordinal);
+        Assert.Equal(1, store.Count);
+
+        loop.Stop();
+        var afterStop = loop.Tick(store, OpenRead(300, 30, 3));
+        Assert.False(afterStop.Tracking);
+        Assert.Equal(1, store.Count);
+    }
+
     private static PlayReport OpenRead(long xp, long adena, int minutes, string? hint = null)
         => PlayReport.From(
             xp,

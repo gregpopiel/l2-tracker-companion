@@ -92,6 +92,39 @@ public sealed class SessionStore : IDisposable
         return new SnapshotRow(id, at, report);
     }
 
+    public SnapshotRow? Last()
+    {
+        using var command = _connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT id, captured_at, xp, adena, minutes,
+                   red_lamp_xp, purple_lamp_xp, blue_lamp_xp, green_lamp_xp,
+                   lamp_xp_read, lamp_panel_closed, lamp_xp_exceeds_dialog, lamp_xp_total,
+                   location_hint, unread_fields, warnings
+            FROM snapshots
+            ORDER BY id DESC
+            LIMIT 1;
+            """;
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? ReadRow(reader) : null;
+    }
+
+    /// <summary>
+    /// Append <paramref name="report"/> only when it does not drop versus the
+    /// last accepted snapshot. Used by the polling loop and by one-shot parse.
+    /// </summary>
+    public SnapshotAcceptResult TryAccept(PlayReport report, DateTimeOffset? capturedAt = null)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        var decision = Monotonicity.Evaluate(Last()?.Report, report);
+        if (!decision.Accepted)
+        {
+            return SnapshotAcceptResult.Discarded(decision.Reason!);
+        }
+
+        return SnapshotAcceptResult.Accepted(Append(report, capturedAt));
+    }
+
     public IReadOnlyList<SnapshotRow> List()
     {
         using var command = _connection.CreateCommand();
@@ -273,3 +306,10 @@ public sealed class SessionStore : IDisposable
 }
 
 public sealed record SnapshotRow(long Id, DateTimeOffset CapturedAt, PlayReport Report);
+
+public sealed record SnapshotAcceptResult(bool Appended, string? Reason, SnapshotRow? Row)
+{
+    public static SnapshotAcceptResult Accepted(SnapshotRow row) => new(true, null, row);
+
+    public static SnapshotAcceptResult Discarded(string reason) => new(false, reason, null);
+}

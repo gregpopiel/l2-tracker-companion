@@ -11,7 +11,7 @@ This repository is the desktop app only. The web UI and API live in [`l2-tracker
 | Runtime | .NET 8 (`net8.0-windows10.0.19041.0`) |
 | UI | WPF |
 | OCR | `Windows.Media.Ocr` (built into Windows) |
-| Local storage | SQLite (planned — not yet in this skeleton) |
+| Local storage | SQLite (`%LOCALAPPDATA%\L2TrackerCompanion\session.db`) |
 
 ## Requirements
 
@@ -127,7 +127,9 @@ chmod +x scripts/ocr-parse.sh   # once
 
 Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **Windows required.**
 
-**Session store (plan step 14):** each successful parse (WPF or `ocr-parse.sh`) appends a snapshot to `%LOCALAPPDATA%\L2TrackerCompanion\session.db`. The WPF window lists those rows; **New session** (or `./scripts/ocr-parse.sh --new-session`) wipes the file. No polling yet.
+**Session store (plan step 14):** each successful parse (WPF or `ocr-parse.sh`) appends a snapshot to `%LOCALAPPDATA%\L2TrackerCompanion\session.db` unless monotonicity rejects it. The WPF window lists those rows; **New session** (or `./scripts/ocr-parse.sh --new-session`) wipes the file.
+
+**Polling (plan step 15):** **Start tracking** captures → OCR → accept-or-discard every 10s until **Stop tracking**. A tick whose XP / Adena / play time dropped versus the last accepted snapshot is discarded (OCR misread). Lamp XP is monotonic only when both ticks had `lampXpRead`; a closed Magic Lamp panel is not a misread. A tick that finishes after Stop does not append.
 
 A single window titled **L2 Tracker Companion** should open.
 

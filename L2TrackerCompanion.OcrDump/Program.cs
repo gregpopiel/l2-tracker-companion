@@ -77,8 +77,13 @@ if (args.Length >= 1 && string.Equals(args[0], "--parse", StringComparison.Ordin
     if (parsed.Success && parsed.Report is not null)
     {
         using var store = new SessionStore(SessionStore.GetDefaultPath());
-        store.Append(parsed.Report);
+        var accepted = store.TryAccept(parsed.Report);
         Console.WriteLine();
+        if (!accepted.Appended)
+        {
+            Console.WriteLine($"Discarded: {accepted.Reason}");
+        }
+
         Console.WriteLine(SessionStore.FormatInspect(store.List(), store.Path));
     }
 
