@@ -25,6 +25,9 @@ namespace L2TrackerCompanion.Capture;
 /// Verified 2026-09-02 on the developer PC: capture of HWND 0x40B3E succeeded with
 /// another app in the foreground (headless CLI, no companion window shown) and with
 /// the WPF companion behind Lineage II (manual "Capture once", ~3 MB PNG).
+/// Does not work while the game window is minimized (IsIconic) — WGC times out with
+/// no compositor frames; same behavior in glasscap. Restore the window (it may stay
+/// behind other apps) before capturing.
 /// PrintWindow (step 2) failed with ACCESS_DENIED on this client; this path replaced it.
 /// </remarks>
 public sealed class GraphicsCaptureService
