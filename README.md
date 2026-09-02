@@ -118,6 +118,15 @@ chmod +x scripts/ocr-location.sh   # once
 
 Writes `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-location\` and compares to `baselines/tesseract-location.tsv`. **Windows required.**
 
+**One-shot parse (plan step 13):** one PNG → XP, Adena, play time, four lamp XP figures, `lampXpRead` / `lampPanelClosed`, location hint. **Capture once** in the WPF window captures then parses; **Parse a PNG...** does the same without the game.
+
+```bash
+chmod +x scripts/ocr-parse.sh   # once
+./scripts/ocr-parse.sh /path/to/screenshot.png
+```
+
+Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **Windows required.**
+
 A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)

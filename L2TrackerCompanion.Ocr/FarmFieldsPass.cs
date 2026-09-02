@@ -44,114 +44,129 @@ public static class FarmFieldsPass
                 return Fail(dialog.ErrorMessage ?? "Dialog crop failed");
             }
 
-            var cropWidth = dialog.CropBitmap.PixelWidth;
-            var cropHeight = dialog.CropBitmap.PixelHeight;
-            var boxes = OcrRecognize.ToWordBoxes(dialog.CropWords);
-            var tokens = FarmFields.ReadTokens(boxes);
-
-            long? xpFromCrop = null;
-            string? xpCropPath = null;
-            if (tokens.XpTokens.Count > 0)
-            {
-                var xpRect = FarmFields.XpMicroCrop(tokens.XpTokens, cropWidth, cropHeight);
-                if (!xpRect.IsEmpty)
-                {
-                    var (text, pngPath) = await EnhanceAndRecognizeAsync(
-                            dialog.CropBitmap,
-                            dialog.Engine,
-                            xpRect,
-                            outputDirectory,
-                            Path.GetFileNameWithoutExtension(imagePath) + "_xp-crop.png",
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    xpFromCrop = GameNumber.ParseLine(text);
-                    xpCropPath = pngPath;
-                }
-            }
-            else if (tokens.Unit is not null)
-            {
-                // WinOCR sometimes emits no XP tokens at all (the line is
-                // simply absent from the crop pass). Tesseract still saw
-                // them; re-read the band's pixels the way Adena falls back
-                // when its band is empty.
-                var xpRect = FarmFields.XpBandCrop(tokens.Unit, tokens.Pitch, cropWidth, cropHeight);
-                if (!xpRect.IsEmpty)
-                {
-                    var (text, pngPath) = await EnhanceAndRecognizeAsync(
-                            dialog.CropBitmap,
-                            dialog.Engine,
-                            xpRect,
-                            outputDirectory,
-                            Path.GetFileNameWithoutExtension(imagePath) + "_xp-crop.png",
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    xpFromCrop = GameNumber.ParseLine(text);
-                    xpCropPath = pngPath;
-                }
-            }
-
-            var xp = tokens.XpTokens.Count == 0
-                ? xpFromCrop ?? tokens.XpFromTokens
-                : XpReads.Combine(tokens.XpFromTokens, xpFromCrop);
-
-            long? adenaFromCrop = null;
-            string? adenaCropPath = null;
-            var usedFallback = false;
-            if (tokens.AdenaFromTokens is null && tokens.Unit is not null)
-            {
-                var adenaRect = FarmFields.AdenaFallbackCrop(tokens.Unit, cropWidth, cropHeight);
-                if (!adenaRect.IsEmpty)
-                {
-                    usedFallback = true;
-                    var (text, pngPath) = await EnhanceAndRecognizeAsync(
-                            dialog.CropBitmap,
-                            dialog.Engine,
-                            adenaRect,
-                            outputDirectory,
-                            Path.GetFileNameWithoutExtension(imagePath) + "_adena-crop.png",
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    adenaFromCrop = GameNumber.ParseLine(text);
-                    adenaCropPath = pngPath;
-                }
-            }
-
-            var adena = tokens.AdenaFromTokens ?? adenaFromCrop;
-
-            Directory.CreateDirectory(outputDirectory);
-            var dumpPath = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(imagePath) + ".txt");
-            var result = new FarmFieldsResult
-            {
-                Success = true,
-                SourcePath = Path.GetFullPath(imagePath),
-                DumpPath = Path.GetFullPath(dumpPath),
-                XpCropPngPath = xpCropPath,
-                AdenaCropPngPath = adenaCropPath,
-                ImageWidth = dialog.ImageWidth,
-                ImageHeight = dialog.ImageHeight,
-                DialogCrop = dialog.Crop,
-                AnchorKind = dialog.AnchorKind,
-                AdenaUnit = tokens.Unit,
-                Xp = xp,
-                Adena = adena,
-                XpFromTokens = tokens.XpFromTokens,
-                XpFromCrop = xpFromCrop,
-                AdenaFromTokens = tokens.AdenaFromTokens,
-                AdenaFromCrop = adenaFromCrop,
-                UsedAdenaFallback = usedFallback,
-                Pitch = tokens.Pitch,
-                XpTokenTexts = tokens.XpTokens.Select(w => w.Text).ToArray(),
-                AdenaTokenTexts = tokens.AdenaTokens.Select(w => w.Text).ToArray(),
-            };
-
-            await File.WriteAllTextAsync(dumpPath, FormatDump(result), Encoding.UTF8, cancellationToken)
+            return await ReadAsync(
+                    dialog,
+                    outputDirectory,
+                    Path.GetFileNameWithoutExtension(imagePath),
+                    cancellationToken)
                 .ConfigureAwait(false);
-            return result;
         }
         catch (Exception ex)
         {
             return Fail(ex.Message);
         }
+    }
+
+    public static async Task<FarmFieldsResult> ReadAsync(
+        DialogCropRecognition dialog,
+        string outputDirectory,
+        string stem,
+        CancellationToken cancellationToken)
+    {
+        if (dialog.CropBitmap is null || dialog.Engine is null)
+        {
+            return Fail(dialog.ErrorMessage ?? "Dialog crop failed");
+        }
+
+        var cropWidth = dialog.CropBitmap.PixelWidth;
+        var cropHeight = dialog.CropBitmap.PixelHeight;
+        var boxes = OcrRecognize.ToWordBoxes(dialog.CropWords);
+        var tokens = FarmFields.ReadTokens(boxes);
+
+        long? xpFromCrop = null;
+        string? xpCropPath = null;
+        if (tokens.XpTokens.Count > 0)
+        {
+            var xpRect = FarmFields.XpMicroCrop(tokens.XpTokens, cropWidth, cropHeight);
+            if (!xpRect.IsEmpty)
+            {
+                var (text, pngPath) = await EnhanceAndRecognizeAsync(
+                        dialog.CropBitmap,
+                        dialog.Engine,
+                        xpRect,
+                        outputDirectory,
+                        stem + "_xp-crop.png",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                xpFromCrop = GameNumber.ParseLine(text);
+                xpCropPath = pngPath;
+            }
+        }
+        else if (tokens.Unit is not null)
+        {
+            var xpRect = FarmFields.XpBandCrop(tokens.Unit, tokens.Pitch, cropWidth, cropHeight);
+            if (!xpRect.IsEmpty)
+            {
+                var (text, pngPath) = await EnhanceAndRecognizeAsync(
+                        dialog.CropBitmap,
+                        dialog.Engine,
+                        xpRect,
+                        outputDirectory,
+                        stem + "_xp-crop.png",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                xpFromCrop = GameNumber.ParseLine(text);
+                xpCropPath = pngPath;
+            }
+        }
+
+        var xp = tokens.XpTokens.Count == 0
+            ? xpFromCrop ?? tokens.XpFromTokens
+            : XpReads.Combine(tokens.XpFromTokens, xpFromCrop);
+
+        long? adenaFromCrop = null;
+        string? adenaCropPath = null;
+        var usedFallback = false;
+        if (tokens.AdenaFromTokens is null && tokens.Unit is not null)
+        {
+            var adenaRect = FarmFields.AdenaFallbackCrop(tokens.Unit, cropWidth, cropHeight);
+            if (!adenaRect.IsEmpty)
+            {
+                usedFallback = true;
+                var (text, pngPath) = await EnhanceAndRecognizeAsync(
+                        dialog.CropBitmap,
+                        dialog.Engine,
+                        adenaRect,
+                        outputDirectory,
+                        stem + "_adena-crop.png",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                adenaFromCrop = GameNumber.ParseLine(text);
+                adenaCropPath = pngPath;
+            }
+        }
+
+        var adena = tokens.AdenaFromTokens ?? adenaFromCrop;
+
+        Directory.CreateDirectory(outputDirectory);
+        var dumpPath = Path.Combine(outputDirectory, stem + ".txt");
+        var result = new FarmFieldsResult
+        {
+            Success = true,
+            SourcePath = dialog.SourcePath,
+            DumpPath = Path.GetFullPath(dumpPath),
+            XpCropPngPath = xpCropPath,
+            AdenaCropPngPath = adenaCropPath,
+            ImageWidth = dialog.ImageWidth,
+            ImageHeight = dialog.ImageHeight,
+            DialogCrop = dialog.Crop,
+            AnchorKind = dialog.AnchorKind,
+            AdenaUnit = tokens.Unit,
+            Xp = xp,
+            Adena = adena,
+            XpFromTokens = tokens.XpFromTokens,
+            XpFromCrop = xpFromCrop,
+            AdenaFromTokens = tokens.AdenaFromTokens,
+            AdenaFromCrop = adenaFromCrop,
+            UsedAdenaFallback = usedFallback,
+            Pitch = tokens.Pitch,
+            XpTokenTexts = tokens.XpTokens.Select(w => w.Text).ToArray(),
+            AdenaTokenTexts = tokens.AdenaTokens.Select(w => w.Text).ToArray(),
+        };
+
+        await File.WriteAllTextAsync(dumpPath, FormatDump(result), Encoding.UTF8, cancellationToken)
+            .ConfigureAwait(false);
+        return result;
     }
 
     public static string FormatStatus(FarmFieldsResult result)

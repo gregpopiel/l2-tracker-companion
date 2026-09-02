@@ -1,0 +1,82 @@
+namespace L2TrackerCompanion.Parsing;
+
+/// <summary>
+/// One-shot Play Report parse. Every figure was read off the screenshot;
+/// nothing is derived from counts or settings. Matching <see cref="LocationHint"/>
+/// against a spot list is the caller's job.
+/// </summary>
+public sealed record PlayReport(
+    long? Xp,
+    long? Adena,
+    int? Minutes,
+    long? RedLampXp,
+    long? PurpleLampXp,
+    long? BlueLampXp,
+    long? GreenLampXp,
+    bool LampXpRead,
+    bool LampPanelClosed,
+    bool LampXpExceedsDialog,
+    long LampXpTotal,
+    string? LocationHint,
+    IReadOnlyList<string> UnreadFields,
+    IReadOnlyList<string> Warnings)
+{
+    public static PlayReport From(
+        long? xp,
+        long? adena,
+        int? minutes,
+        LampXpDecision lamps,
+        string? locationHint)
+    {
+        ArgumentNullException.ThrowIfNull(lamps);
+
+        var unread = new List<string>();
+        var warnings = new List<string>();
+        if (xp is null)
+        {
+            unread.Add("XP");
+            warnings.Add("XP could not be read");
+        }
+
+        if (adena is null)
+        {
+            unread.Add("Adena");
+            warnings.Add("Adena could not be read");
+        }
+
+        if (minutes is null)
+        {
+            unread.Add("play time");
+            warnings.Add("Play time could not be read");
+        }
+
+        if (lamps.ExceedsDialogXp)
+        {
+            warnings.Add(
+                $"Lamp XP ({lamps.LampXpTotal.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)}) "
+                + $"exceeds the dialog's own XP "
+                + $"({(xp?.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) ?? "null")}), "
+                + "which is impossible — the lamp figures were discarded");
+        }
+        else if (!lamps.LampXpRead && lamps.HasLampRows)
+        {
+            warnings.Add("The lamp table's XP column couldn't be read");
+        }
+
+        return new PlayReport(
+            Xp: xp,
+            Adena: adena,
+            Minutes: minutes,
+            RedLampXp: lamps.Red,
+            PurpleLampXp: lamps.Purple,
+            BlueLampXp: lamps.Blue,
+            GreenLampXp: lamps.Green,
+            LampXpRead: lamps.LampXpRead,
+            LampPanelClosed: lamps.LampPanelClosed,
+            LampXpExceedsDialog: lamps.ExceedsDialogXp,
+            LampXpTotal: lamps.LampXpTotal,
+            LocationHint: locationHint,
+            UnreadFields: unread,
+            Warnings: warnings);
+    }
+}

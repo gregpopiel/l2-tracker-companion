@@ -44,65 +44,84 @@ public static class PlayTimePass
                 return Fail(dialog.ErrorMessage ?? "Dialog crop failed");
             }
 
-            var cropWidth = dialog.CropBitmap.PixelWidth;
-            var cropHeight = dialog.CropBitmap.PixelHeight;
-            var boxes = OcrRecognize.ToWordBoxes(dialog.CropWords);
-            var tokens = PlayTime.ReadTokens(boxes);
-
-            int? fromCrop = null;
-            string? cropPngPath = null;
-            string? cropText = null;
-            var valueCrop = PlayTime.CombinedValueCrop(tokens, cropWidth, cropHeight);
-            if (!valueCrop.IsEmpty)
-            {
-                var (text, pngPath) = await EnhanceAndRecognizeAsync(
-                        dialog.CropBitmap,
-                        dialog.Engine,
-                        valueCrop,
-                        outputDirectory,
-                        Path.GetFileNameWithoutExtension(imagePath) + "_time-crop.png",
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                cropText = text;
-                fromCrop = PlayTime.ParseMinutes(text);
-                cropPngPath = pngPath;
-            }
-
-            var combined = PlayTime.Combine(fromCrop, tokens.FromTokens);
-            var refused = fromCrop is not null
-                && tokens.FromTokens is not null
-                && fromCrop != tokens.FromTokens;
-
-            Directory.CreateDirectory(outputDirectory);
-            var dumpPath = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(imagePath) + ".txt");
-            var result = new PlayTimeResult
-            {
-                Success = true,
-                SourcePath = Path.GetFullPath(imagePath),
-                DumpPath = Path.GetFullPath(dumpPath),
-                CropPngPath = cropPngPath,
-                ImageWidth = dialog.ImageWidth,
-                ImageHeight = dialog.ImageHeight,
-                DialogCrop = dialog.Crop,
-                AnchorKind = dialog.AnchorKind,
-                TimeAnchor = tokens.Anchor,
-                Minutes = combined,
-                FromTokens = tokens.FromTokens,
-                FromCrop = fromCrop,
-                RefusedContradiction = refused,
-                ValueCrop = valueCrop,
-                ValueTokenTexts = tokens.ValueTokens.Select(w => w.Text).ToArray(),
-                CropText = cropText,
-            };
-
-            await File.WriteAllTextAsync(dumpPath, FormatDump(result), Encoding.UTF8, cancellationToken)
+            return await ReadAsync(
+                    dialog,
+                    outputDirectory,
+                    Path.GetFileNameWithoutExtension(imagePath),
+                    cancellationToken)
                 .ConfigureAwait(false);
-            return result;
         }
         catch (Exception ex)
         {
             return Fail(ex.Message);
         }
+    }
+
+    public static async Task<PlayTimeResult> ReadAsync(
+        DialogCropRecognition dialog,
+        string outputDirectory,
+        string stem,
+        CancellationToken cancellationToken)
+    {
+        if (dialog.CropBitmap is null || dialog.Engine is null)
+        {
+            return Fail(dialog.ErrorMessage ?? "Dialog crop failed");
+        }
+
+        var cropWidth = dialog.CropBitmap.PixelWidth;
+        var cropHeight = dialog.CropBitmap.PixelHeight;
+        var boxes = OcrRecognize.ToWordBoxes(dialog.CropWords);
+        var tokens = PlayTime.ReadTokens(boxes);
+
+        int? fromCrop = null;
+        string? cropPngPath = null;
+        string? cropText = null;
+        var valueCrop = PlayTime.CombinedValueCrop(tokens, cropWidth, cropHeight);
+        if (!valueCrop.IsEmpty)
+        {
+            var (text, pngPath) = await EnhanceAndRecognizeAsync(
+                    dialog.CropBitmap,
+                    dialog.Engine,
+                    valueCrop,
+                    outputDirectory,
+                    stem + "_time-crop.png",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            cropText = text;
+            fromCrop = PlayTime.ParseMinutes(text);
+            cropPngPath = pngPath;
+        }
+
+        var combined = PlayTime.Combine(fromCrop, tokens.FromTokens);
+        var refused = fromCrop is not null
+            && tokens.FromTokens is not null
+            && fromCrop != tokens.FromTokens;
+
+        Directory.CreateDirectory(outputDirectory);
+        var dumpPath = Path.Combine(outputDirectory, stem + ".txt");
+        var result = new PlayTimeResult
+        {
+            Success = true,
+            SourcePath = dialog.SourcePath,
+            DumpPath = Path.GetFullPath(dumpPath),
+            CropPngPath = cropPngPath,
+            ImageWidth = dialog.ImageWidth,
+            ImageHeight = dialog.ImageHeight,
+            DialogCrop = dialog.Crop,
+            AnchorKind = dialog.AnchorKind,
+            TimeAnchor = tokens.Anchor,
+            Minutes = combined,
+            FromTokens = tokens.FromTokens,
+            FromCrop = fromCrop,
+            RefusedContradiction = refused,
+            ValueCrop = valueCrop,
+            ValueTokenTexts = tokens.ValueTokens.Select(w => w.Text).ToArray(),
+            CropText = cropText,
+        };
+
+        await File.WriteAllTextAsync(dumpPath, FormatDump(result), Encoding.UTF8, cancellationToken)
+            .ConfigureAwait(false);
+        return result;
     }
 
     public static string FormatStatus(PlayTimeResult result)

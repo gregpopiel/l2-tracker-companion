@@ -25,7 +25,7 @@ public partial class MainWindow : Window
 
         RefreshGameWindowStatus();
         CaptureStatusLabel.Text = $"Captures save to:\n{WindowCaptureService.GetDefaultCapturePath()}";
-        OcrStatusLabel.Text = $"OCR dumps save to:\n{OcrWordDump.GetDefaultDumpPath()}";
+        ParseStatusLabel.Text = "Capture once, or parse a PNG, to read XP / Adena / play time / lamps / location.";
     }
 
     private void RefreshGameWindowStatus()
@@ -41,7 +41,7 @@ public partial class MainWindow : Window
         CaptureOnceButton.IsEnabled = gameWindow is not null;
     }
 
-    private void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
+    private async void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
     {
         CaptureOnceButton.IsEnabled = false;
         CaptureStatusLabel.Text = "Capturing...";
@@ -51,9 +51,14 @@ public partial class MainWindow : Window
             var outputPath = WindowCaptureService.GetDefaultCapturePath();
             var result = _windowCaptureService.TryCaptureOnce(outputPath);
 
-            CaptureStatusLabel.Text = result.Success
-                ? FormatCaptureSuccess(result)
-                : $"Capture failed: {result.ErrorMessage}";
+            if (!result.Success)
+            {
+                CaptureStatusLabel.Text = $"Capture failed: {result.ErrorMessage}";
+                return;
+            }
+
+            CaptureStatusLabel.Text = FormatCaptureSuccess(result);
+            await RunParseAsync(outputPath);
         }
         finally
         {
@@ -61,7 +66,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string FormatCaptureSuccess(L2TrackerCompanion.Capture.CaptureResult result)
+    private static string FormatCaptureSuccess(CaptureResult result)
     {
         var message = $"Saved {result.OutputPath}";
 
@@ -73,19 +78,19 @@ public partial class MainWindow : Window
         return message;
     }
 
-    private async void OcrDumpButton_Click(object sender, RoutedEventArgs e)
+    private async void ParseLastButton_Click(object sender, RoutedEventArgs e)
     {
         var capturePath = WindowCaptureService.GetDefaultCapturePath();
         if (!File.Exists(capturePath))
         {
-            OcrStatusLabel.Text = $"No capture at {capturePath}\nCapture once, or use OCR a PNG...";
+            ParseStatusLabel.Text = $"No capture at {capturePath}\nCapture once, or use Parse a PNG...";
             return;
         }
 
-        await RunOcrDumpAsync(capturePath);
+        await RunParseAsync(capturePath);
     }
 
-    private async void OcrPngButton_Click(object sender, RoutedEventArgs e)
+    private async void ParsePngButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
@@ -106,24 +111,24 @@ public partial class MainWindow : Window
             return;
         }
 
-        await RunOcrDumpAsync(dialog.FileName);
+        await RunParseAsync(dialog.FileName);
     }
 
-    private async Task RunOcrDumpAsync(string imagePath)
+    private async Task RunParseAsync(string imagePath)
     {
-        OcrDumpButton.IsEnabled = false;
-        OcrPngButton.IsEnabled = false;
-        OcrStatusLabel.Text = $"OCR: {imagePath}";
+        ParseLastButton.IsEnabled = false;
+        ParsePngButton.IsEnabled = false;
+        ParseStatusLabel.Text = $"Parsing {imagePath}...";
 
         try
         {
-            var result = await OcrWordDump.DumpFileAsync(imagePath);
-            OcrStatusLabel.Text = OcrWordDump.FormatStatus(result);
+            var result = await PlayReportPipeline.RunFileAsync(imagePath);
+            ParseStatusLabel.Text = PlayReportPipeline.FormatWindow(result);
         }
         finally
         {
-            OcrDumpButton.IsEnabled = true;
-            OcrPngButton.IsEnabled = true;
+            ParseLastButton.IsEnabled = true;
+            ParsePngButton.IsEnabled = true;
         }
     }
 }

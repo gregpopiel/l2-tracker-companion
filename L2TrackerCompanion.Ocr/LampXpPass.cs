@@ -44,111 +44,141 @@ public static class LampXpPass
                 return Fail(dialog.ErrorMessage ?? "Dialog crop failed");
             }
 
-            var cropWidth = dialog.CropBitmap.PixelWidth;
-            var cropHeight = dialog.CropBitmap.PixelHeight;
-            var dialogBoxes = OcrRecognize.ToWordBoxes(dialog.CropWords);
-            var dialogRows = LampGeometry.FindRows(dialogBoxes);
-            var dialogPitch = LampGeometry.RowPitch(dialogRows);
-
-            var (dialogXp, dialogAdena) = await ReadFarmAmountsAsync(
-                    dialog, dialogBoxes, outputDirectory, cancellationToken)
+            return await ReadAsync(
+                    dialog,
+                    outputDirectory,
+                    Path.GetFileNameWithoutExtension(imagePath),
+                    cancellationToken)
                 .ConfigureAwait(false);
-
-            IReadOnlyList<WordBox> tableBoxes = [];
-            IReadOnlyDictionary<string, WordBox> tableRows = new Dictionary<string, WordBox>();
-            double? tablePitch = null;
-            string? tablePngPath = null;
-            var tableCrop = LampGeometry.TableCrop(dialogRows, dialogPitch ?? 0, cropWidth, cropHeight);
-
-            SoftwareBitmap? tableBitmap = null;
-            try
-            {
-                if (!tableCrop.IsEmpty)
-                {
-                    tableBitmap = await ImageEnhance.ScaleCropAsync(
-                            dialog.CropBitmap,
-                            tableCrop,
-                            LampGeometry.TableScale,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    Directory.CreateDirectory(outputDirectory);
-                    tablePngPath = Path.GetFullPath(Path.Combine(
-                        outputDirectory,
-                        Path.GetFileNameWithoutExtension(imagePath) + "_table.png"));
-                    await OcrRecognize.SavePngAsync(tableBitmap, tablePngPath, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    var tableRecognized = await dialog.Engine.RecognizeAsync(tableBitmap)
-                        .AsTask(cancellationToken)
-                        .ConfigureAwait(false);
-                    tableBoxes = OcrRecognize.ToWordBoxes(OcrRecognize.ToWords(tableRecognized));
-                    tableRows = LampGeometry.FindRows(tableBoxes);
-                    tablePitch = LampGeometry.RowPitch(tableRows);
-                }
-
-                var parsed = new Dictionary<string, long?>(StringComparer.Ordinal);
-                foreach (var color in LampGeometry.Colors)
-                {
-                    parsed[color] = await ReadRowXpAsync(
-                            color,
-                            dialog.CropBitmap,
-                            dialog.Engine,
-                            dialogBoxes,
-                            dialogRows,
-                            dialogPitch,
-                            tableBitmap,
-                            tableBoxes,
-                            tableRows,
-                            tablePitch,
-                            cropWidth,
-                            cropHeight,
-                            outputDirectory,
-                            Path.GetFileNameWithoutExtension(imagePath),
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                var decision = LampXp.Decide(parsed, dialogRows, dialogXp, dialogAdena);
-
-                Directory.CreateDirectory(outputDirectory);
-                var dumpPath = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(imagePath) + ".txt");
-                var result = new LampXpResult
-                {
-                    Success = true,
-                    SourcePath = Path.GetFullPath(imagePath),
-                    DumpPath = Path.GetFullPath(dumpPath),
-                    TablePngPath = tablePngPath,
-                    ImageWidth = dialog.ImageWidth,
-                    ImageHeight = dialog.ImageHeight,
-                    DialogCrop = dialog.Crop,
-                    TableCrop = tableCrop,
-                    AnchorKind = dialog.AnchorKind,
-                    DialogXp = dialogXp,
-                    DialogAdena = dialogAdena,
-                    LampXpRead = decision.LampXpRead,
-                    LampPanelClosed = decision.LampPanelClosed,
-                    ExceedsDialogXp = decision.ExceedsDialogXp,
-                    LampXpTotal = decision.LampXpTotal,
-                    Red = decision.Red,
-                    Purple = decision.Purple,
-                    Blue = decision.Blue,
-                    Green = decision.Green,
-                    DialogColors = dialogRows.Keys.ToArray(),
-                    TableColors = tableRows.Keys.ToArray(),
-                };
-
-                await File.WriteAllTextAsync(dumpPath, FormatDump(result, parsed), Encoding.UTF8, cancellationToken)
-                    .ConfigureAwait(false);
-                return result;
-            }
-            finally
-            {
-                tableBitmap?.Dispose();
-            }
         }
         catch (Exception ex)
         {
             return Fail(ex.Message);
+        }
+    }
+
+    public static async Task<LampXpResult> ReadAsync(
+        DialogCropRecognition dialog,
+        string outputDirectory,
+        string stem,
+        CancellationToken cancellationToken,
+        FarmFieldsResult? farm = null)
+    {
+        if (dialog.CropBitmap is null || dialog.Engine is null)
+        {
+            return Fail(dialog.ErrorMessage ?? "Dialog crop failed");
+        }
+
+        var cropWidth = dialog.CropBitmap.PixelWidth;
+        var cropHeight = dialog.CropBitmap.PixelHeight;
+        var dialogBoxes = OcrRecognize.ToWordBoxes(dialog.CropWords);
+        var dialogRows = LampGeometry.FindRows(dialogBoxes);
+        var dialogPitch = LampGeometry.RowPitch(dialogRows);
+
+        long? dialogXp;
+        long? dialogAdena;
+        if (farm is not null)
+        {
+            dialogXp = farm.Xp;
+            dialogAdena = farm.Adena;
+        }
+        else
+        {
+            var amounts = await ReadFarmAmountsAsync(
+                    dialog, dialogBoxes, outputDirectory, cancellationToken)
+                .ConfigureAwait(false);
+            dialogXp = amounts.Xp;
+            dialogAdena = amounts.Adena;
+        }
+
+        IReadOnlyList<WordBox> tableBoxes = [];
+        IReadOnlyDictionary<string, WordBox> tableRows = new Dictionary<string, WordBox>();
+        double? tablePitch = null;
+        string? tablePngPath = null;
+        var tableCrop = LampGeometry.TableCrop(dialogRows, dialogPitch ?? 0, cropWidth, cropHeight);
+
+        SoftwareBitmap? tableBitmap = null;
+        try
+        {
+            if (!tableCrop.IsEmpty)
+            {
+                tableBitmap = await ImageEnhance.ScaleCropAsync(
+                        dialog.CropBitmap,
+                        tableCrop,
+                        LampGeometry.TableScale,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                Directory.CreateDirectory(outputDirectory);
+                tablePngPath = Path.GetFullPath(Path.Combine(outputDirectory, stem + "_table.png"));
+                await OcrRecognize.SavePngAsync(tableBitmap, tablePngPath, cancellationToken)
+                    .ConfigureAwait(false);
+
+                var tableRecognized = await dialog.Engine.RecognizeAsync(tableBitmap)
+                    .AsTask(cancellationToken)
+                    .ConfigureAwait(false);
+                tableBoxes = OcrRecognize.ToWordBoxes(OcrRecognize.ToWords(tableRecognized));
+                tableRows = LampGeometry.FindRows(tableBoxes);
+                tablePitch = LampGeometry.RowPitch(tableRows);
+            }
+
+            var parsed = new Dictionary<string, long?>(StringComparer.Ordinal);
+            foreach (var color in LampGeometry.Colors)
+            {
+                parsed[color] = await ReadRowXpAsync(
+                        color,
+                        dialog.CropBitmap,
+                        dialog.Engine,
+                        dialogBoxes,
+                        dialogRows,
+                        dialogPitch,
+                        tableBitmap,
+                        tableBoxes,
+                        tableRows,
+                        tablePitch,
+                        cropWidth,
+                        cropHeight,
+                        outputDirectory,
+                        stem,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            var decision = LampXp.Decide(parsed, dialogRows, dialogXp, dialogAdena);
+
+            Directory.CreateDirectory(outputDirectory);
+            var dumpPath = Path.Combine(outputDirectory, stem + ".txt");
+            var result = new LampXpResult
+            {
+                Success = true,
+                SourcePath = dialog.SourcePath,
+                DumpPath = Path.GetFullPath(dumpPath),
+                TablePngPath = tablePngPath,
+                ImageWidth = dialog.ImageWidth,
+                ImageHeight = dialog.ImageHeight,
+                DialogCrop = dialog.Crop,
+                TableCrop = tableCrop,
+                AnchorKind = dialog.AnchorKind,
+                DialogXp = dialogXp,
+                DialogAdena = dialogAdena,
+                LampXpRead = decision.LampXpRead,
+                LampPanelClosed = decision.LampPanelClosed,
+                ExceedsDialogXp = decision.ExceedsDialogXp,
+                LampXpTotal = decision.LampXpTotal,
+                Red = decision.Red,
+                Purple = decision.Purple,
+                Blue = decision.Blue,
+                Green = decision.Green,
+                DialogColors = dialogRows.Keys.ToArray(),
+                TableColors = tableRows.Keys.ToArray(),
+            };
+
+            await File.WriteAllTextAsync(dumpPath, FormatDump(result, parsed), Encoding.UTF8, cancellationToken)
+                .ConfigureAwait(false);
+            return result;
+        }
+        finally
+        {
+            tableBitmap?.Dispose();
         }
     }
 

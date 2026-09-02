@@ -55,6 +55,19 @@ if (args.Length >= 1 && string.Equals(args[0], "--location", StringComparison.Or
     return await RunLocationBatchAsync(args[1], args.Length >= 3 ? args[2] : LocationHintPass.GetDefaultLocationDirectory());
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "--parse", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump --parse <image.png>");
+        return 1;
+    }
+
+    var parsed = await PlayReportPipeline.RunFileAsync(args[1], CancellationToken.None);
+    Console.WriteLine(PlayReportPipeline.FormatWindow(parsed));
+    return parsed.Success ? 0 : 2;
+}
+
 if (args.Length < 1)
 {
     Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump <image.png|images-dir> [output.txt|output-dir]");
@@ -63,6 +76,7 @@ if (args.Length < 1)
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --playtime <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --lamps <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --location <images-dir> [output-dir]");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --parse <image.png>");
     return 1;
 }
 
