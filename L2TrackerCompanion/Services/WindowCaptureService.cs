@@ -115,6 +115,17 @@ public sealed class WindowCaptureService
             };
         }
 
+        if (NativeMethods.IsIconic(window.Hwnd))
+        {
+            return new CaptureResult
+            {
+                Success = false,
+                ErrorMessage = "Lineage II is minimized — restore the game window before capturing. "
+                    + "The game can run behind other windows, but Windows.Graphics.Capture does not "
+                    + "receive frames from a minimized (taskbar) window.",
+            };
+        }
+
         // PrintWindow fails with ACCESS_DENIED (Win32 error 5) on the L2.bin client.
         // Windows.Graphics.Capture targets the game HWND via the compositor and does
         // not require the companion to be foreground — see GraphicsCaptureService remarks.
