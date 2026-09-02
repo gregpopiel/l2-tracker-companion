@@ -23,14 +23,51 @@ public sealed class GraphicsCaptureService
     private static readonly Guid GraphicsCaptureItemGuid = new("79c3f95b-31f7-4ec2-a464-632ef5d30760");
     private static readonly Guid GraphicsCaptureItemInteropGuid = new("3628E81B-3CAC-4C60-B7F4-23CE0E0C3356");
 
-    private static int _roInitialized;
-
     public CaptureResult CaptureWindow(IntPtr hwnd, string outputPath)
+    {
+        // WPF runs the UI on an STA thread; WinRT capture needs MTA (same as glasscap).
+        CaptureResult result = null;
+        Exception threadException = null;
+
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                _ = RoInitialize(1);
+                result = CaptureWindowCore(hwnd, outputPath);
+            }
+            catch (Exception ex)
+            {
+                threadException = ex;
+            }
+        })
+        {
+            IsBackground = true,
+        };
+        thread.SetApartmentState(ApartmentState.MTA);
+        thread.Start();
+        thread.Join();
+
+        if (threadException is not null)
+        {
+            return new CaptureResult
+            {
+                Success = false,
+                ErrorMessage = threadException.Message,
+            };
+        }
+
+        return result ?? new CaptureResult
+        {
+            Success = false,
+            ErrorMessage = "Capture thread returned no result.",
+        };
+    }
+
+    private static CaptureResult CaptureWindowCore(IntPtr hwnd, string outputPath)
     {
         try
         {
-            EnsureWinRtInitialized();
-
             var device = CreateWinRtDevice();
             var item = CreateCaptureItem(hwnd);
             var size = item.Size;
@@ -56,13 +93,13 @@ public sealed class GraphicsCaptureService
 
             framePool.FrameArrived += (_, _) =>
             {
-                if (capturedFrame is not null)
+                if (capturedFrame != null)
                 {
                     return;
                 }
 
                 var frame = framePool.TryGetNextFrame();
-                if (frame is null)
+                if (frame == null)
                 {
                     return;
                 }
@@ -84,7 +121,7 @@ public sealed class GraphicsCaptureService
 
             using (capturedFrame)
             {
-                var softwareBitmap = SoftwareBitmap.CreateCopyFromSurfaceAsync(capturedFrame!.Surface)
+                var softwareBitmap = SoftwareBitmap.CreateCopyFromSurfaceAsync(capturedFrame.Surface)
                     .AsTask()
                     .GetAwaiter()
                     .GetResult();
@@ -138,14 +175,6 @@ public sealed class GraphicsCaptureService
         }
 
         return totalSamples > 0 && darkSamples == totalSamples;
-    }
-
-    private static void EnsureWinRtInitialized()
-    {
-        if (Interlocked.Exchange(ref _roInitialized, 1) == 0)
-        {
-            _ = RoInitialize(1);
-        }
     }
 
     private static IDirect3DDevice CreateWinRtDevice()
