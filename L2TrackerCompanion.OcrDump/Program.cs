@@ -1,3 +1,4 @@
+using L2TrackerCompanion.Api;
 using L2TrackerCompanion.Ocr;
 using L2TrackerCompanion.Parsing;
 using L2TrackerCompanion.Session;
@@ -57,6 +58,56 @@ if (args.Length >= 1 && string.Equals(args[0], "--location", StringComparison.Or
     return await RunLocationBatchAsync(args[1], args.Length >= 3 ? args[2] : LocationHintPass.GetDefaultLocationDirectory());
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "--auth-garbage", StringComparison.OrdinalIgnoreCase))
+{
+    var auth = new AuthService(TokenStore.GetDefault());
+    var garbage = await auth.SignInAsync("not-a-real-jwt");
+    Console.WriteLine(garbage.Message);
+    Console.WriteLine(auth.HasStoredToken
+        ? $"Token still on disk: {auth.TokenPath}"
+        : $"No token on disk ({auth.TokenPath})");
+    return garbage.Success ? 2 : 0;
+}
+
+if (args.Length >= 1 && string.Equals(args[0], "--auth-status", StringComparison.OrdinalIgnoreCase))
+{
+    var auth = new AuthService(TokenStore.GetDefault());
+    if (!auth.HasStoredToken)
+    {
+        Console.WriteLine("No stored token.");
+        return 1;
+    }
+
+    var restored = await auth.TryRestoreAsync();
+    Console.WriteLine(restored.Message);
+    Console.WriteLine(auth.HasStoredToken
+        ? $"Token on disk (DPAPI): {auth.TokenPath}"
+        : $"Token cleared: {auth.TokenPath}");
+    return restored.Success ? 0 : 2;
+}
+
+if (args.Length >= 1 && string.Equals(args[0], "--auth", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump --auth <jwt>");
+        return 1;
+    }
+
+    var auth = new AuthService(TokenStore.GetDefault());
+    if (args.Length >= 4 && string.Equals(args[2], "--base-url", StringComparison.OrdinalIgnoreCase))
+    {
+        auth.SetBaseUrl(args[3]);
+    }
+
+    var signedIn = await auth.SignInAsync(args[1]);
+    Console.WriteLine(signedIn.Message);
+    Console.WriteLine(auth.HasStoredToken
+        ? $"Token saved (DPAPI): {auth.TokenPath}"
+        : $"No token on disk ({auth.TokenPath})");
+    return signedIn.Success ? 0 : 2;
+}
+
 if (args.Length >= 1 && string.Equals(args[0], "--new-session", StringComparison.OrdinalIgnoreCase))
 {
     using var wiped = new SessionStore(SessionStore.GetDefaultPath());
@@ -108,6 +159,9 @@ if (args.Length < 1)
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --location <images-dir> [output-dir]");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --parse <image.png>");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --new-session");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --auth <jwt>");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --auth-garbage");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --auth-status");
     return 1;
 }
 

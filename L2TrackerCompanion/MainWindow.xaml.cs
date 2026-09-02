@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
+using L2TrackerCompanion.Api;
 using L2TrackerCompanion.Capture;
 using L2TrackerCompanion.Ocr;
 using L2TrackerCompanion.Parsing;
@@ -14,6 +15,7 @@ public partial class MainWindow : Window
 {
     private readonly WindowCaptureService _windowCaptureService = new();
     private readonly SessionStore _sessionStore = new(SessionStore.GetDefaultPath());
+    private readonly AuthService _auth = new(TokenStore.GetDefault());
     private readonly PollingLoop _polling = new();
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _pollTimer;
@@ -24,6 +26,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Closed += OnClosed;
+        Loaded += (_, _) => _ = RestoreAuthAsync();
+
+        BaseUrlBox.Text = _auth.BaseUrl;
 
         _refreshTimer = new DispatcherTimer
         {
@@ -44,6 +49,57 @@ public partial class MainWindow : Window
         RefreshSessionStatus();
         RefreshPollStatus("Not tracking.");
         ShowLiveStatus(LiveStatus.Idle());
+    }
+
+    private async Task RestoreAuthAsync()
+    {
+        if (!_auth.HasStoredToken)
+        {
+            AuthStatusLabel.Text = "Not signed in. Paste a token to continue.";
+            return;
+        }
+
+        AuthStatusLabel.Text = "Checking stored token…";
+        var result = await _auth.TryRestoreAsync();
+        ShowAuthResult(result);
+    }
+
+    private async void UseTokenButton_Click(object sender, RoutedEventArgs e)
+    {
+        UseTokenButton.IsEnabled = false;
+        AuthStatusLabel.Text = "Validating token…";
+        try
+        {
+            _auth.SetBaseUrl(string.IsNullOrWhiteSpace(BaseUrlBox.Text)
+                ? TokenStore.DefaultBaseUrl
+                : BaseUrlBox.Text);
+            BaseUrlBox.Text = _auth.BaseUrl;
+            var result = await _auth.SignInAsync(TokenBox.Password);
+            if (result.Success)
+            {
+                TokenBox.Clear();
+            }
+
+            ShowAuthResult(result);
+        }
+        finally
+        {
+            UseTokenButton.IsEnabled = true;
+        }
+    }
+
+    private void SignOutButton_Click(object sender, RoutedEventArgs e)
+    {
+        _auth.SignOut();
+        TokenBox.Clear();
+        AuthStatusLabel.Text = "Signed out. Token removed from disk.";
+    }
+
+    private void ShowAuthResult(AuthResult result)
+    {
+        AuthStatusLabel.Text = result.Success
+            ? result.Message
+            : $"Not signed in. {result.Message}";
     }
 
     private void OnClosed(object? sender, EventArgs e)

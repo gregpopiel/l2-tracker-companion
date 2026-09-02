@@ -133,6 +133,15 @@ Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **W
 
 **Live status (plan step 16):** a traffic light on the latest parse (not only accepted snapshots). Red = unread farm field or a lamp table that is in frame but unreadable; orange = Magic Lamp panel closed; green = farm + lamps read. Missing minimap hint does not change the colour. Updates every poll tick.
 
+**Auth (plan step 17):** paste the website JWT (`localStorage` key `l2_jwt_token`). It is stored DPAPI-encrypted (`%LOCALAPPDATA%\L2TrackerCompanion\auth.bin`, current-user scope) only after `GET /api/characters` succeeds. A rejected token is deleted, not left on disk. Default API base is `https://l2tracker.cc` (editable in the window).
+
+```bash
+chmod +x scripts/auth.sh   # once
+./scripts/auth.sh --token '<jwt>'
+./scripts/auth.sh --garbage   # must print that nothing is on disk
+./scripts/auth.sh --status
+```
+
 A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)

@@ -47,3 +47,5 @@ session.db
 session.db-wal
 session.db-shm
 *.db
+auth.bin
+api-base-url.txt

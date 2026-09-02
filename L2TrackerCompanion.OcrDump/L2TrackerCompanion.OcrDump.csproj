@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\L2TrackerCompanion.Ocr\L2TrackerCompanion.Ocr.csproj" />
     <ProjectReference Include="..\L2TrackerCompanion.Session\L2TrackerCompanion.Session.csproj" />
+    <ProjectReference Include="..\L2TrackerCompanion.Api\L2TrackerCompanion.Api.csproj" />
   </ItemGroup>
 
 </Project>
