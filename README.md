@@ -8,7 +8,7 @@ This repository is the desktop app only. The web UI and API live in [`l2-tracker
 
 | Piece | Choice |
 | :--- | :--- |
-| Runtime | .NET 8 (`net8.0-windows`) |
+| Runtime | .NET 8 (`net8.0-windows10.0.19041.0`) |
 | UI | WPF |
 | OCR | `Windows.Media.Ocr` (built into Windows) |
 | Local storage | SQLite (planned — not yet in this skeleton) |
@@ -20,12 +20,32 @@ This repository is the desktop app only. The web UI and API live in [`l2-tracker
 
 ## Local setup
 
+### Windows (PowerShell / CMD)
+
 ```bash
 dotnet build
 dotnet run --project L2TrackerCompanion
 ```
 
-A single empty window titled **L2 Tracker Companion** should open.
+### WSL (repo lives under `/home/...`, game runs on Windows)
+
+Do **not** use Linux `dotnet run` — WPF and `Windows.Graphics.Capture` need the Windows host. From the repo root:
+
+```bash
+chmod +x scripts/run.sh   # once
+./scripts/run.sh
+```
+
+That shells out to Windows `dotnet` with the project on `\\wsl.localhost\...`. Build-only from WSL works the same way:
+
+```bash
+powershell.exe -NoProfile -Command \
+  "Set-Location -LiteralPath '$(wslpath -w "$PWD")'; dotnet build L2TrackerCompanion/L2TrackerCompanion.csproj"
+```
+
+**Capture output:** `capture.png` is written to `%LOCALAPPDATA%\L2TrackerCompanion\capture.png` (e.g. `C:\Users\<you>\AppData\Local\L2TrackerCompanion\capture.png`), not beside the build output — so the path stays the same whether you launch from WSL, PowerShell, or a published `.exe`.
+
+A single window titled **L2 Tracker Companion** should open.
 
 ## Publish (later)
 

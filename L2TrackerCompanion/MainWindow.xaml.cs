@@ -22,6 +22,7 @@ public partial class MainWindow : Window
         _refreshTimer.Start();
 
         RefreshGameWindowStatus();
+        CaptureStatusLabel.Text = $"Captures save to:\n{WindowCaptureService.GetDefaultCapturePath()}";
     }
 
     private void RefreshGameWindowStatus()

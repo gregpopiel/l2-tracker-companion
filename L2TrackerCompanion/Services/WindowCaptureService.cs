@@ -13,9 +13,21 @@ public sealed class WindowCaptureService
     public const string GameProcessName = "L2.bin";
     public const string ExpectedWindowTitle = "Lineage II";
     public const string DefaultCaptureFileName = "capture.png";
+    private const string AppDataFolderName = "L2TrackerCompanion";
 
-    public static string GetDefaultCapturePath() =>
-        Path.Combine(AppContext.BaseDirectory, DefaultCaptureFileName);
+    /// <summary>
+    /// Fixed Windows profile path — not next to the exe. When the app is launched via
+    /// WSL (<c>dotnet run</c> against a \\wsl.localhost\ tree), BaseDirectory is a UNC path
+    /// that is awkward to browse and differs from where developers expect output.
+    /// </summary>
+    public static string GetDefaultCapturePath()
+    {
+        var directory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            AppDataFolderName);
+        Directory.CreateDirectory(directory);
+        return Path.Combine(directory, DefaultCaptureFileName);
+    }
 
     public GameWindowInfo? TryFindGameWindow()
     {
