@@ -240,3 +240,24 @@ public static class SessionPickers
     public static bool SaveEnabled(CharacterInfo? character, SpotInfo? spot)
         => character is not null && character.Id > 0 && spot is not null && spot.Id > 0;
 }
+
+/// <summary>
+/// Exact case-insensitive match of a minimap <c>locationHint</c> against
+/// spot <see cref="SpotInfo.Name"/> — never fuzzy, never the area label.
+/// A miss returns null so the picker can stay as it was.
+/// </summary>
+public static class SpotMatch
+{
+    public static SpotInfo? ExactName(string? locationHint, IEnumerable<SpotInfo>? spots)
+    {
+        if (string.IsNullOrWhiteSpace(locationHint) || spots is null)
+        {
+            return null;
+        }
+
+        var needle = locationHint.Trim();
+        return spots.FirstOrDefault(spot =>
+            !string.IsNullOrWhiteSpace(spot.Name)
+            && string.Equals(spot.Name.Trim(), needle, StringComparison.OrdinalIgnoreCase));
+    }
+}

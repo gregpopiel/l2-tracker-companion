@@ -8,6 +8,7 @@ set -euo pipefail
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <screenshot.png>" >&2
   echo "       $0 --new-session" >&2
+  echo "       $0 --match-hint <screenshot.png|hint>" >&2
   exit 1
 fi
 
@@ -17,6 +18,21 @@ WIN_ROOT="$(wslpath -w "$ROOT")"
 if [[ "$1" == "--new-session" ]]; then
   exec powershell.exe -NoProfile -Command \
     "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --new-session"
+fi
+
+if [[ "$1" == "--match-hint" ]]; then
+  if [[ $# -lt 2 ]]; then
+    echo "Usage: $0 --match-hint <screenshot.png|hint>" >&2
+    exit 1
+  fi
+  TARGET="$2"
+  if [[ -f "$TARGET" ]]; then
+    WIN_TARGET="$(wslpath -w "$TARGET")"
+    exec powershell.exe -NoProfile -Command \
+      "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --match-hint '$WIN_TARGET'"
+  fi
+  exec powershell.exe -NoProfile -Command \
+    "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --match-hint '$TARGET'"
 fi
 
 PNG="$1"

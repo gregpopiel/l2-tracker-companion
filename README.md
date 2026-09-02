@@ -166,6 +166,12 @@ chmod +x scripts/save.sh   # once
 ./scripts/save.sh --smoke   # posts a 1-minute 1000k-XP probe using the first character/spot
 ```
 
+**Spot preselect from hint (plan step 21):** a minimap `locationHint` exact-matches a spot **name** (case-insensitive, never fuzzy, never the area label). A hit preselects that ComboBox row; a miss leaves the current selection. Never auto-saves.
+
+```bash
+./scripts/ocr-parse.sh --match-hint /path/to/hud.png
+```
+
 Uses the stored JWT. Switching character in the window reloads spots.
 
 ## Publish (later)

@@ -223,6 +223,23 @@ public partial class MainWindow : Window
             + $"{delta.Totals.Minutes} min wall-clock.";
     }
 
+    private void ApplyLocationHint(string? hint)
+    {
+        var spots = SpotCombo.ItemsSource as IEnumerable<SpotInfo>;
+        var match = SpotMatch.ExactName(hint, spots);
+        if (match is null)
+        {
+            return;
+        }
+
+        if (SelectedSpot is not null && SelectedSpot.Id == match.Id)
+        {
+            return;
+        }
+
+        SpotCombo.SelectedItem = match;
+    }
+
     private async Task LoadSpotsAsync(CharacterInfo? character)
     {
         _spotsCts.Cancel();
@@ -281,10 +298,14 @@ public partial class MainWindow : Window
             _suppressPickerEvents = false;
         }
 
+        ApplyLocationHint(_sessionStore.Last()?.Report.LocationHint);
         RefreshSaveEnabled();
-        PickerStatusLabel.Text = call.Value.Count == 0
-            ? "No spots on this account. Add them on the website."
-            : $"{call.Value.Count} spot{(call.Value.Count == 1 ? "" : "s")} for {character.Name}. Pick one to enable Save.";
+        if (SelectedSpot is null)
+        {
+            PickerStatusLabel.Text = call.Value.Count == 0
+                ? "No spots on this account. Add them on the website."
+                : $"{call.Value.Count} spot{(call.Value.Count == 1 ? "" : "s")} for {character.Name}. Pick one to enable Save.";
+        }
     }
 
     private async Task LoadSettingsAsync()
@@ -608,6 +629,16 @@ public partial class MainWindow : Window
             }
 
             ShowLiveStatus(LiveStatus.FromReport(result.Report));
+            ApplyLocationHint(result.Report.LocationHint);
+            if (!string.IsNullOrWhiteSpace(result.Report.LocationHint))
+            {
+                var match = SpotMatch.ExactName(
+                    result.Report.LocationHint,
+                    SpotCombo.ItemsSource as IEnumerable<SpotInfo>);
+                ParseStatusLabel.Text += match is null
+                    ? $"\n\nLocation hint \"{result.Report.LocationHint}\" did not match a spot; picker unchanged."
+                    : $"\n\nPreselected {match.Label}.";
+            }
 
             if (fromPoll)
             {

@@ -128,6 +128,17 @@ if (args.Length >= 1 && string.Equals(args[0], "--save-smoke", StringComparison.
     return await RunSaveSmokeAsync();
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "--match-hint", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump --match-hint <image.png|hint>");
+        return 1;
+    }
+
+    return await RunMatchHintAsync(args[1]);
+}
+
 if (args.Length >= 1 && string.Equals(args[0], "--new-session", StringComparison.OrdinalIgnoreCase))
 {
     using var wiped = new SessionStore(SessionStore.GetDefaultPath());
@@ -186,6 +197,7 @@ if (args.Length < 1)
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --http-smoke");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --save --character-id <id> --spot-id <id>");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --save-smoke");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --match-hint <image.png|hint>");
     return 1;
 }
 
@@ -493,6 +505,67 @@ static async Task<int> RunSaveSmokeAsync()
         $"Posted farm log #{call.Value!.Id} for {character.Name} at {spot.Label} "
         + $"({delta.Totals.XpFarmed}k XP, {delta.Totals.Adena}k Adena, {delta.Totals.Minutes} min, bonus {bonus}).");
     Console.WriteLine("It should appear on the website Farm Logs tab. Delete it there if this was only a probe.");
+    return 0;
+}
+
+static async Task<int> RunMatchHintAsync(string input)
+{
+    string? hint;
+    if (File.Exists(input))
+    {
+        var parsed = await PlayReportPipeline.RunFileAsync(input, CancellationToken.None);
+        Console.WriteLine(PlayReportPipeline.FormatWindow(parsed));
+        if (!parsed.Success || parsed.Report is null)
+        {
+            return 2;
+        }
+
+        hint = parsed.Report.LocationHint;
+    }
+    else
+    {
+        hint = input;
+        Console.WriteLine($"Hint: {hint}");
+    }
+
+    if (string.IsNullOrWhiteSpace(hint))
+    {
+        Console.WriteLine("No location hint. Picker unchanged.");
+        return 0;
+    }
+
+    var auth = new AuthService(TokenStore.GetDefault());
+    var token = auth.TryLoadToken();
+    if (token is null)
+    {
+        Console.WriteLine("No stored token — cannot load spots. Matcher itself does not need the API.");
+        return 1;
+    }
+
+    var restored = await auth.TryRestoreAsync();
+    if (!restored.Success || restored.Characters.Count == 0)
+    {
+        Console.WriteLine(restored.Message);
+        return 2;
+    }
+
+    var client = TrackerApiClient.Create(auth.BaseUrl);
+    var spots = await client.GetSpotsAsync(token, restored.Characters[0].Id);
+    if (!spots.Success || spots.Value is null)
+    {
+        Console.WriteLine($"Could not load spots: {spots.Error}");
+        return 2;
+    }
+
+    var previous = spots.Value[0];
+    var match = SpotMatch.ExactName(hint, spots.Value);
+    if (match is null)
+    {
+        Console.WriteLine($"Hint \"{hint}\" did not match a spot. Picker would stay at {previous.Label}.");
+        return 0;
+    }
+
+    Console.WriteLine($"Preselected {match.Label} (id {match.Id}). Did not save.");
     return 0;
 }
 
