@@ -116,7 +116,8 @@ public sealed class WindowCaptureService
         }
 
         // PrintWindow fails with ACCESS_DENIED (Win32 error 5) on the L2.bin client.
-        // Windows.Graphics.Capture reads compositor pixels instead.
+        // Windows.Graphics.Capture targets the game HWND via the compositor and does
+        // not require the companion to be foreground — see GraphicsCaptureService remarks.
         return _graphicsCaptureService.CaptureWindow(window.Hwnd, outputPath);
     }
 

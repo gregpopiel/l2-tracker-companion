@@ -17,6 +17,16 @@ namespace L2TrackerCompanion.Capture;
 /// Captures a window via Windows.Graphics.Capture (compositor path).
 /// Lives in a non-WPF assembly so WinRT interop matches the glasscap/console pattern.
 /// </summary>
+/// <remarks>
+/// Unfocused capture: WGC reads the DWM compositor's backing texture for the target
+/// HWND, not the GDI framebuffer of whichever window currently has focus. The
+/// companion can stay behind the game (or minimized) while capturing L2.bin — only
+/// the game window needs to exist and be visible to the compositor.
+/// Verified 2026-09-02 on the developer PC: capture of HWND 0x40B3E succeeded with
+/// another app in the foreground (headless CLI, no companion window shown) and with
+/// the WPF companion behind Lineage II (manual "Capture once", ~3 MB PNG).
+/// PrintWindow (step 2) failed with ACCESS_DENIED on this client; this path replaced it.
+/// </remarks>
 public sealed class GraphicsCaptureService
 {
     private static readonly Guid DxgiDeviceGuid = new("54ec77fa-1377-44e6-8c32-88fd5f44c84c");
