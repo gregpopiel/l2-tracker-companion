@@ -133,7 +133,9 @@ Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **W
 
 **Live status (plan step 16):** a traffic light on the latest parse (not only accepted snapshots). Red = unread farm field or a lamp table that is in frame but unreadable; orange = Magic Lamp panel closed; green = farm + lamps read. Missing minimap hint does not change the colour. Updates every poll tick.
 
-**Auth (plan step 17):** paste the website JWT (`localStorage` key `l2_jwt_token`). It is stored DPAPI-encrypted (`%LOCALAPPDATA%\L2TrackerCompanion\auth.bin`, current-user scope) only after `GET /api/characters` succeeds. A rejected token is deleted, not left on disk. Default API base is `https://l2tracker.cc` (editable in the window).
+**Auth (plan step 17):** paste the website JWT (`localStorage` key `l2_jwt_token`). It is stored DPAPI-encrypted (`%LOCALAPPDATA%\L2TrackerCompanion\auth.bin`, current-user scope) only after `GET /api/characters` succeeds. A rejected token is deleted, not left on disk. Default API base is `https://l2tracker.cc` (editable in **Debug** mode).
+
+**Settings tab:** **Options** (User / Debug) and **Account** (JWT paste, sign in/out, API URL in Debug) live here, not on the Session tab. Session tells you to sign in on Settings. The window starts in **User** mode (capture dumps, parse tools, session inspect, and the API URL box are hidden). A non-default API URL still shows as a read-only `API: …` line. Switch to **Debug** to edit it. The choice is stored in `%LOCALAPPDATA%\L2TrackerCompanion\options.txt` (`user` / `debug`).
 
 ```bash
 chmod +x scripts/auth.sh   # once
@@ -144,7 +146,7 @@ chmod +x scripts/auth.sh   # once
 
 A single window titled **L2 Tracker Companion** should open.
 
-**Character + spot pickers (plan step 18):** after a valid token, the window lists characters from `GET /api/characters` and, on character change, spots from `GET /api/spots?characterId=`. Save stays disabled until both are chosen (the POST is step 20). `% Bonus` / `Minutes` prefill from `GET /api/settings` (`defaultBonus` / `defaultMinutes` only — not lamp values). Headless:
+**Character + spot pickers (plan step 18):** after a valid token, the window lists characters from `GET /api/characters` and, on character change, spots from `GET /api/spots?characterId=`. Save stays disabled until both are chosen (the POST is step 20). `% Bonus` prefills from `GET /api/settings` (`defaultBonus` only — not lamp values or `defaultMinutes`). If that GET fails, the box uses schema default 25 and shows why. Session minutes on Save are wall-clock, not a form field. Headless:
 
 ```bash
 ./scripts/auth.sh --spots
@@ -163,7 +165,6 @@ Must print `HTTP 200` and `JSON: yes` for `/api/characters` and `/api/settings`.
 ```bash
 chmod +x scripts/save.sh   # once
 ./scripts/save.sh --character-id <id> --spot-id <id> [--bonus <n>]
-./scripts/save.sh --smoke   # posts a 1-minute 1000k-XP probe using the first character/spot
 ```
 
 **Spot preselect from hint (plan step 21):** a minimap `locationHint` exact-matches a spot **name** (case-insensitive, never fuzzy, never the area label). A hit preselects that ComboBox row; a miss leaves the current selection. Never auto-saves.

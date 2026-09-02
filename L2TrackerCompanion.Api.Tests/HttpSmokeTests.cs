@@ -12,7 +12,7 @@ public class HttpSmokeTests
     {
         var inner = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("""[{"id":7,"name":"vild"}]""", Encoding.UTF8, "application/json"),
+            Content = new StringContent("""[{"id":1,"name":"TestChar"}]""", Encoding.UTF8, "application/json"),
         });
         var probe = new HttpSmokeHandler(inner);
         var client = new TrackerApiClient(new HttpClient(probe)

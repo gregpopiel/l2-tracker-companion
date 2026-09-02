@@ -97,4 +97,14 @@ public sealed class TokenStore
         ArgumentException.ThrowIfNullOrWhiteSpace(baseUrl);
         return baseUrl.Trim().TrimEnd('/');
     }
+
+    public static bool IsDefaultBaseUrl(string? baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return true;
+        }
+
+        return string.Equals(NormalizeBaseUrl(baseUrl), DefaultBaseUrl, StringComparison.OrdinalIgnoreCase);
+    }
 }

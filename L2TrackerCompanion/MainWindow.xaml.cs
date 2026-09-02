@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly WindowCaptureService _windowCaptureService = new();
     private readonly SessionStore _sessionStore = new(SessionStore.GetDefaultPath());
     private readonly AuthService _auth = new(TokenStore.GetDefault());
+    private readonly AppOptionsStore _options = AppOptionsStore.GetDefault();
     private readonly PollingLoop _polling = new();
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _pollTimer;
@@ -24,6 +25,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource _spotsCts = new();
     private int _pollTickBusy;
     private bool _suppressPickerEvents;
+    private bool _suppressModeEvents;
 
     public MainWindow()
     {
@@ -46,12 +48,102 @@ public partial class MainWindow : Window
         };
         _pollTimer.Tick += (_, _) => _ = RunPollTickAsync();
 
-        RefreshGameWindowStatus();
-        CaptureStatusLabel.Text = $"Captures save to:\n{WindowCaptureService.GetDefaultCapturePath()}";
-        ParseStatusLabel.Text = "Capture once, or parse a PNG, to read XP / Adena / play time / lamps / location.";
-        RefreshSessionStatus();
-        RefreshPollStatus("Not tracking.");
+        RefreshPollStatus(string.Empty);
         ShowLiveStatus(LiveStatus.Idle());
+        ApplyLoadedMode();
+    }
+
+    private void MainTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        // ComboBox.SelectionChanged bubbles to TabControl — ignore those.
+        if (e.Source is not System.Windows.Controls.TabControl || !IsLoaded)
+        {
+            return;
+        }
+
+        SyncModeRadiosFromStore();
+    }
+
+    private void ApplyLoadedMode()
+    {
+        SyncModeRadiosFromStore();
+        ApplyUiMode();
+    }
+
+    private void SyncModeRadiosFromStore()
+    {
+        _suppressModeEvents = true;
+        try
+        {
+            UserModeRadio.IsChecked = !_options.DebugMode;
+            DebugModeRadio.IsChecked = _options.DebugMode;
+        }
+        finally
+        {
+            _suppressModeEvents = false;
+        }
+    }
+
+    private void AppMode_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_suppressModeEvents || sender is not System.Windows.Controls.RadioButton { IsChecked: true } radio)
+        {
+            return;
+        }
+
+        var debug = radio == DebugModeRadio;
+        _suppressModeEvents = true;
+        try
+        {
+            UserModeRadio.IsChecked = !debug;
+            DebugModeRadio.IsChecked = debug;
+        }
+        finally
+        {
+            _suppressModeEvents = false;
+        }
+
+        _options.SetDebugMode(debug);
+        ApplyUiMode();
+    }
+
+    private void ApplyUiMode()
+    {
+        var debug = _options.DebugMode;
+        var debugVisibility = debug ? Visibility.Visible : Visibility.Collapsed;
+        DebugToolsPanel.Visibility = debugVisibility;
+        Title = debug ? "L2 Tracker Companion (Debug)" : "L2 Tracker Companion";
+        AuthHintLabel.Text = debug
+            ? "Paste the JWT from the website (browser localStorage key l2_jwt_token)."
+            : "Paste the token from the website.";
+
+        RefreshApiUrlHint();
+        RefreshGameWindowStatus();
+        RefreshSessionStatus();
+        if (!debug)
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(CaptureStatusLabel.Text))
+        {
+            CaptureStatusLabel.Text = $"Captures save to:\n{WindowCaptureService.GetDefaultCapturePath()}";
+        }
+
+        if (string.IsNullOrEmpty(ParseStatusLabel.Text))
+        {
+            ParseStatusLabel.Text =
+                "Capture once, or parse a PNG, to read XP / Adena / play time / lamps / location.";
+        }
+    }
+
+    private void RefreshApiUrlHint()
+    {
+        var debug = _options.DebugMode;
+        ApiUrlRow.Visibility = debug ? Visibility.Visible : Visibility.Collapsed;
+        var custom = !TokenStore.IsDefaultBaseUrl(_auth.BaseUrl);
+        CustomApiLabel.Visibility = !debug && custom ? Visibility.Visible : Visibility.Collapsed;
+        CustomApiLabel.Text = custom ? $"API: {_auth.BaseUrl}" : string.Empty;
     }
 
     private async Task RestoreAuthAsync()
@@ -59,7 +151,7 @@ public partial class MainWindow : Window
         if (!_auth.HasStoredToken)
         {
             AuthStatusLabel.Text = "Not signed in. Paste a token to continue.";
-            ClearPickers("Sign in to load characters.");
+            ClearPickers(SessionPickers.SignInToLoad);
             return;
         }
 
@@ -89,6 +181,7 @@ public partial class MainWindow : Window
         finally
         {
             UseTokenButton.IsEnabled = true;
+            RefreshApiUrlHint();
         }
     }
 
@@ -97,7 +190,7 @@ public partial class MainWindow : Window
         _auth.SignOut();
         TokenBox.Clear();
         AuthStatusLabel.Text = "Signed out. Token removed from disk.";
-        ClearPickers("Sign in to load characters.");
+        ClearPickers(SessionPickers.SignInToLoad);
     }
 
     private void ShowAuthResult(AuthResult result)
@@ -113,7 +206,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            ClearPickers("Sign in to load characters.");
+            ClearPickers(SessionPickers.SignInToLoad);
         }
     }
 
@@ -135,7 +228,6 @@ public partial class MainWindow : Window
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
             BonusBox.IsEnabled = true;
-            MinutesBox.IsEnabled = true;
             SaveButton.IsEnabled = false;
         }
         finally
@@ -167,9 +259,8 @@ public partial class MainWindow : Window
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
             BonusBox.Text = string.Empty;
-            MinutesBox.Text = string.Empty;
             BonusBox.IsEnabled = false;
-            MinutesBox.IsEnabled = false;
+            HideBonusHint();
             SaveButton.IsEnabled = false;
         }
         finally
@@ -269,7 +360,7 @@ public partial class MainWindow : Window
         var token = _auth.TryLoadToken();
         if (token is null)
         {
-            ClearPickers("Sign in to load characters.");
+            ClearPickers(SessionPickers.SignInToLoad);
             return;
         }
 
@@ -317,13 +408,31 @@ public partial class MainWindow : Window
         }
 
         var call = await Api.GetSettingsAsync(token);
-        var settings = call.Success && call.Value is not null
-            ? call.Value
-            : UserSettingsInfo.SchemaDefaults;
-        BonusBox.Text = settings.DefaultBonus.ToString(CultureInfo.InvariantCulture);
-        MinutesBox.Text = settings.DefaultMinutes.ToString(CultureInfo.InvariantCulture);
+        if (!call.Success || call.Value is null)
+        {
+            var fallback = UserSettingsInfo.SchemaDefaults.DefaultBonus;
+            BonusBox.Text = fallback.ToString(CultureInfo.InvariantCulture);
+            BonusBox.IsEnabled = true;
+            ShowBonusHint(
+                $"Could not load default bonus ({call.Error ?? "empty response"}). Using {fallback}.");
+            return;
+        }
+
+        BonusBox.Text = call.Value.DefaultBonus.ToString(CultureInfo.InvariantCulture);
         BonusBox.IsEnabled = true;
-        MinutesBox.IsEnabled = true;
+        HideBonusHint();
+    }
+
+    private void ShowBonusHint(string message)
+    {
+        BonusHintLabel.Text = message;
+        BonusHintLabel.Visibility = Visibility.Visible;
+    }
+
+    private void HideBonusHint()
+    {
+        BonusHintLabel.Text = string.Empty;
+        BonusHintLabel.Visibility = Visibility.Collapsed;
     }
 
     private async void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -346,7 +455,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!double.TryParse(BonusBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var bonus))
+        if (!BonusText.TryParse(BonusBox.Text, out var bonus))
         {
             PickerStatusLabel.Text = "Bonus must be a number (Acquired XP/SP %).";
             return;
@@ -355,7 +464,7 @@ public partial class MainWindow : Window
         var token = _auth.TryLoadToken();
         if (token is null)
         {
-            ClearPickers("Sign in to save.");
+            ClearPickers(SessionPickers.SignInToSave);
             return;
         }
 
@@ -413,12 +522,21 @@ public partial class MainWindow : Window
     private void RefreshGameWindowStatus()
     {
         var gameWindow = _windowCaptureService.TryFindGameWindow();
-        GameWindowStatusLabel.Text = gameWindow is null
-            ? $"Game not running (no {WindowCaptureService.GameProcessName} process with a visible window)."
-            : $"Found HWND 0x{gameWindow.Hwnd.ToInt64():X}\n"
-              + $"Title: {gameWindow.Title}\n"
-              + $"Size: {gameWindow.Width} x {gameWindow.Height}\n"
-              + $"PID: {gameWindow.ProcessId}";
+        if (gameWindow is null)
+        {
+            GameWindowStatusLabel.Text = _options.DebugMode
+                ? $"Game not running (no {WindowCaptureService.GameProcessName} process with a visible window)."
+                : "Game not running.";
+        }
+        else
+        {
+            GameWindowStatusLabel.Text = _options.DebugMode
+                ? $"Found HWND 0x{gameWindow.Hwnd.ToInt64():X}\n"
+                  + $"Title: {gameWindow.Title}\n"
+                  + $"Size: {gameWindow.Width} x {gameWindow.Height}\n"
+                  + $"PID: {gameWindow.ProcessId}"
+                : "Game running.";
+        }
 
         CaptureOnceButton.IsEnabled = gameWindow is not null;
         if (_polling.IsRunning && gameWindow is null)
@@ -436,9 +554,11 @@ public partial class MainWindow : Window
     private void RefreshPollStatus(string message)
     {
         var prefix = _polling.IsRunning
-            ? $"Tracking every {(int)PollingLoop.Interval.TotalSeconds}s. "
-            : "Not tracking. ";
-        PollStatusLabel.Text = prefix + message;
+            ? $"Tracking every {(int)PollingLoop.Interval.TotalSeconds}s."
+            : "Not tracking.";
+        PollStatusLabel.Text = string.IsNullOrWhiteSpace(message)
+            ? prefix
+            : prefix + " " + message;
     }
 
     private void ShowLiveStatus(LiveStatusSnapshot status)

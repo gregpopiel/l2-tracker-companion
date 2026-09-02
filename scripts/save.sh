@@ -7,17 +7,8 @@ WIN_ROOT="$(wslpath -w "$ROOT")"
 
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 --character-id <id> --spot-id <id> [--bonus <n>]" >&2
-  echo "       $0 --smoke" >&2
   exit 1
 fi
 
-case "$1" in
-  --smoke)
-    exec powershell.exe -NoProfile -Command \
-      "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --save-smoke"
-    ;;
-  *)
-    exec powershell.exe -NoProfile -Command \
-      "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --save $*"
-    ;;
-esac
+exec powershell.exe -NoProfile -Command \
+  "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --save $*"

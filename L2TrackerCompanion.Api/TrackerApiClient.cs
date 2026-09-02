@@ -207,9 +207,9 @@ public sealed record SpotInfo(int Id, string Name, int AreaId, SpotAreaInfo? Are
     }
 }
 
-public sealed record UserSettingsInfo(int DefaultBonus, int DefaultMinutes)
+public sealed record UserSettingsInfo(int DefaultBonus)
 {
-    public static UserSettingsInfo SchemaDefaults { get; } = new(25, 60);
+    public static UserSettingsInfo SchemaDefaults { get; } = new(25);
 }
 
 public sealed record FarmLogRequest(
@@ -237,6 +237,10 @@ public sealed record ApiCallResult<T>(bool Success, T? Value, string? Error)
 
 public static class SessionPickers
 {
+    public const string SignInToLoad = "Sign in on the Settings tab to load characters.";
+
+    public const string SignInToSave = "Sign in on the Settings tab to save.";
+
     public static bool SaveEnabled(CharacterInfo? character, SpotInfo? spot)
         => character is not null && character.Id > 0 && spot is not null && spot.Id > 0;
 }

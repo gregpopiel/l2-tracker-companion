@@ -123,11 +123,6 @@ if (args.Length >= 1 && string.Equals(args[0], "--save", StringComparison.Ordina
     return await RunSaveAsync(args);
 }
 
-if (args.Length >= 1 && string.Equals(args[0], "--save-smoke", StringComparison.OrdinalIgnoreCase))
-{
-    return await RunSaveSmokeAsync();
-}
-
 if (args.Length >= 1 && string.Equals(args[0], "--match-hint", StringComparison.OrdinalIgnoreCase))
 {
     if (args.Length < 2)
@@ -196,7 +191,6 @@ if (args.Length < 1)
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --spots");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --http-smoke");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --save --character-id <id> --spot-id <id>");
-    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --save-smoke");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --match-hint <image.png|hint>");
     return 1;
 }
@@ -274,11 +268,11 @@ static async Task<int> RunSpotsAsync()
     var settings = await client.GetSettingsAsync(token);
     if (!settings.Success || settings.Value is null)
     {
-        Console.WriteLine($"settings: failed — {settings.Error} (using schema defaults {UserSettingsInfo.SchemaDefaults.DefaultBonus}/{UserSettingsInfo.SchemaDefaults.DefaultMinutes})");
+        Console.WriteLine($"settings: failed — {settings.Error} (using schema default bonus {UserSettingsInfo.SchemaDefaults.DefaultBonus})");
         return 0;
     }
 
-    Console.WriteLine($"settings: defaultBonus={settings.Value.DefaultBonus} defaultMinutes={settings.Value.DefaultMinutes}");
+    Console.WriteLine($"settings: defaultBonus={settings.Value.DefaultBonus}");
     return 0;
 }
 
@@ -330,7 +324,7 @@ static async Task<int> RunHttpSmokeAsync()
         return 2;
     }
 
-    Console.WriteLine($"  defaultBonus={settings.Value!.DefaultBonus} defaultMinutes={settings.Value.DefaultMinutes}");
+    Console.WriteLine($"  defaultBonus={settings.Value!.DefaultBonus}");
     Console.WriteLine();
     Console.WriteLine("CORS/auth middleware accepted a native GET with Bearer and no Origin.");
     return 0;
@@ -356,7 +350,7 @@ static double ReadBonusFlag(string[] args)
     for (var i = 1; i < args.Length - 1; i++)
     {
         if (string.Equals(args[i], "--bonus", StringComparison.OrdinalIgnoreCase)
-            && double.TryParse(args[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var bonus))
+            && BonusText.TryParse(args[i + 1], out var bonus))
         {
             return bonus;
         }
@@ -378,30 +372,6 @@ static FarmLogRequest ToFarmLogRequest(SessionTotals totals, int characterId, in
         BlueLampXP: totals.BlueLampXP,
         GreenLampXP: totals.GreenLampXP,
         Date: totals.EndedAt);
-
-static PlayReport OpenProbe(long xp, long adena)
-    => PlayReport.From(
-        xp,
-        adena,
-        minutes: 1,
-        LampXp.Decide(
-            new Dictionary<string, long?>
-            {
-                ["red"] = 0,
-                ["purple"] = 0,
-                ["blue"] = 0,
-                ["green"] = 0,
-            },
-            new Dictionary<string, WordBox>
-            {
-                ["red"] = new("Red", 10, 80, 40, 14),
-                ["purple"] = new("Purple", 10, 118, 40, 14),
-                ["blue"] = new("Blue", 10, 156, 40, 14),
-                ["green"] = new("Green", 10, 194, 40, 14),
-            },
-            xp,
-            adena),
-        locationHint: null);
 
 static async Task<int> RunSaveAsync(string[] args)
 {
@@ -440,71 +410,6 @@ static async Task<int> RunSaveAsync(string[] args)
     store.NewSession();
     Console.WriteLine(
         $"Saved farm log #{call.Value!.Id} ({delta.Totals.XpFarmed}k XP, {delta.Totals.Adena}k Adena, {delta.Totals.Minutes} min). Local session cleared.");
-    return 0;
-}
-
-static async Task<int> RunSaveSmokeAsync()
-{
-    var auth = new AuthService(TokenStore.GetDefault());
-    if (!auth.HasStoredToken)
-    {
-        Console.WriteLine("No stored token. Sign in first: ./scripts/auth.sh --token '<jwt>'");
-        return 1;
-    }
-
-    var restored = await auth.TryRestoreAsync();
-    if (!restored.Success || restored.Characters.Count == 0)
-    {
-        Console.WriteLine(restored.Message);
-        return 2;
-    }
-
-    var token = auth.TryLoadToken();
-    if (token is null)
-    {
-        Console.WriteLine("Token missing after restore.");
-        return 2;
-    }
-
-    var client = TrackerApiClient.Create(auth.BaseUrl);
-    var character = restored.Characters[0];
-    var spots = await client.GetSpotsAsync(token, character.Id);
-    if (!spots.Success || spots.Value is null || spots.Value.Count == 0)
-    {
-        Console.WriteLine($"No spots: {spots.Error}");
-        return 2;
-    }
-
-    var spot = spots.Value[0];
-    var settings = await client.GetSettingsAsync(token);
-    var bonus = settings.Success && settings.Value is not null
-        ? settings.Value.DefaultBonus
-        : UserSettingsInfo.SchemaDefaults.DefaultBonus;
-
-    using var store = new SessionStore(":memory:");
-    var start = DateTimeOffset.UtcNow.AddMinutes(-1);
-    store.Append(OpenProbe(1_000_000, 123_000), start);
-    store.Append(OpenProbe(2_000_000, 124_000), start.AddMinutes(1));
-    var delta = store.TryDelta();
-    if (!delta.Ok || delta.Totals is null)
-    {
-        Console.WriteLine(delta.Error);
-        return 2;
-    }
-
-    var call = await client.PostFarmLogAsync(
-        token,
-        ToFarmLogRequest(delta.Totals, character.Id, spot.Id, bonus));
-    if (!call.Success)
-    {
-        Console.WriteLine($"Save smoke failed: {call.Error}");
-        return 2;
-    }
-
-    Console.WriteLine(
-        $"Posted farm log #{call.Value!.Id} for {character.Name} at {spot.Label} "
-        + $"({delta.Totals.XpFarmed}k XP, {delta.Totals.Adena}k Adena, {delta.Totals.Minutes} min, bonus {bonus}).");
-    Console.WriteLine("It should appear on the website Farm Logs tab. Delete it there if this was only a probe.");
     return 0;
 }
 

@@ -44,7 +44,7 @@ public class TrackerApiClientTests
     }
 
     [Fact]
-    public async Task GetSettingsReadsBonusAndMinutesAndIgnoresLampFields()
+    public async Task GetSettingsReadsBonusAndIgnoresLampAndMinutesFields()
     {
         HttpRequestMessage? seen = null;
         var handler = new StubHandler(request =>
@@ -62,7 +62,6 @@ public class TrackerApiClientTests
         var result = await client.GetSettingsAsync("jwt");
         Assert.True(result.Success);
         Assert.Equal(30, result.Value!.DefaultBonus);
-        Assert.Equal(90, result.Value.DefaultMinutes);
         Assert.False(seen!.Headers.Contains("Origin"));
         Assert.Equal("/api/settings", seen.RequestUri?.AbsolutePath);
     }
@@ -76,7 +75,7 @@ public class TrackerApiClientTests
         {
             seen = request;
             body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-            return Json(HttpStatusCode.OK, """{"id":99,"characterId":7,"spotId":160}""");
+            return Json(HttpStatusCode.OK, """{"id":99,"characterId":1,"spotId":10}""");
         });
         var client = new TrackerApiClient(new HttpClient(handler)
         {
@@ -86,17 +85,17 @@ public class TrackerApiClientTests
         var call = await client.PostFarmLogAsync(
             "jwt",
             new FarmLogRequest(
-                CharacterId: 7,
-                SpotId: 160,
-                XpFarmed: 13587,
-                Adena: 1000,
-                Minutes: 12,
-                AcquiredXpSp: 567,
-                RedLampXP: 1000,
+                CharacterId: 1,
+                SpotId: 10,
+                XpFarmed: 1000,
+                Adena: 100,
+                Minutes: 15,
+                AcquiredXpSp: 25,
+                RedLampXP: 200,
                 PurpleLampXP: 0,
                 BlueLampXP: 0,
                 GreenLampXP: 0,
-                Date: DateTimeOffset.Parse("2026-09-02T10:12:20Z")));
+                Date: DateTimeOffset.Parse("2026-01-01T12:00:00Z")));
 
         Assert.True(call.Success);
         Assert.Equal(99, call.Value!.Id);
@@ -105,25 +104,27 @@ public class TrackerApiClientTests
         Assert.Equal("/api/farm-logs", seen.RequestUri?.AbsolutePath);
         Assert.False(seen.Headers.Contains("Origin"));
         Assert.Equal("jwt", seen.Headers.Authorization?.Parameter);
-        Assert.Contains("\"xpFarmed\":13587", body, StringComparison.Ordinal);
-        Assert.Contains("\"redLampXP\":1000", body, StringComparison.Ordinal);
+        Assert.Contains("\"xpFarmed\":1000", body, StringComparison.Ordinal);
+        Assert.Contains("\"redLampXP\":200", body, StringComparison.Ordinal);
         Assert.Contains("\"purpleLampXP\":0", body, StringComparison.Ordinal);
         Assert.Contains("\"blueLampXP\":0", body, StringComparison.Ordinal);
         Assert.Contains("\"greenLampXP\":0", body, StringComparison.Ordinal);
-        Assert.Contains("\"acquiredXpSp\":567", body, StringComparison.Ordinal);
-        Assert.Contains("\"minutes\":12", body, StringComparison.Ordinal);
+        Assert.Contains("\"acquiredXpSp\":25", body, StringComparison.Ordinal);
+        Assert.Contains("\"minutes\":15", body, StringComparison.Ordinal);
         Assert.DoesNotContain("redLampXp\":", body, StringComparison.Ordinal);
     }
 
     [Fact]
     public void SaveIsDisabledUntilCharacterAndSpotAreChosen()
     {
-        var character = new CharacterInfo(1, "Player174", "S", 80, 0, 85);
+        var character = new CharacterInfo(1, "TestChar", "S", 80, 0, 85);
         var spot = new SpotInfo(10, "Dragon Valley (east)", 1, new SpotAreaInfo(1, "World"));
         Assert.False(SessionPickers.SaveEnabled(null, null));
         Assert.False(SessionPickers.SaveEnabled(character, null));
         Assert.False(SessionPickers.SaveEnabled(null, spot));
         Assert.True(SessionPickers.SaveEnabled(character, spot));
+        Assert.Contains("Settings", SessionPickers.SignInToLoad, StringComparison.Ordinal);
+        Assert.Contains("Settings", SessionPickers.SignInToSave, StringComparison.Ordinal);
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string json)
