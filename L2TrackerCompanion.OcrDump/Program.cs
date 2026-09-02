@@ -113,6 +113,11 @@ if (args.Length >= 1 && string.Equals(args[0], "--spots", StringComparison.Ordin
     return await RunSpotsAsync();
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "--http-smoke", StringComparison.OrdinalIgnoreCase))
+{
+    return await RunHttpSmokeAsync();
+}
+
 if (args.Length >= 1 && string.Equals(args[0], "--new-session", StringComparison.OrdinalIgnoreCase))
 {
     using var wiped = new SessionStore(SessionStore.GetDefaultPath());
@@ -168,6 +173,7 @@ if (args.Length < 1)
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --auth-garbage");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --auth-status");
     Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --spots");
+    Console.Error.WriteLine("       L2TrackerCompanion.OcrDump --http-smoke");
     return 1;
 }
 
@@ -249,6 +255,60 @@ static async Task<int> RunSpotsAsync()
     }
 
     Console.WriteLine($"settings: defaultBonus={settings.Value.DefaultBonus} defaultMinutes={settings.Value.DefaultMinutes}");
+    return 0;
+}
+
+static async Task<int> RunHttpSmokeAsync()
+{
+    var auth = new AuthService(TokenStore.GetDefault());
+    if (!auth.HasStoredToken)
+    {
+        Console.WriteLine("No stored token. Sign in first: ./scripts/auth.sh --token '<jwt>'");
+        return 1;
+    }
+
+    var token = auth.TryLoadToken();
+    if (token is null)
+    {
+        Console.WriteLine("Stored token could not be read.");
+        return 2;
+    }
+
+    var probe = new HttpSmokeHandler(new HttpClientHandler());
+    var http = new HttpClient(probe)
+    {
+        BaseAddress = new Uri(auth.BaseUrl + "/", UriKind.Absolute),
+    };
+    var client = new TrackerApiClient(http);
+
+    Console.WriteLine($"Base URL: {auth.BaseUrl}");
+    Console.WriteLine("(native HttpClient — no Origin header)");
+    Console.WriteLine();
+
+    var characters = await client.GetCharactersAsync(token);
+    Console.WriteLine(HttpSmoke.Format(probe, "GET /api/characters"));
+    if (!HttpSmoke.Passed(probe) || !characters.Success)
+    {
+        Console.WriteLine(characters.Success ? "Smoke failed." : $"Call failed: {characters.Error}");
+        return 2;
+    }
+
+    var list = characters.Value ?? [];
+    var names = list.Select(c => c.Name).ToArray();
+    Console.WriteLine($"  {list.Count} character(s): {(names.Length == 0 ? "(none)" : string.Join(", ", names))}");
+    Console.WriteLine();
+
+    var settings = await client.GetSettingsAsync(token);
+    Console.WriteLine(HttpSmoke.Format(probe, "GET /api/settings"));
+    if (!HttpSmoke.Passed(probe) || !settings.Success)
+    {
+        Console.WriteLine(settings.Success ? "Smoke failed." : $"Call failed: {settings.Error}");
+        return 2;
+    }
+
+    Console.WriteLine($"  defaultBonus={settings.Value!.DefaultBonus} defaultMinutes={settings.Value.DefaultMinutes}");
+    Console.WriteLine();
+    Console.WriteLine("CORS/auth middleware accepted a native GET with Bearer and no Origin.");
     return 0;
 }
 

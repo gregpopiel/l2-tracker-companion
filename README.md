@@ -150,6 +150,14 @@ A single window titled **L2 Tracker Companion** should open.
 ./scripts/auth.sh --spots
 ```
 
+**Native HTTP smoke (plan step 19):** `HttpClient` GET against production with `Authorization: Bearer` and **no** `Origin` header. Confirms CORS/auth middleware does not reject a desktop client. Uses the stored JWT:
+
+```bash
+./scripts/auth.sh --http-smoke
+```
+
+Must print `HTTP 200` and `JSON: yes` for `/api/characters` and `/api/settings`.
+
 Uses the stored JWT. Switching character in the window reloads spots.
 
 ## Publish (later)

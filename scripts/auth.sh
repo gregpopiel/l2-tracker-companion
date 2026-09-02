@@ -11,6 +11,7 @@ if [[ $# -lt 1 ]]; then
   echo "       $0 --garbage" >&2
   echo "       $0 --status" >&2
   echo "       $0 --spots" >&2
+  echo "       $0 --http-smoke" >&2
   exit 1
 fi
 
@@ -27,6 +28,10 @@ case "$1" in
     exec powershell.exe -NoProfile -Command \
       "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --spots"
     ;;
+  --http-smoke)
+    exec powershell.exe -NoProfile -Command \
+      "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --http-smoke"
+    ;;
   --token)
     if [[ $# -lt 2 ]]; then
       echo "Usage: $0 --token <jwt>" >&2
@@ -37,7 +42,7 @@ case "$1" in
       "Set-Location -LiteralPath '$WIN_ROOT'; dotnet run --project L2TrackerCompanion.OcrDump -- --auth '$TOKEN'"
     ;;
   *)
-    echo "Usage: $0 --token <jwt> | --garbage | --status | --spots" >&2
+    echo "Usage: $0 --token <jwt> | --garbage | --status | --spots | --http-smoke" >&2
     exit 1
     ;;
 esac
