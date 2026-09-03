@@ -84,13 +84,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Debug mode is admin-only. Not knowing yet (before sign-in resolves) is treated
-    /// the same as not being admin — the radio is disabled and any Debug mode saved
-    /// from a previous, admin session is silently dropped back to User until the
-    /// account re-proves itself an admin.
+    /// The User/Debug toggle is admin-only — a non-admin account never sees it at all,
+    /// not just a disabled Debug option, since User is the only mode it could ever pick.
+    /// Not knowing yet (before sign-in resolves) is treated the same as not being admin.
+    /// Any Debug mode saved locally from a previous, admin session is silently dropped
+    /// back to User until the account re-proves itself an admin.
     /// </summary>
     private void ApplyAdminGating()
     {
+        OptionsSection.Visibility = _isAdmin ? Visibility.Visible : Visibility.Collapsed;
         DebugModeRadio.IsEnabled = _isAdmin;
         if (!_isAdmin && _options.DebugMode)
         {
