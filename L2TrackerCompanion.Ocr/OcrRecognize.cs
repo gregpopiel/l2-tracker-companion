@@ -17,6 +17,28 @@ public static class OcrRecognize
 
     public static readonly string[] LampColorNames = ["Red", "Purple", "Blue", "Green"];
 
+    private static readonly object EngineLock = new();
+    private static OcrEngine? _sharedEngine;
+
+    /// <summary>
+    /// One engine for the whole process. A fresh one used to be built for every
+    /// parse, i.e. every 10s poll tick, even though recognition carries no state
+    /// between calls. Every pass awaits its recognitions one at a time, so a
+    /// single instance serves them all. Never disposed — OcrEngine exposes no
+    /// Close/Dispose; if a language pack is installed or removed mid-run, the
+    /// app has to be restarted to pick it up.
+    /// </summary>
+    public static OcrEngine SharedEngine
+    {
+        get
+        {
+            lock (EngineLock)
+            {
+                return _sharedEngine ??= CreateEngine();
+            }
+        }
+    }
+
     public static OcrEngine CreateEngine()
     {
         var preferred = new Language(PreferredLanguageTag);

@@ -968,6 +968,14 @@ public partial class MainWindow : Window
         _pollCts.Cancel();
         _spotsCts.Cancel();
         _updateCts.Cancel();
+
+        // Only safe to dispose here: mid-run these are replaced rather than
+        // disposed, because a tick still in flight holds the old token and
+        // registering on a disposed source throws.
+        _pollCts.Dispose();
+        _spotsCts.Dispose();
+        _updateCts.Dispose();
+
         _sessionStore.Dispose();
     }
 

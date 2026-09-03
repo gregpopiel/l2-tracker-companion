@@ -86,7 +86,7 @@ public static class DialogCropPass
         using var fullBitmap = await decoder.GetSoftwareBitmapAsync().AsTask(cancellationToken).ConfigureAwait(false);
         using var preparedFull = OcrRecognize.PrepareForOcr(fullBitmap);
 
-        var engine = OcrRecognize.CreateEngine();
+        var engine = OcrRecognize.SharedEngine;
         var fullRecognized = await engine.RecognizeAsync(preparedFull).AsTask(cancellationToken).ConfigureAwait(false);
         var fullWords = OcrRecognize.ToWords(fullRecognized);
 
