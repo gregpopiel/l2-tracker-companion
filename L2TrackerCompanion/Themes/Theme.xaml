@@ -458,12 +458,15 @@
                         <ContentPresenter />
                     </Border>
                     <ControlTemplate.Triggers>
+                        <!-- Two different things, so two different signals: the
+                             background is where the cursor is, the blue text is
+                             what is chosen. Painting both the same made them
+                             indistinguishable while arrowing through the list. -->
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource BeaconBlueBrush}" />
+                        </Trigger>
                         <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{StaticResource GlassPanelLiftedBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource GlassPanelLiftedBrush}" />
-                            <Setter Property="Foreground" Value="{StaticResource BeaconBlueBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

@@ -215,23 +215,6 @@ public class AuthServiceTests
         }
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("https://l2tracker.cc")]
-    [InlineData("https://l2tracker.cc/")]
-    [InlineData("HTTPS://L2TRACKER.CC")]
-    public void DefaultBaseUrlIsRecognized(string? url)
-    {
-        Assert.True(TokenStore.IsDefaultBaseUrl(url));
-    }
-
-    [Fact]
-    public void CustomBaseUrlIsNotDefault()
-    {
-        Assert.False(TokenStore.IsDefaultBaseUrl("http://127.0.0.1:8888"));
-    }
-
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "l2-auth-" + Guid.NewGuid().ToString("N"));

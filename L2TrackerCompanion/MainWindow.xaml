@@ -2,7 +2,6 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="L2 Tracker Companion"
-        Icon="Assets/app.ico"
         Height="920"
         Width="800"
         Background="{StaticResource TerminalBlackBrush}"
@@ -227,7 +226,7 @@
                                          Margin="20,0,0,0"
                                          Checked="AppMode_Checked" />
                         </StackPanel>
-                        <TextBlock Text="User hides capture dumps, parse tools, and session inspect. Debug shows them for troubleshooting, and reveals the API field on the sign-in screen."
+                        <TextBlock Text="User hides capture dumps, parse tools, and session inspect. Debug shows them for troubleshooting."
                                    Style="{StaticResource SubtleText}"
                                    Margin="0,0,0,28" />
                         <TextBlock Text="Account"

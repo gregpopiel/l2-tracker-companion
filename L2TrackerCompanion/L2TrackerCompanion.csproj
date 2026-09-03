@@ -14,14 +14,11 @@
          single-file bundle at runtime; without this, session.db fails to open. -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <!-- Assets/app.ico is the frontend's favicon.svg (the BrandMark arc) re-cut
-         to icon sizes; Assets/app-icon.svg is kept as its source. -->
+         to icon sizes; Assets/app-icon.svg is kept as its source. The window
+         needs no Icon of its own: with no Icon set, WPF falls back to the
+         executable's icon, which is this one. -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
-
-  <ItemGroup>
-    <!-- Also embedded as a WPF resource so Window.Icon can bind to it. -->
-    <Resource Include="Assets\app.ico" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Drawing.Common" Version="8.0.11" />
