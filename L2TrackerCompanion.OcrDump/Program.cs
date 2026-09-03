@@ -451,6 +451,7 @@ static async Task<int> RunSaveAsync(string[] args)
     }
 
     store.MarkSaved(latest.Report);
+    store.NewSession();
     Console.WriteLine(
         $"Saved farm log #{call.Value!.Id} ({gate.Totals.XpFarmed}k XP, {gate.Totals.Adena}k Adena, "
         + $"{gate.Totals.Minutes} min from the Play Report). Reset the panel in-game to start a new session.");

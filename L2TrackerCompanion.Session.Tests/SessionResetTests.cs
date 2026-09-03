@@ -168,6 +168,7 @@ public class SessionResetTests
 
         Assert.Equal(0, store.Count);
         Assert.True(store.IsSaveLocked(Report(5_100_000, 910_000, 139)));
+        Assert.False(store.IsSaveLocked(Report(120_000, 30_000, 3)));
     }
 
     [Fact]

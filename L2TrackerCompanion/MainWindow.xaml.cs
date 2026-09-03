@@ -860,7 +860,6 @@ public partial class MainWindow : Window
                 // Records the panel state this log covered, so a later frame
                 // cannot post the same minutes again.
                 _sessionStore.MarkSaved(report);
-                SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
             }
             catch (Exception ex)
             {
@@ -870,6 +869,8 @@ public partial class MainWindow : Window
             var created = ensured.Created;
             var wasTracking = _polling.IsRunning;
             _saveConfirmation.Saved();
+            ResetLocalSessionAfterSave();
+            RefreshSaveEnabled();
             PickerStatusLabel.Text =
                 $"Saved farm log #{call.Value!.Id} for {SelectedCharacter.Name} at {spot.Label}"
                 + (created ? " (new World spot)" : "")
@@ -895,6 +896,20 @@ public partial class MainWindow : Window
                 RefreshSaveEnabled();
             }
         }
+    }
+
+    /// <summary>
+    /// Drop the local reading so the window looks like a new session. The save
+    /// lock (disk + memory) stays: the in-game panel is still cumulative until
+    /// the player resets it, and a later Start must not be able to post it again.
+    /// </summary>
+    private void ResetLocalSessionAfterSave()
+    {
+        _sessionStore.NewSession();
+        _lastReport = null;
+        _lastComparison = null;
+        ShowLiveStatus(LiveStatus.Idle());
+        SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
     }
 
     /// <summary>
@@ -1371,6 +1386,14 @@ public partial class MainWindow : Window
             }
 
             ParseStatusLabel.Text = PlayReportPipeline.FormatWindow(result);
+            // Capture once / Parse last / a poll tick finishing after Save
+            // would otherwise put the live card back as if the session were
+            // still open. Debug parse text above is enough.
+            if (_saveConfirmation.IgnoreIncomingReads)
+            {
+                return;
+            }
+
             if (!result.Success || result.Report is null)
             {
                 ShowLiveStatus(LiveStatus.ParseFailed(result.ErrorMessage ?? "Parse failed"));

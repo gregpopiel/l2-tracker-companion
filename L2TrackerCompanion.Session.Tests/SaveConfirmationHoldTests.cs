@@ -30,11 +30,13 @@ public class SaveConfirmationHoldTests
 
         Assert.True(hold.Active);
         Assert.True(hold.FreezePickerStatus(saveInFlight: false));
+        Assert.True(hold.IgnoreIncomingReads);
 
         hold.Release();
 
         Assert.False(hold.Active);
         Assert.False(hold.FreezePickerStatus(saveInFlight: false));
+        Assert.False(hold.IgnoreIncomingReads);
     }
 
     [Fact]

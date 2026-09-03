@@ -16,6 +16,12 @@ public sealed class SaveConfirmationHold
     /// </summary>
     public bool FreezePickerStatus(bool saveInFlight) => saveInFlight || Active;
 
+    /// <summary>
+    /// Poll ticks, Capture once, and Parse last must not refill Live status
+    /// after a successful save — the companion session is already closed.
+    /// </summary>
+    public bool IgnoreIncomingReads => Active;
+
     public void BeginSave() => Active = false;
 
     public void Saved() => Active = true;
