@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private DateTimeOffset _lastReportAt;
     private MonotonicityOutcome? _lastComparison;
     private bool _saveInFlight;
+    private bool _isAdmin;
     private readonly GameProcessWatch _gameWatch = new();
     private long? _savedPanelMinutes;
     private long? _savedPanelXp;
@@ -79,6 +80,23 @@ public partial class MainWindow : Window
 
     private void ApplyLoadedMode()
     {
+        ApplyAdminGating();
+    }
+
+    /// <summary>
+    /// Debug mode is admin-only. Not knowing yet (before sign-in resolves) is treated
+    /// the same as not being admin — the radio is disabled and any Debug mode saved
+    /// from a previous, admin session is silently dropped back to User until the
+    /// account re-proves itself an admin.
+    /// </summary>
+    private void ApplyAdminGating()
+    {
+        DebugModeRadio.IsEnabled = _isAdmin;
+        if (!_isAdmin && _options.DebugMode)
+        {
+            _options.SetDebugMode(false);
+        }
+
         SyncModeRadiosFromStore();
         ApplyUiMode();
     }
@@ -253,6 +271,8 @@ public partial class MainWindow : Window
     {
         if (result.Success)
         {
+            _isAdmin = result.IsAdmin;
+            ApplyAdminGating();
             ShowWorkspace(result.Message);
             BindCharacters(result.Characters);
             _ = LoadSettingsAsync();
@@ -275,6 +295,10 @@ public partial class MainWindow : Window
         {
             StopTracking("Stopped: not signed in.");
         }
+
+        // Signed out (or never proven admin yet) — Debug mode is admin-only.
+        _isAdmin = false;
+        ApplyAdminGating();
 
         AuthStatusLabel.Text = status;
         AccountStatusLabel.Text = status;
