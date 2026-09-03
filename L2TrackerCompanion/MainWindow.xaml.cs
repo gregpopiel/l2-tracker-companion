@@ -784,7 +784,6 @@ public partial class MainWindow : Window
         _saveConfirmation.BeginSave();
         SaveButton.IsEnabled = false;
         PickerStatusLabel.Text = "Saving session…";
-        var saved = false;
         try
         {
             var resolve = CurrentSpotResolve();
@@ -817,7 +816,6 @@ public partial class MainWindow : Window
 
             // The log exists on the server from here on. Nothing below may put
             // the button back or throw out of this async void handler.
-            saved = true;
             SaveButton.IsEnabled = false;
 
             var created = ensured.Created;
