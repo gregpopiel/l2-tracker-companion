@@ -430,9 +430,11 @@ public partial class MainWindow : Window
             $"Ready to save {SelectedCharacter!.Name} at {SelectedSpot!.Label}: "
             + $"{totals.XpFarmed}k XP, {totals.Adena}k Adena, "
             + $"{totals.Minutes} min from the Play Report.";
+        // Separated, not stacked: this lands in the status bar, and a newline
+        // there grows the bar and pushes the content above it up.
         if (gate.Warnings.Count > 0)
         {
-            text += "\n" + string.Join("\n", gate.Warnings);
+            text += " · " + string.Join(" · ", gate.Warnings);
         }
 
         PickerStatusLabel.Text = text;
@@ -564,13 +566,13 @@ public partial class MainWindow : Window
     private void ShowBonusHint(string message)
     {
         BonusHintLabel.Text = message;
-        BonusHintLabel.Visibility = Visibility.Visible;
+        BonusHintLabelRow.Visibility = Visibility.Visible;
     }
 
     private void HideBonusHint()
     {
         BonusHintLabel.Text = string.Empty;
-        BonusHintLabel.Visibility = Visibility.Collapsed;
+        BonusHintLabelRow.Visibility = Visibility.Collapsed;
     }
 
     private async void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -774,13 +776,16 @@ public partial class MainWindow : Window
         LiveValuesLabel.Text = LiveStatus.FormatValues(status.Report);
     }
 
-    private static Brush LightBrush(TrafficLight light) => light switch
+    // Resolved from the theme rather than rebuilt from literals: these were the
+    // palette's own Confirm Green and Alarm Red spelled a second way, so a
+    // palette edit used to change every surface except this one.
+    private Brush LightBrush(TrafficLight light) => (Brush)FindResource(light switch
     {
-        TrafficLight.Green => new SolidColorBrush(Color.FromRgb(0x3F, 0xB9, 0x50)),
-        TrafficLight.Orange => new SolidColorBrush(Color.FromRgb(0xD2, 0x99, 0x22)),
-        TrafficLight.Red => new SolidColorBrush(Color.FromRgb(0xF8, 0x51, 0x49)),
-        _ => new SolidColorBrush(Color.FromRgb(0x6E, 0x76, 0x81)),
-    };
+        TrafficLight.Green => "ConfirmGreenBrush",
+        TrafficLight.Orange => "CautionAmberBrush",
+        TrafficLight.Red => "AlarmRedBrush",
+        _ => "IdleGrayBrush",
+    });
 
     private async void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
     {

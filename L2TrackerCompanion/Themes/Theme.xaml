@@ -41,8 +41,14 @@
     <SolidColorBrush x:Key="StaticGrayBrush" Color="#FF8B949E" />
     <SolidColorBrush x:Key="DimGrayBrush" Color="#FF7D848E" />
 
-    <!-- Status -->
+    <!-- Status. Caution Amber and Idle Gray are additions to the spec's palette,
+         not new accents: the live traffic light already rendered both as literals
+         in code-behind, so declaring them here is what lets every status colour
+         come from one place. The Single Signal Rule governs interactive chrome,
+         which none of these are. -->
     <SolidColorBrush x:Key="AlarmRedBrush" Color="{StaticResource AlarmRedColor}" />
+    <SolidColorBrush x:Key="CautionAmberBrush" Color="#FFD29922" />
+    <SolidColorBrush x:Key="IdleGrayBrush" Color="#FF6E7681" />
     <SolidColorBrush x:Key="AlarmRedBrightBrush" Color="#FFFF7B72" />
     <SolidColorBrush x:Key="ConfirmGreenBrush" Color="#FF3FB950" />
 
@@ -65,7 +71,6 @@
     <sys:Double x:Key="ControlHeight">24</sys:Double>
     <sys:Double x:Key="ButtonMinWidth">78</sys:Double>
     <sys:Double x:Key="FieldMaxWidth">340</sys:Double>
-    <sys:Double x:Key="FieldLabelWidth">84</sys:Double>
     <sys:Double x:Key="ContentMaxWidth">560</sys:Double>
 
     <CornerRadius x:Key="BorderRadiusBase" TopLeft="4" TopRight="4" BottomRight="4" BottomLeft="4" />
@@ -126,14 +131,6 @@
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
         <Setter Property="TextWrapping" Value="Wrap" />
-    </Style>
-
-    <!-- Section stamps: [LOGGED]-style labels, uppercase at the call site. -->
-    <Style x:Key="StampText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeLabel}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{StaticResource StaticGrayBrush}" />
     </Style>
 
     <Style x:Key="FieldLabelText" TargetType="TextBlock" BasedOn="{StaticResource SubtleText}">

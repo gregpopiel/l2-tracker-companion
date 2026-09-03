@@ -74,17 +74,20 @@
                                 Margin="14,4,14,14">
                         <HeaderedContentControl Header="Session"
                                                 Style="{StaticResource SectionGroup}">
-                            <StackPanel>
+                            <!-- Every row below shares one label column, so the
+                                 hint and the button stay aligned with the fields
+                                 without repeating a width anywhere. -->
+                            <StackPanel Grid.IsSharedSizeScope="True">
                                 <TextBlock Text="Character and spot are required. Lists come from the website — this app does not create or edit them."
                                            Style="{StaticResource SubtleText}"
                                            Margin="0,0,0,10" />
                                 <Grid Style="{StaticResource FieldRow}">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Character"
-                                               Width="{StaticResource FieldLabelWidth}"
+                                               Margin="0,0,12,0"
                                                Style="{StaticResource FieldLabelText}" />
                                     <ComboBox x:Name="CharacterCombo"
                                               Grid.Column="1"
@@ -97,11 +100,11 @@
                                 </Grid>
                                 <Grid Style="{StaticResource FieldRow}">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Spot"
-                                               Width="{StaticResource FieldLabelWidth}"
+                                               Margin="0,0,12,0"
                                                Style="{StaticResource FieldLabelText}" />
                                     <ComboBox x:Name="SpotCombo"
                                               Grid.Column="1"
@@ -116,11 +119,11 @@
                                 </Grid>
                                 <Grid Style="{StaticResource FieldRow}">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="% Bonus"
-                                               Width="{StaticResource FieldLabelWidth}"
+                                               Margin="0,0,12,0"
                                                Style="{StaticResource FieldLabelText}" />
                                     <TextBox x:Name="BonusBox"
                                              Grid.Column="1"
@@ -128,17 +131,30 @@
                                              HorizontalAlignment="Left"
                                              IsEnabled="False" />
                                 </Grid>
-                                <TextBlock x:Name="BonusHintLabel"
-                                           Text=""
-                                           Style="{StaticResource MutedText}"
-                                           Margin="84,0,0,6"
-                                           Visibility="Collapsed" />
-                                <Button x:Name="SaveButton"
-                                        Content="Save"
-                                        Style="{StaticResource PrimaryButton}"
-                                        Margin="84,4,0,0"
-                                        IsEnabled="False"
-                                        Click="SaveButton_Click" />
+                                <Grid x:Name="BonusHintLabelRow"
+                                      Style="{StaticResource FieldRow}"
+                                      Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="BonusHintLabel"
+                                               Grid.Column="1"
+                                               Text=""
+                                               Style="{StaticResource MutedText}" />
+                                </Grid>
+                                <Grid Margin="0,4,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="SaveButton"
+                                            Grid.Column="1"
+                                            Content="Save"
+                                            Style="{StaticResource PrimaryButton}"
+                                            IsEnabled="False"
+                                            Click="SaveButton_Click" />
+                                </Grid>
                             </StackPanel>
                         </HeaderedContentControl>
 
@@ -172,7 +188,7 @@
                                         <Ellipse x:Name="LiveLight"
                                                  Width="10"
                                                  Height="10"
-                                                 Fill="#FF6E7681"
+                                                 Fill="{StaticResource IdleGrayBrush}"
                                                  VerticalAlignment="Center" />
                                         <TextBlock x:Name="LiveLightLabel"
                                                    Text="Idle"
@@ -286,7 +302,11 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
+                    <!-- Capped: RefreshPollStatus can write a whole sentence (a
+                         game restart, or "Tick failed: {ex.Message}"), and an
+                         uncapped Auto column would trim the save status beside
+                         it down to an ellipsis. -->
+                    <ColumnDefinition Width="Auto" MaxWidth="260" />
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="PickerStatusLabel"
                            Text="Loading characters…"
