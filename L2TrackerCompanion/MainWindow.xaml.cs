@@ -1008,20 +1008,6 @@ public partial class MainWindow : Window
         await RunParseAsync(dialog.FileName, fromPoll: false, inspectOnly: true);
     }
 
-    private void NewSessionButton_Click(object sender, RoutedEventArgs e)
-    {
-        // Also clears the comparison baseline, which the version of this handler
-        // deleted in f05353e did not: _lastReport/_lastComparison arrived with
-        // that same commit, and leaving them behind would start the next session
-        // comparing against the previous one's last frame. The game-restart path
-        // resets exactly this set for the same reason.
-        _sessionStore.NewSession();
-        _lastReport = null;
-        _lastComparison = null;
-        ShowLiveStatus(LiveStatus.Idle());
-        RefreshSessionStatus();
-    }
-
     private async void StartStopButton_Click(object sender, RoutedEventArgs e)
     {
         if (_polling.IsRunning)

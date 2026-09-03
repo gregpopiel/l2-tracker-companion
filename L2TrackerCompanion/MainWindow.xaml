@@ -173,17 +173,10 @@
                                            Text="Checking..."
                                            Style="{StaticResource SubtleText}"
                                            Margin="0,0,0,10" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="StartStopButton"
-                                            Content="Start reading"
-                                            Style="{StaticResource PrimaryButton}"
-                                            Click="StartStopButton_Click" />
-                                    <Button x:Name="NewSessionButton"
-                                            Content="New session"
-                                            Style="{StaticResource SecondaryButton}"
-                                            Margin="8,0,0,0"
-                                            Click="NewSessionButton_Click" />
-                                </StackPanel>
+                                <Button x:Name="StartStopButton"
+                                        Content="Start reading"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Click="StartStopButton_Click" />
                             </StackPanel>
                         </HeaderedContentControl>
 
