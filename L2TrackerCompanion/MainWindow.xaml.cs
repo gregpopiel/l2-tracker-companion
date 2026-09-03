@@ -42,8 +42,6 @@ public partial class MainWindow : Window
     private AreaInfo? _worldArea;
     private bool _isAdmin;
     private readonly GameProcessWatch _gameWatch = new();
-    private long? _savedPanelMinutes;
-    private long? _savedPanelXp;
     private UpdateInfo? _pendingUpdate;
     private bool _updateCheckInFlight;
 
@@ -57,7 +55,6 @@ public partial class MainWindow : Window
         // The buffer only exists to compare one reading against the previous
         // one within a run, and anything left over from the last run is stale
         // by definition — the panel may have been reset while we were closed.
-        // The save lock is a separate table and deliberately survives this.
         _sessionStore.NewSession();
 
         _refreshTimer = new DispatcherTimer
@@ -253,8 +250,6 @@ public partial class MainWindow : Window
     {
         if (_saveInFlight)
         {
-            // The pending save still writes its lock row when it returns; wiping
-            // the store underneath it would hand that lock to the next account.
             PickerStatusLabel.Text = "A save is still in progress — try again in a moment.";
             return;
         }
@@ -273,10 +268,7 @@ public partial class MainWindow : Window
         // Unsaved snapshots belong to the account that produced them — the next
         // token pasted at the gate may be a different one. Confirmed above.
         _sessionStore.NewSession();
-        _sessionStore.ClearSaveLock();
         _saveConfirmation.Release();
-        _savedPanelMinutes = null;
-        _savedPanelXp = null;
         _lastReport = null;
         _lastComparison = null;
         ShowLiveStatus(LiveStatus.Idle());
@@ -487,28 +479,7 @@ public partial class MainWindow : Window
         => SaveGate.Evaluate(
             _lastReport,
             _lastReportAt,
-            _lastComparison,
-            _lastReport is not null && IsSaveLocked(_lastReport));
-
-    /// <summary>
-    /// The stored lock, plus an in-process copy of it.
-    /// </summary>
-    /// <remarks>
-    /// Writing the lock row can fail (a locked database) <em>after</em> the log
-    /// has already reached the server. Without the in-process copy the next
-    /// poll tick would find no lock and put Save back within ten seconds, ready
-    /// to duplicate a log that already exists.
-    /// </remarks>
-    private bool IsSaveLocked(PlayReport current)
-    {
-        if (_savedPanelMinutes is not null
-            && SaveLock.Covers(_savedPanelMinutes.Value, _savedPanelXp, current))
-        {
-            return true;
-        }
-
-        return _sessionStore.IsSaveLocked(current);
-    }
+            _lastComparison);
 
     private LocationStabilityDecision CurrentLocationStability()
         => LocationStability.Evaluate(_sessionStore.List().Select(row => row.Report.LocationHint));
@@ -849,40 +820,18 @@ public partial class MainWindow : Window
             saved = true;
             SaveButton.IsEnabled = false;
 
-            // Held in memory as well as on disk, so a failed write cannot let
-            // the next tick re-arm the button.
-            _savedPanelMinutes = report.Minutes;
-            _savedPanelXp = report.Xp;
-
-            var lockNote = string.Empty;
-            try
-            {
-                // Records the panel state this log covered, so a later frame
-                // cannot post the same minutes again.
-                _sessionStore.MarkSaved(report);
-            }
-            catch (Exception ex)
-            {
-                lockNote = $" (warning: could not record it locally — {ex.Message})";
-            }
-
             var created = ensured.Created;
             var wasTracking = _polling.IsRunning;
             _saveConfirmation.Saved();
             ResetLocalSessionAfterSave();
-            RefreshSaveEnabled();
             PickerStatusLabel.Text =
                 $"Saved farm log #{call.Value!.Id} for {SelectedCharacter.Name} at {spot.Label}"
                 + (created ? " (new World spot)" : "")
                 + $" ({totals.XpFarmed}k XP, {totals.Minutes} min). "
                 + (wasTracking
-                    ? "Tracking stopped. Reset the Play Report in-game before the next session."
-                    : "Reset the Play Report in-game before the next session.")
-                + lockNote;
+                    ? "Tracking stopped. Save again for another log, or Start reading for a later panel."
+                    : "Save again for another log, or Start reading for a later panel.");
 
-            // Another save is locked until the panel is reset, so further
-            // ticks would only repeat that reminder. The in-game report is
-            // left as-is; Start reading again after resetting it.
             if (SaveConfirmationHold.ShouldStopTracking(wasTracking, saved: true))
             {
                 StopTracking("Session saved.");
@@ -891,24 +840,17 @@ public partial class MainWindow : Window
         finally
         {
             _saveInFlight = false;
-            if (!saved)
-            {
-                RefreshSaveEnabled();
-            }
+            RefreshSaveEnabled();
         }
     }
 
     /// <summary>
-    /// Drop the local reading so the window looks like a new session. The save
-    /// lock (disk + memory) stays: the in-game panel is still cumulative until
-    /// the player resets it, and a later Start must not be able to post it again.
+    /// Drop the snapshot comparison buffer. The last Play Report reading stays
+    /// so Save can post it again without Start reading.
     /// </summary>
     private void ResetLocalSessionAfterSave()
     {
         _sessionStore.NewSession();
-        _lastReport = null;
-        _lastComparison = null;
-        ShowLiveStatus(LiveStatus.Idle());
         SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
     }
 
@@ -1147,9 +1089,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // The lock is left to SaveLock: the restarted panel reads below the
-        // saved XP, so it releases itself. Clearing it here would only add a
-        // way to lose it wrongly.
         _sessionStore.NewSession();
         _saveConfirmation.Release();
         _lastReport = null;
@@ -1284,10 +1223,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Starting a reading run means starting fresh comparisons. Safe because
-        // the buffer no longer feeds the save (one frame does) and the save lock
-        // lives in saved_logs, so this cannot unlock anything. It is also the
-        // manual way out if the baseline ever goes stale.
+        // Starting a reading run means starting fresh comparisons. The buffer
+        // no longer feeds the save (one frame does). This is also the manual
+        // way out if the baseline ever goes stale.
         _saveConfirmation.Release();
         _sessionStore.NewSession();
         _lastComparison = null;

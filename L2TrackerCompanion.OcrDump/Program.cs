@@ -138,7 +138,6 @@ if (args.Length >= 1 && string.Equals(args[0], "--new-session", StringComparison
 {
     using var wiped = new SessionStore(SessionStore.GetDefaultPath());
     wiped.NewSession();
-    wiped.ClearSaveLock();
     Console.WriteLine(SessionStore.FormatInspect(wiped.List(), wiped.Path));
     return 0;
 }
@@ -403,8 +402,7 @@ static async Task<int> RunSaveAsync(string[] args)
 
     var gate = SaveGate.Evaluate(
         latest.Report,
-        latest.CapturedAt,
-        saveLocked: store.IsSaveLocked(latest.Report));
+        latest.CapturedAt);
     if (!gate.CanSave || gate.Totals is null)
     {
         Console.WriteLine(gate.BlockReason);
@@ -450,11 +448,9 @@ static async Task<int> RunSaveAsync(string[] args)
         return 2;
     }
 
-    store.MarkSaved(latest.Report);
-    store.NewSession();
     Console.WriteLine(
         $"Saved farm log #{call.Value!.Id} ({gate.Totals.XpFarmed}k XP, {gate.Totals.Adena}k Adena, "
-        + $"{gate.Totals.Minutes} min from the Play Report). Reset the panel in-game to start a new session.");
+        + $"{gate.Totals.Minutes} min from the Play Report).");
     return 0;
 }
 

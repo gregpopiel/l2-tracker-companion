@@ -167,79 +167,11 @@ public sealed class SessionStore : IDisposable
             // The player restarted the Play Report in-game, which is how a
             // session now begins. Everything buffered belongs to the previous
             // one, so it goes rather than being compared against the new run.
-            //
-            // The save lock is deliberately left alone: SaveLock releases it on
-            // any frame whose XP is below the saved figure, which is what a real
-            // reset produces anyway. Clearing it here would add nothing except a
-            // way to lose it on a single misclassified frame.
             NewSession();
             return SnapshotAcceptResult.AfterReset(Append(report, capturedAt), decision.Reason!);
         }
 
         return SnapshotAcceptResult.Accepted(Append(report, capturedAt));
-    }
-
-    /// <summary>
-    /// Is <paramref name="current"/> still covered by something already posted?
-    /// </summary>
-    /// <remarks>
-    /// The panel is cumulative, so farming on after a save produces a
-    /// <em>different</em> frame that still contains every minute already sent —
-    /// matching on the frame's identity would wave that overlapping log through
-    /// and double-count the first stretch. So the lock is released by the panel
-    /// going <em>backwards</em> past what was saved, which is what a reset looks
-    /// like. Both play time and XP have to be below the saved figures: a lone
-    /// misread of the duration line would otherwise unlock a live session.
-    /// This reads only <c>saved_logs</c>, so wiping the buffer cannot unlock it.
-    /// </remarks>
-    public bool IsSaveLocked(PlayReport current)
-    {
-        ArgumentNullException.ThrowIfNull(current);
-        using var command = _connection.CreateCommand();
-        command.CommandText = "SELECT panel_minutes, panel_xp FROM saved_logs LIMIT 1;";
-        using var reader = command.ExecuteReader();
-        if (!reader.Read() || reader.IsDBNull(0))
-        {
-            return false;
-        }
-
-        return SaveLock.Covers(
-            reader.GetInt64(0),
-            reader.IsDBNull(1) ? null : reader.GetInt64(1),
-            current);
-    }
-
-    /// <summary>
-    /// Record a posted Play Report. Cleared along with the session on reset,
-    /// which is correct: a reset panel cannot collide with the old figures.
-    /// </summary>
-    public void MarkSaved(PlayReport report, DateTimeOffset? savedAt = null)
-    {
-        ArgumentNullException.ThrowIfNull(report);
-
-        // Exactly one row: this is the current lock, not a history. Keeping
-        // every save and reading an aggregate meant a short session after a
-        // long one never locked at all, because the older, higher figures
-        // still looked like something the new frame had gone back past.
-        // Transacted so that dying between the two statements cannot leave the
-        // table empty, which would read as "nothing was ever posted".
-        using var transaction = _connection.BeginTransaction();
-        using var command = _connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText =
-            """
-            DELETE FROM saved_logs;
-            INSERT INTO saved_logs (fingerprint, saved_at, panel_minutes, panel_xp)
-            VALUES ($fingerprint, $saved_at, $panel_minutes, $panel_xp);
-            """;
-        command.Parameters.AddWithValue("$fingerprint", SessionSnapshot.Fingerprint(report));
-        command.Parameters.AddWithValue(
-            "$saved_at",
-            (savedAt ?? DateTimeOffset.UtcNow).ToUniversalTime().ToString("o", CultureInfo.InvariantCulture));
-        BindLong(command, "$panel_minutes", report.Minutes);
-        BindLong(command, "$panel_xp", report.Xp);
-        command.ExecuteNonQuery();
-        transaction.Commit();
     }
 
     public IReadOnlyList<SnapshotRow> List()
@@ -277,10 +209,8 @@ public sealed class SessionStore : IDisposable
     }
 
     /// <summary>
-    /// Drop the comparison buffer. Deliberately leaves <c>saved_logs</c> alone:
-    /// clearing the buffer happens routinely now (in-game reset, client
-    /// restart, a stale baseline, pressing Start), and none of those may
-    /// silently re-open a session that has already been posted.
+    /// Drop the comparison buffer. Clearing happens on in-game reset, client
+    /// restart, a stale baseline, and pressing Start.
     /// </summary>
     /// <remarks>
     /// This used to delete the database file, which meant closing the
@@ -292,17 +222,6 @@ public sealed class SessionStore : IDisposable
         _consecutiveRejections = 0;
         using var command = _connection.CreateCommand();
         command.CommandText = "DELETE FROM snapshots;";
-        command.ExecuteNonQuery();
-    }
-
-    /// <summary>
-    /// Forget that anything was posted. Only sign-out does this — the lock is
-    /// otherwise released by the panel itself going backwards.
-    /// </summary>
-    public void ClearSaveLock()
-    {
-        using var command = _connection.CreateCommand();
-        command.CommandText = "DELETE FROM saved_logs;";
         command.ExecuteNonQuery();
     }
 
@@ -388,12 +307,7 @@ public sealed class SessionStore : IDisposable
                 adena_from_crop INTEGER
             );
 
-            CREATE TABLE IF NOT EXISTS saved_logs (
-                fingerprint TEXT PRIMARY KEY,
-                saved_at TEXT NOT NULL,
-                panel_minutes INTEGER,
-                panel_xp INTEGER
-            );
+            DROP TABLE IF EXISTS saved_logs;
             """;
         command.ExecuteNonQuery();
         AddMissingColumns(connection);
@@ -455,34 +369,6 @@ public sealed class SessionStore : IDisposable
 
             using var alter = connection.CreateCommand();
             alter.CommandText = $"ALTER TABLE snapshots ADD COLUMN {column} INTEGER;";
-            alter.ExecuteNonQuery();
-        }
-
-        AddMissingSavedLogColumns(connection);
-    }
-
-    private static void AddMissingSavedLogColumns(SqliteConnection connection)
-    {
-        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        using (var probe = connection.CreateCommand())
-        {
-            probe.CommandText = "PRAGMA table_info(saved_logs);";
-            using var reader = probe.ExecuteReader();
-            while (reader.Read())
-            {
-                existing.Add(reader.GetString(1));
-            }
-        }
-
-        foreach (var column in new[] { "panel_minutes", "panel_xp" })
-        {
-            if (existing.Contains(column))
-            {
-                continue;
-            }
-
-            using var alter = connection.CreateCommand();
-            alter.CommandText = $"ALTER TABLE saved_logs ADD COLUMN {column} INTEGER;";
             alter.ExecuteNonQuery();
         }
     }

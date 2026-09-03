@@ -115,18 +115,16 @@ public class SaveGateTests
     }
 
     [Fact]
-    public void ASecondSaveInTheSameSessionIsBlocked()
+    public void ALaterFrameOfTheSamePanelIsStillSavable()
     {
-        // The panel is cumulative: a later frame differs from the saved one but
-        // still covers every minute already posted, so the guard is per session
-        // (reset in-game), not per distinct frame.
+        // Duplicate POSTs are allowed: the player may want several logs from
+        // one in-game session, including the same stretch more than once.
         var laterFrame = TestReports.Open(xp: 4_390_000, minutes: 139);
 
-        var decision = SaveGate.Evaluate(laterFrame, At, saveLocked: true);
+        var decision = SaveGate.Evaluate(laterFrame, At);
 
-        Assert.False(decision.CanSave);
-        Assert.Equal(TrafficLight.Orange, decision.Light);
-        Assert.Contains("already been saved", decision.BlockReason, StringComparison.Ordinal);
+        Assert.True(decision.CanSave);
+        Assert.NotNull(decision.Totals);
     }
 
     [Fact]

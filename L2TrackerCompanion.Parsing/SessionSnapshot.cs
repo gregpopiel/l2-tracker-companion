@@ -71,22 +71,6 @@ public static class SessionSnapshot
 
         return SnapshotSaveResult.Succeed(totals);
     }
-
-    /// <summary>
-    /// Identity of the report a save consumed, so the same panel cannot be
-    /// posted twice. Raw figures, not thousands: rounding would let two
-    /// genuinely different reports collide.
-    /// </summary>
-    public static string Fingerprint(PlayReport report)
-    {
-        ArgumentNullException.ThrowIfNull(report);
-        return string.Join(
-            '|',
-            report.Xp?.ToString() ?? "-",
-            report.Adena?.ToString() ?? "-",
-            report.Minutes?.ToString() ?? "-",
-            report.LampXpTotal.ToString());
-    }
 }
 
 /// <summary>

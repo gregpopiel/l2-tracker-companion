@@ -21,7 +21,7 @@ namespace L2TrackerCompanion.Parsing;
 /// A misread hits one field, or moves fields in opposite directions, and
 /// self-corrects on the next tick; the cost of mistaking one for a reset is a
 /// dropped buffer, not a bad save, because the save is built from a single
-/// frame and its lock lives in <c>saved_logs</c>. Lamp XP is compared only
+/// frame. Lamp XP is compared only
 /// when both ticks had <c>lampXpRead</c>; a collapsed Magic Lamp panel is not
 /// a misread.
 /// </remarks>

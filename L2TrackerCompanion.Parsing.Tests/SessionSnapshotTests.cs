@@ -85,15 +85,4 @@ public class SessionSnapshotTests
         Assert.Equal(2_000, result.Totals!.XpFarmed);
         Assert.Equal(2, result.Totals.Adena);
     }
-
-    [Fact]
-    public void FingerprintChangesWithEveryFigure()
-    {
-        var baseline = SessionSnapshot.Fingerprint(TestReports.Open(xp: 100, adena: 10, minutes: 5));
-
-        Assert.Equal(baseline, SessionSnapshot.Fingerprint(TestReports.Open(xp: 100, adena: 10, minutes: 5)));
-        Assert.NotEqual(baseline, SessionSnapshot.Fingerprint(TestReports.Open(xp: 101, adena: 10, minutes: 5)));
-        Assert.NotEqual(baseline, SessionSnapshot.Fingerprint(TestReports.Open(xp: 100, adena: 11, minutes: 5)));
-        Assert.NotEqual(baseline, SessionSnapshot.Fingerprint(TestReports.Open(xp: 100, adena: 10, minutes: 6)));
-    }
 }

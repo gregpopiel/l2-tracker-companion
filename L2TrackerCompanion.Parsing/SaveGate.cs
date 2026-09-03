@@ -18,8 +18,7 @@ public static class SaveGate
     public static SaveGateDecision Evaluate(
         PlayReport? report,
         DateTimeOffset capturedAt,
-        MonotonicityOutcome? lastComparison = null,
-        bool saveLocked = false)
+        MonotonicityOutcome? lastComparison = null)
     {
         if (report is null)
         {
@@ -65,15 +64,6 @@ public static class SaveGate
         {
             var light = report.LampPanelClosed ? TrafficLight.Orange : TrafficLight.Red;
             return SaveGateDecision.Blocked(light, snapshot.Error!);
-        }
-
-        // Cumulative panel: a later frame still covers every minute already
-        // posted, so one save per reset — not one per distinct frame.
-        if (saveLocked)
-        {
-            return SaveGateDecision.Blocked(
-                TrafficLight.Orange,
-                "This Play Report has already been saved. Reset it in-game to start a new session.");
         }
 
         if (report.Confidence.XpSpliced || report.Confidence.XpDisagreed)
