@@ -101,7 +101,7 @@ public sealed class TrackerApiClient
         var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            return ApiCallResult<FarmLogResponse>.Fail(ReadMessage(text, response.StatusCode));
+            return ApiCallResult<FarmLogResponse>.Fail(ReadMessage(text, response.StatusCode), response.StatusCode);
         }
 
         try
@@ -125,7 +125,7 @@ public sealed class TrackerApiClient
         var call = await GetAsync<List<T>>(relativeUri, token, cancellationToken).ConfigureAwait(false);
         if (!call.Success)
         {
-            return ApiCallResult<IReadOnlyList<T>>.Fail(call.Error ?? "Request failed.");
+            return ApiCallResult<IReadOnlyList<T>>.Fail(call.Error ?? "Request failed.", call.Status);
         }
 
         IReadOnlyList<T> list = call.Value ?? [];
@@ -154,7 +154,7 @@ public sealed class TrackerApiClient
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            return ApiCallResult<T>.Fail(ReadMessage(body, response.StatusCode));
+            return ApiCallResult<T>.Fail(ReadMessage(body, response.StatusCode), response.StatusCode);
         }
 
         try
@@ -269,18 +269,28 @@ public sealed record FarmLogRequest(
 
 public sealed record FarmLogResponse(int Id, int CharacterId, int SpotId);
 
-public sealed record ApiCallResult<T>(bool Success, T? Value, string? Error)
+/// <summary>
+/// <see cref="Status"/> is the HTTP status of a rejected response, or null when the
+/// call never got one (transport error, DNS, timeout). Callers that decide whether a
+/// token is bad must check it: only a real 401/403 means "bad token".
+/// </summary>
+public sealed record ApiCallResult<T>(
+    bool Success,
+    T? Value,
+    string? Error,
+    System.Net.HttpStatusCode? Status = null)
 {
     public static ApiCallResult<T> Ok(T value) => new(true, value, null);
 
-    public static ApiCallResult<T> Fail(string error) => new(false, default, error);
+    public static ApiCallResult<T> Fail(string error, System.Net.HttpStatusCode? status = null)
+        => new(false, default, error, status);
 }
 
 public static class SessionPickers
 {
-    public const string SignInToLoad = "Sign in on the Settings tab to load characters.";
+    public const string SignInToLoad = "Sign in to load characters.";
 
-    public const string SignInToSave = "Sign in on the Settings tab to save.";
+    public const string SignInToSave = "Sign in to save.";
 
     public static bool SaveEnabled(CharacterInfo? character, SpotInfo? spot)
         => character is not null && character.Id > 0 && spot is not null && spot.Id > 0;

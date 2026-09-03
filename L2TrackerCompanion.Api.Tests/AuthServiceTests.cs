@@ -127,7 +127,76 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task EmptyPasteClearsStoredToken()
+    public async Task UnreachableServerKeepsStoredToken()
+    {
+        var dir = NewTempDir();
+        try
+        {
+            var store = new TokenStore(dir);
+            store.SaveToken("still.good.token");
+
+            var auth = new AuthService(store, _ => ClientThatThrows(new HttpRequestException("No such host is known.")));
+            var result = await auth.TryRestoreAsync();
+
+            Assert.False(result.Success);
+            Assert.True(store.HasToken);
+            Assert.Equal("still.good.token", store.TryLoadToken());
+            Assert.Contains("Could not reach", result.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ServerErrorKeepsStoredToken()
+    {
+        var dir = NewTempDir();
+        try
+        {
+            var store = new TokenStore(dir);
+            store.SaveToken("still.good.token");
+
+            var auth = new AuthService(store, _ => ClientThatReturns(
+                HttpStatusCode.BadGateway,
+                """{"message":"Bad gateway"}"""));
+            var result = await auth.TryRestoreAsync();
+
+            Assert.False(result.Success);
+            Assert.True(store.HasToken);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ForbiddenTokenIsClearedFromDisk()
+    {
+        var dir = NewTempDir();
+        try
+        {
+            var store = new TokenStore(dir);
+            store.SaveToken("revoked.token");
+
+            var auth = new AuthService(store, _ => ClientThatReturns(
+                HttpStatusCode.Forbidden,
+                """{"message":"Forbidden"}"""));
+            var result = await auth.TryRestoreAsync();
+
+            Assert.False(result.Success);
+            Assert.False(store.HasToken);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task EmptyPasteKeepsStoredToken()
     {
         var dir = NewTempDir();
         try
@@ -137,7 +206,8 @@ public class AuthServiceTests
             var auth = new AuthService(store, _ => throw new InvalidOperationException("must not call the API"));
             var result = await auth.SignInAsync("   ");
             Assert.False(result.Success);
-            Assert.False(store.HasToken);
+            Assert.True(store.HasToken);
+            Assert.Equal("previous", store.TryLoadToken());
         }
         finally
         {
@@ -199,6 +269,30 @@ public class AuthServiceTests
         {
             BaseAddress = new Uri("https://l2tracker.cc/"),
         });
+    }
+
+    private static TrackerApiClient ClientThatThrows(Exception exception)
+    {
+        var handler = new ThrowingHandler(exception);
+        return new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+    }
+
+    private sealed class ThrowingHandler : HttpMessageHandler
+    {
+        private readonly Exception _exception;
+
+        public ThrowingHandler(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+            => Task.FromException<HttpResponseMessage>(_exception);
     }
 
     private sealed class StubHandler : HttpMessageHandler

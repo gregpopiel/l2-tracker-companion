@@ -184,8 +184,8 @@ public class TrackerApiClientTests
         Assert.False(SessionPickers.SaveEnabled(character, null));
         Assert.False(SessionPickers.SaveEnabled(null, spot));
         Assert.True(SessionPickers.SaveEnabled(character, spot));
-        Assert.Contains("Settings", SessionPickers.SignInToLoad, StringComparison.Ordinal);
-        Assert.Contains("Settings", SessionPickers.SignInToSave, StringComparison.Ordinal);
+        Assert.Contains("Sign in", SessionPickers.SignInToLoad, StringComparison.Ordinal);
+        Assert.Contains("Sign in", SessionPickers.SignInToSave, StringComparison.Ordinal);
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string json)

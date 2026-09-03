@@ -79,6 +79,8 @@ public partial class MainWindow : Window
         {
             UserModeRadio.IsChecked = !_options.DebugMode;
             DebugModeRadio.IsChecked = _options.DebugMode;
+            LoginUserModeRadio.IsChecked = !_options.DebugMode;
+            LoginDebugModeRadio.IsChecked = _options.DebugMode;
         }
         finally
         {
@@ -93,12 +95,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        var debug = radio == DebugModeRadio;
+        var debug = radio == DebugModeRadio || radio == LoginDebugModeRadio;
         _suppressModeEvents = true;
         try
         {
             UserModeRadio.IsChecked = !debug;
             DebugModeRadio.IsChecked = debug;
+            LoginUserModeRadio.IsChecked = !debug;
+            LoginDebugModeRadio.IsChecked = debug;
         }
         finally
         {
@@ -154,19 +158,42 @@ public partial class MainWindow : Window
     {
         if (!_auth.HasStoredToken)
         {
-            AuthStatusLabel.Text = "Not signed in. Paste a token to continue.";
-            ClearPickers(SessionPickers.SignInToLoad);
+            ShowLogin("Not signed in. Paste a token to continue.");
             return;
         }
 
-        AuthStatusLabel.Text = "Checking stored token…";
-        var result = await _auth.TryRestoreAsync();
-        ShowAuthResult(result);
+        // The form stays hidden for the round-trip: the stored token is being checked,
+        // so inviting a paste (and losing it to the result below) would be a trap.
+        ShowLogin("Checking stored token…", checking: true);
+        SignInButton.IsEnabled = false;
+        RetryButton.IsEnabled = false;
+        try
+        {
+            var result = await _auth.TryRestoreAsync();
+            ShowAuthResult(result);
+        }
+        finally
+        {
+            SignInButton.IsEnabled = true;
+            RetryButton.IsEnabled = true;
+            GateForm.Visibility = Visibility.Visible;
+        }
     }
 
-    private async void UseTokenButton_Click(object sender, RoutedEventArgs e)
+    private void RetryButton_Click(object sender, RoutedEventArgs e) => _ = RestoreAuthAsync();
+
+    private void TokenBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        UseTokenButton.IsEnabled = false;
+        if (e.Key == System.Windows.Input.Key.Enter && SignInButton.IsEnabled)
+        {
+            e.Handled = true;
+            SignInButton_Click(SignInButton, new RoutedEventArgs());
+        }
+    }
+
+    private async void SignInButton_Click(object sender, RoutedEventArgs e)
+    {
+        SignInButton.IsEnabled = false;
         AuthStatusLabel.Text = "Validating token…";
         try
         {
@@ -184,36 +211,88 @@ public partial class MainWindow : Window
         }
         finally
         {
-            UseTokenButton.IsEnabled = true;
+            SignInButton.IsEnabled = true;
             RefreshApiUrlHint();
         }
     }
 
     private void SignOutButton_Click(object sender, RoutedEventArgs e)
     {
+        var delta = _sessionStore.TryDelta();
+        if (delta.Ok && delta.Totals is not null && !ConfirmDiscardSession(delta.Totals))
+        {
+            return;
+        }
+
         _auth.SignOut();
         TokenBox.Clear();
-        AuthStatusLabel.Text = "Signed out. Token removed from disk.";
         ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
         ClearPickers(SessionPickers.SignInToLoad);
+
+        // Unsaved snapshots belong to the account that produced them — the next
+        // token pasted at the gate may be a different one. Confirmed above.
+        _sessionStore.NewSession();
+        ShowLiveStatus(LiveStatus.Idle());
+        RefreshSessionStatus();
+        ShowLogin("Signed out. Token removed from disk. Local session cleared.");
     }
+
+    private bool ConfirmDiscardSession(SessionTotals totals)
+        => MessageBox.Show(
+            this,
+            $"This session has {totals.XpFarmed}k XP, {totals.Adena}k Adena and {totals.Minutes} min "
+            + "that have not been saved yet. Signing out discards them for good.\n\nSign out anyway?",
+            "Unsaved session",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No) == MessageBoxResult.Yes;
 
     private void ShowAuthResult(AuthResult result)
     {
-        AuthStatusLabel.Text = result.Success
-            ? result.Message
-            : $"Not signed in. {result.Message}";
-
         if (result.Success)
         {
+            ShowWorkspace(result.Message);
             BindCharacters(result.Characters);
             _ = LoadSettingsAsync();
+            return;
         }
-        else
+
+        ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
+        ClearPickers(SessionPickers.SignInToLoad);
+        ShowLogin($"Not signed in. {result.Message}");
+    }
+
+    /// <summary>
+    /// Sign-in gate: nothing but the token form is reachable until the JWT validates.
+    /// </summary>
+    private void ShowLogin(string status, bool checking = false)
+    {
+        // Stop tracking here, not at each caller: the gate hides the Stop button,
+        // so a loop left running could not be stopped without signing back in.
+        if (_polling.IsRunning)
         {
-            ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
-            ClearPickers(SessionPickers.SignInToLoad);
+            StopTracking("Stopped: not signed in.");
         }
+
+        AuthStatusLabel.Text = status;
+        AccountStatusLabel.Text = status;
+        GateForm.Visibility = checking ? Visibility.Collapsed : Visibility.Visible;
+        RetryButton.Visibility = _auth.HasStoredToken ? Visibility.Visible : Visibility.Collapsed;
+        MainTabs.Visibility = Visibility.Collapsed;
+        LoginView.Visibility = Visibility.Visible;
+        if (!checking)
+        {
+            TokenBox.Focus();
+        }
+    }
+
+    private void ShowWorkspace(string status)
+    {
+        AuthStatusLabel.Text = status;
+        AccountStatusLabel.Text = status;
+        LoginView.Visibility = Visibility.Collapsed;
+        MainTabs.Visibility = Visibility.Visible;
+        MainTabs.SelectedIndex = 0;
     }
 
     private CharacterInfo? SelectedCharacter => CharacterCombo.SelectedItem as CharacterInfo;
@@ -367,6 +446,7 @@ public partial class MainWindow : Window
         if (token is null)
         {
             ClearPickers(SessionPickers.SignInToLoad);
+            ShowLogin("Session expired. Paste a token to continue.");
             return;
         }
 
@@ -484,6 +564,7 @@ public partial class MainWindow : Window
         if (token is null)
         {
             ClearPickers(SessionPickers.SignInToSave);
+            ShowLogin("Session expired. Paste a token to continue.");
             return;
         }
 

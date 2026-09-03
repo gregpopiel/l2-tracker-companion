@@ -4,267 +4,322 @@
         Title="L2 Tracker Companion"
         Height="920"
         Width="800">
-    <TabControl x:Name="MainTabs"
-                Margin="12"
-                Padding="8"
-                SelectionChanged="MainTabs_SelectionChanged">
-        <TabItem Header="Session">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel VerticalAlignment="Top" Margin="4">
-                    <TextBlock Text="Session"
-                               FontSize="16"
+    <Grid>
+        <!-- Sign-in gate: the only view until GET /api/me + /api/characters accept the token. -->
+        <ScrollViewer x:Name="LoginView"
+                      VerticalScrollBarVisibility="Auto">
+            <Border MaxWidth="440"
+                    Margin="24,48,24,24"
+                    Padding="24"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Center"
+                    BorderThickness="1"
+                    BorderBrush="#30363d"
+                    Background="#161b22">
+                <StackPanel>
+                    <TextBlock Text="L2 Tracker Companion"
+                               FontSize="18"
                                FontWeight="SemiBold"
+                               Foreground="#e6edf3"
                                Margin="0,0,0,8" />
-                    <TextBlock Text="Character and spot are required. Lists come from the website — this app does not create or edit them."
-                               TextWrapping="Wrap"
-                               FontSize="13"
-                               Margin="0,0,0,8" />
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="80" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Character"
-                                   VerticalAlignment="Center" />
-                        <ComboBox x:Name="CharacterCombo"
-                                  Grid.Column="1"
-                                  DisplayMemberPath="Name"
-                                  IsEnabled="False"
-                                  Padding="6,4"
-                                  SelectionChanged="CharacterCombo_SelectionChanged" />
-                    </Grid>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="80" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Spot"
-                                   VerticalAlignment="Center" />
-                        <ComboBox x:Name="SpotCombo"
-                                  Grid.Column="1"
-                                  DisplayMemberPath="Label"
-                                  IsEnabled="False"
-                                  Padding="6,4"
-                                  IsEditable="False"
-                                  IsTextSearchEnabled="True"
-                                  SelectionChanged="SpotCombo_SelectionChanged" />
-                    </Grid>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="80" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="% Bonus"
-                                   VerticalAlignment="Center" />
-                        <TextBox x:Name="BonusBox"
-                                 Grid.Column="1"
-                                 Padding="6,4"
-                                 IsEnabled="False" />
-                    </Grid>
-                    <TextBlock x:Name="BonusHintLabel"
-                               Text=""
-                               TextWrapping="Wrap"
-                               FontSize="13"
-                               Foreground="#8b949e"
-                               Margin="80,0,0,8"
-                               Visibility="Collapsed" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button x:Name="SaveButton"
-                                Content="Save"
-                                Padding="12,6"
-                                IsEnabled="False"
-                                Click="SaveButton_Click" />
-                        <TextBlock x:Name="PickerStatusLabel"
-                                   Text="Sign in on the Settings tab to load characters."
+                    <StackPanel x:Name="GateForm">
+                        <TextBlock x:Name="AuthHintLabel"
+                                   Text="Paste the token from the website."
                                    TextWrapping="Wrap"
-                                   VerticalAlignment="Center"
-                                   FontFamily="Consolas"
                                    FontSize="13"
-                                   Margin="12,0,0,0" />
-                    </StackPanel>
-                    <TextBlock Text="Game window"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,8" />
-                    <TextBlock x:Name="GameWindowStatusLabel"
-                               Text="Checking..."
-                               TextWrapping="Wrap"
-                               FontFamily="Consolas"
-                               FontSize="13"
-                               Margin="0,0,0,16" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
-                        <Button x:Name="StartStopButton"
-                                Content="Start tracking"
-                                Padding="12,6"
-                                Click="StartStopButton_Click" />
-                        <Button x:Name="NewSessionButton"
-                                Content="New session"
-                                Padding="12,6"
-                                Margin="8,0,0,0"
-                                Click="NewSessionButton_Click" />
-                        <TextBlock x:Name="PollStatusLabel"
-                                   Text="Not tracking."
-                                   TextWrapping="Wrap"
-                                   VerticalAlignment="Center"
-                                   FontFamily="Consolas"
-                                   FontSize="13"
-                                   Margin="12,0,0,0" />
-                    </StackPanel>
-                    <Border x:Name="LiveStatusBorder"
-                            Margin="0,16,0,0"
-                            Padding="12"
-                            BorderThickness="1"
-                            BorderBrush="#30363d"
-                            Background="#161b22">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <Ellipse x:Name="LiveLight"
-                                         Width="16"
-                                         Height="16"
-                                         Fill="#6e7681"
-                                         VerticalAlignment="Center" />
-                                <TextBlock x:Name="LiveLightLabel"
-                                           Text="Idle"
-                                           Foreground="#e6edf3"
-                                           FontWeight="SemiBold"
-                                           FontSize="16"
-                                           Margin="8,0,0,0"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                            <TextBlock x:Name="LiveDetailLabel"
-                                       Text="No snapshot yet."
-                                       Foreground="#8b949e"
-                                       TextWrapping="Wrap"
-                                       FontSize="13"
-                                       Margin="0,0,0,8" />
-                            <TextBlock x:Name="LiveRatesLabel"
-                                       Text=""
-                                       Foreground="#e6edf3"
-                                       TextWrapping="Wrap"
-                                       FontFamily="Consolas"
-                                       FontSize="16"
-                                       FontWeight="SemiBold"
-                                       Margin="0,0,0,8" />
-                            <TextBlock x:Name="LiveValuesLabel"
-                                       Text=""
-                                       Foreground="#c9d1d9"
-                                       TextWrapping="Wrap"
-                                       FontFamily="Consolas"
-                                       FontSize="13" />
+                                   Foreground="#c9d1d9"
+                                   Margin="0,0,0,16" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <RadioButton x:Name="LoginUserModeRadio"
+                                         Content="User"
+                                         Foreground="#c9d1d9"
+                                         VerticalAlignment="Center"
+                                         Checked="AppMode_Checked" />
+                            <RadioButton x:Name="LoginDebugModeRadio"
+                                         Content="Debug"
+                                         Foreground="#c9d1d9"
+                                         VerticalAlignment="Center"
+                                         Margin="16,0,0,0"
+                                         Checked="AppMode_Checked" />
                         </StackPanel>
-                    </Border>
-                    <StackPanel x:Name="DebugToolsPanel"
-                                Visibility="Collapsed">
-                        <Button x:Name="CaptureOnceButton"
-                                Content="Capture once"
-                                Padding="12,6"
-                                HorizontalAlignment="Left"
-                                Margin="0,16,0,0"
-                                Click="CaptureOnceButton_Click" />
-                        <TextBlock x:Name="CaptureStatusLabel"
+                        <Grid x:Name="ApiUrlRow"
+                              Margin="0,0,0,8"
+                              Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="API"
+                                       Foreground="#c9d1d9"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0" />
+                            <TextBox x:Name="BaseUrlBox"
+                                     Grid.Column="1"
+                                     Padding="6,4" />
+                        </Grid>
+                        <TextBlock x:Name="CustomApiLabel"
                                    Text=""
                                    TextWrapping="Wrap"
-                                   FontFamily="Consolas"
                                    FontSize="13"
-                                   Margin="0,12,0,16" />
-                        <StackPanel Orientation="Horizontal">
-                            <Button x:Name="ParseLastButton"
-                                    Content="Parse last capture"
+                                   Foreground="#8b949e"
+                                   Margin="0,0,0,8"
+                                   Visibility="Collapsed" />
+                        <PasswordBox x:Name="TokenBox"
+                                     Padding="6,4"
+                                     Margin="0,0,0,8"
+                                     KeyDown="TokenBox_KeyDown" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button x:Name="SignInButton"
+                                    Content="Sign in"
                                     Padding="12,6"
-                                    Click="ParseLastButton_Click" />
-                            <Button x:Name="ParsePngButton"
-                                    Content="Parse a PNG..."
+                                    Click="SignInButton_Click" />
+                            <Button x:Name="RetryButton"
+                                    Content="Retry with stored token"
                                     Padding="12,6"
                                     Margin="8,0,0,0"
-                                    Click="ParsePngButton_Click" />
+                                    Visibility="Collapsed"
+                                    Click="RetryButton_Click" />
                         </StackPanel>
-                        <TextBlock x:Name="ParseStatusLabel"
-                                   Text=""
-                                   TextWrapping="Wrap"
-                                   FontFamily="Consolas"
-                                   FontSize="13"
-                                   Margin="0,12,0,12" />
-                        <TextBlock x:Name="SessionStatusLabel"
-                                   Text=""
-                                   TextWrapping="Wrap"
-                                   FontFamily="Consolas"
-                                   FontSize="13" />
-                    </StackPanel>
-                </StackPanel>
-            </ScrollViewer>
-        </TabItem>
-        <TabItem Header="Settings">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel VerticalAlignment="Top" Margin="4">
-                    <TextBlock Text="Options"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,8" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <RadioButton x:Name="UserModeRadio"
-                                     Content="User"
-                                     VerticalAlignment="Center"
-                                     Checked="AppMode_Checked" />
-                        <RadioButton x:Name="DebugModeRadio"
-                                     Content="Debug"
-                                     VerticalAlignment="Center"
-                                     Margin="16,0,0,0"
-                                     Checked="AppMode_Checked" />
-                    </StackPanel>
-                    <TextBlock Text="User hides capture dumps, parse tools, and session inspect. Debug shows them for troubleshooting."
-                               TextWrapping="Wrap"
-                               FontSize="13"
-                               Margin="0,0,0,16" />
-                    <TextBlock Text="Account"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,8" />
-                    <TextBlock x:Name="AuthHintLabel"
-                               Text="Paste the token from the website."
-                               TextWrapping="Wrap"
-                               FontSize="13"
-                               Margin="0,0,0,8" />
-                    <Grid x:Name="ApiUrlRow"
-                          Margin="0,0,0,8"
-                          Visibility="Collapsed">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="API"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0" />
-                        <TextBox x:Name="BaseUrlBox"
-                                 Grid.Column="1"
-                                 Padding="6,4" />
-                    </Grid>
-                    <TextBlock x:Name="CustomApiLabel"
-                               Text=""
-                               TextWrapping="Wrap"
-                               FontSize="13"
-                               Margin="0,0,0,8"
-                               Visibility="Collapsed" />
-                    <PasswordBox x:Name="TokenBox"
-                                 Padding="6,4"
-                                 Margin="0,0,0,8" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button x:Name="UseTokenButton"
-                                Content="Use token"
-                                Padding="12,6"
-                                Click="UseTokenButton_Click" />
-                        <Button x:Name="SignOutButton"
-                                Content="Sign out"
-                                Padding="12,6"
-                                Margin="8,0,0,0"
-                                Click="SignOutButton_Click" />
                     </StackPanel>
                     <TextBlock x:Name="AuthStatusLabel"
                                Text="Not signed in."
                                TextWrapping="Wrap"
                                FontFamily="Consolas"
-                               FontSize="13" />
+                               FontSize="13"
+                               Foreground="#c9d1d9" />
                 </StackPanel>
-            </ScrollViewer>
-        </TabItem>
-    </TabControl>
+            </Border>
+        </ScrollViewer>
+        <TabControl x:Name="MainTabs"
+                    Margin="12"
+                    Padding="8"
+                    Visibility="Collapsed"
+                    SelectionChanged="MainTabs_SelectionChanged">
+            <TabItem Header="Session">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel VerticalAlignment="Top" Margin="4">
+                        <TextBlock Text="Session"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="Character and spot are required. Lists come from the website — this app does not create or edit them."
+                                   TextWrapping="Wrap"
+                                   FontSize="13"
+                                   Margin="0,0,0,8" />
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Character"
+                                       VerticalAlignment="Center" />
+                            <ComboBox x:Name="CharacterCombo"
+                                      Grid.Column="1"
+                                      DisplayMemberPath="Name"
+                                      IsEnabled="False"
+                                      Padding="6,4"
+                                      SelectionChanged="CharacterCombo_SelectionChanged" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Spot"
+                                       VerticalAlignment="Center" />
+                            <ComboBox x:Name="SpotCombo"
+                                      Grid.Column="1"
+                                      DisplayMemberPath="Label"
+                                      IsEnabled="False"
+                                      Padding="6,4"
+                                      IsEditable="False"
+                                      IsTextSearchEnabled="True"
+                                      SelectionChanged="SpotCombo_SelectionChanged" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="% Bonus"
+                                       VerticalAlignment="Center" />
+                            <TextBox x:Name="BonusBox"
+                                     Grid.Column="1"
+                                     Padding="6,4"
+                                     IsEnabled="False" />
+                        </Grid>
+                        <TextBlock x:Name="BonusHintLabel"
+                                   Text=""
+                                   TextWrapping="Wrap"
+                                   FontSize="13"
+                                   Foreground="#8b949e"
+                                   Margin="80,0,0,8"
+                                   Visibility="Collapsed" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button x:Name="SaveButton"
+                                    Content="Save"
+                                    Padding="12,6"
+                                    IsEnabled="False"
+                                    Click="SaveButton_Click" />
+                            <TextBlock x:Name="PickerStatusLabel"
+                                       Text="Loading characters…"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"
+                                       FontFamily="Consolas"
+                                       FontSize="13"
+                                       Margin="12,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Text="Game window"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8" />
+                        <TextBlock x:Name="GameWindowStatusLabel"
+                                   Text="Checking..."
+                                   TextWrapping="Wrap"
+                                   FontFamily="Consolas"
+                                   FontSize="13"
+                                   Margin="0,0,0,16" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                            <Button x:Name="StartStopButton"
+                                    Content="Start tracking"
+                                    Padding="12,6"
+                                    Click="StartStopButton_Click" />
+                            <Button x:Name="NewSessionButton"
+                                    Content="New session"
+                                    Padding="12,6"
+                                    Margin="8,0,0,0"
+                                    Click="NewSessionButton_Click" />
+                            <TextBlock x:Name="PollStatusLabel"
+                                       Text="Not tracking."
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"
+                                       FontFamily="Consolas"
+                                       FontSize="13"
+                                       Margin="12,0,0,0" />
+                        </StackPanel>
+                        <Border x:Name="LiveStatusBorder"
+                                Margin="0,16,0,0"
+                                Padding="12"
+                                BorderThickness="1"
+                                BorderBrush="#30363d"
+                                Background="#161b22">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Ellipse x:Name="LiveLight"
+                                             Width="16"
+                                             Height="16"
+                                             Fill="#6e7681"
+                                             VerticalAlignment="Center" />
+                                    <TextBlock x:Name="LiveLightLabel"
+                                               Text="Idle"
+                                               Foreground="#e6edf3"
+                                               FontWeight="SemiBold"
+                                               FontSize="16"
+                                               Margin="8,0,0,0"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock x:Name="LiveDetailLabel"
+                                           Text="No snapshot yet."
+                                           Foreground="#8b949e"
+                                           TextWrapping="Wrap"
+                                           FontSize="13"
+                                           Margin="0,0,0,8" />
+                                <TextBlock x:Name="LiveRatesLabel"
+                                           Text=""
+                                           Foreground="#e6edf3"
+                                           TextWrapping="Wrap"
+                                           FontFamily="Consolas"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,8" />
+                                <TextBlock x:Name="LiveValuesLabel"
+                                           Text=""
+                                           Foreground="#c9d1d9"
+                                           TextWrapping="Wrap"
+                                           FontFamily="Consolas"
+                                           FontSize="13" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel x:Name="DebugToolsPanel"
+                                    Visibility="Collapsed">
+                            <Button x:Name="CaptureOnceButton"
+                                    Content="Capture once"
+                                    Padding="12,6"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,16,0,0"
+                                    Click="CaptureOnceButton_Click" />
+                            <TextBlock x:Name="CaptureStatusLabel"
+                                       Text=""
+                                       TextWrapping="Wrap"
+                                       FontFamily="Consolas"
+                                       FontSize="13"
+                                       Margin="0,12,0,16" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="ParseLastButton"
+                                        Content="Parse last capture"
+                                        Padding="12,6"
+                                        Click="ParseLastButton_Click" />
+                                <Button x:Name="ParsePngButton"
+                                        Content="Parse a PNG..."
+                                        Padding="12,6"
+                                        Margin="8,0,0,0"
+                                        Click="ParsePngButton_Click" />
+                            </StackPanel>
+                            <TextBlock x:Name="ParseStatusLabel"
+                                       Text=""
+                                       TextWrapping="Wrap"
+                                       FontFamily="Consolas"
+                                       FontSize="13"
+                                       Margin="0,12,0,12" />
+                            <TextBlock x:Name="SessionStatusLabel"
+                                       Text=""
+                                       TextWrapping="Wrap"
+                                       FontFamily="Consolas"
+                                       FontSize="13" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Settings">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel VerticalAlignment="Top" Margin="4">
+                        <TextBlock Text="Options"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <RadioButton x:Name="UserModeRadio"
+                                         Content="User"
+                                         VerticalAlignment="Center"
+                                         Checked="AppMode_Checked" />
+                            <RadioButton x:Name="DebugModeRadio"
+                                         Content="Debug"
+                                         VerticalAlignment="Center"
+                                         Margin="16,0,0,0"
+                                         Checked="AppMode_Checked" />
+                        </StackPanel>
+                        <TextBlock Text="User hides capture dumps, parse tools, and session inspect. Debug shows them for troubleshooting."
+                                   TextWrapping="Wrap"
+                                   FontSize="13"
+                                   Margin="0,0,0,16" />
+                        <TextBlock Text="Account"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8" />
+                        <TextBlock x:Name="AccountStatusLabel"
+                                   Text=""
+                                   TextWrapping="Wrap"
+                                   FontFamily="Consolas"
+                                   FontSize="13"
+                                   Margin="0,0,0,8" />
+                        <Button x:Name="SignOutButton"
+                                Content="Sign out"
+                                Padding="12,6"
+                                HorizontalAlignment="Left"
+                                Click="SignOutButton_Click" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
 </Window>
