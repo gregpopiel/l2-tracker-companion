@@ -69,6 +69,30 @@ public class AuthServiceTests
             Assert.Equal("real.jwt.value", store.TryLoadToken());
             Assert.Equal("TestChar", result.Characters.Single().Name);
             Assert.Contains("TestChar", result.Message, StringComparison.Ordinal);
+            Assert.False(result.IsAdmin);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AdminFlagFromMeIsCarriedOntoTheResult()
+    {
+        var dir = NewTempDir();
+        try
+        {
+            var store = new TokenStore(dir);
+            var auth = new AuthService(store, _ => ClientThatReturns(
+                HttpStatusCode.OK,
+                """[{"id":1,"name":"TestChar","characterClass":"S","level":80,"percentage":12.5,"targetLevel":85}]""",
+                MeAdminJson));
+
+            var result = await auth.SignInAsync("real.jwt.value");
+
+            Assert.True(result.Success);
+            Assert.True(result.IsAdmin);
         }
         finally
         {
@@ -227,6 +251,9 @@ public class AuthServiceTests
 
     private const string MeDesktopDisabledJson =
         """{"id":"u1","username":"Tester","avatar":null,"isAdmin":false,"desktopAppEnabled":false}""";
+
+    private const string MeAdminJson =
+        """{"id":"u1","username":"Tester","avatar":null,"isAdmin":true,"desktopAppEnabled":true}""";
 
     /// <summary>
     /// <c>ValidateAndStoreAsync</c> calls <c>/api/me</c> before <c>/api/characters</c>, so the
