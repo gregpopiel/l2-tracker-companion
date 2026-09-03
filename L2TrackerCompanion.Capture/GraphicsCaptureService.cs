@@ -101,6 +101,16 @@ public sealed class GraphicsCaptureService
                 size);
 
             using var session = framePool.CreateCaptureSession(item);
+
+            // Windows draws a yellow "capture border" around the captured window by
+            // default (Win11 22H2+). IsBorderRequired lets us suppress it, but it's
+            // only present on newer builds, so guard with an ApiInformation check.
+            if (Windows.Foundation.Metadata.ApiInformation.IsPropertyPresent(
+                    "Windows.Graphics.Capture.GraphicsCaptureSession", "IsBorderRequired"))
+            {
+                session.IsBorderRequired = false;
+            }
+
             var frameReady = new ManualResetEventSlim(false);
             Direct3D11CaptureFrame capturedFrame = null;
 
