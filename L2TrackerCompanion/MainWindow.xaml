@@ -198,16 +198,12 @@
                                                  Height="10"
                                                  Fill="{StaticResource IdleGrayBrush}"
                                                  VerticalAlignment="Center" />
-                                        <TextBlock x:Name="LiveLightLabel"
-                                                   Text="Idle"
+                                        <TextBlock x:Name="LiveDetailLabel"
+                                                   Text="No snapshot yet."
                                                    Style="{StaticResource TitleText}"
                                                    Margin="8,0,0,0"
                                                    VerticalAlignment="Center" />
                                     </StackPanel>
-                                    <TextBlock x:Name="LiveDetailLabel"
-                                               Text="No snapshot yet."
-                                               Style="{StaticResource SubtleText}"
-                                               Margin="0,0,0,8" />
                                     <TextBlock x:Name="LiveRatesLabel"
                                                Text=""
                                                Style="{StaticResource TitleText}"

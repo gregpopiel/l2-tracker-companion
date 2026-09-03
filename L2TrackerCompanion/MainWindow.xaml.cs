@@ -911,14 +911,14 @@ public partial class MainWindow : Window
     {
         _liveStatus = status;
         LiveLight.Fill = LightBrush(status.Light);
-        LiveLightLabel.Text = status.Light == TrafficLight.Idle ? "Idle" : status.Light.ToString();
         LiveDetailLabel.Text = status.Detail;
-        var rates = LiveRates.Format(status.Report, DisplayRateUnit);
+        var showData = status.Light != TrafficLight.Red;
+        var rates = showData ? LiveRates.Format(status.Report, DisplayRateUnit) : string.Empty;
         LiveRatesLabel.Text = rates;
         LiveRatesLabel.Visibility = string.IsNullOrEmpty(rates)
             ? Visibility.Collapsed
             : Visibility.Visible;
-        LiveValuesLabel.Text = LiveStatus.FormatValues(status.Report);
+        LiveValuesLabel.Text = showData ? LiveStatus.FormatValues(status.Report) : string.Empty;
     }
 
     // Resolved from the theme rather than rebuilt from literals: these were the
