@@ -164,7 +164,9 @@ public partial class MainWindow : Window
     {
         if (!_auth.HasStoredToken)
         {
-            ShowLogin("Not signed in. Paste a token to continue.");
+            // Nothing has happened yet — the hint above the form already says to
+            // paste a token, so a status line here would only repeat it.
+            ShowLogin(string.Empty);
             return;
         }
 
@@ -330,14 +332,18 @@ public partial class MainWindow : Window
         => SetAuthStatus(status, isError ? "AlarmRedBrush" : "StaticGrayBrush");
 
     // Resolved from the theme rather than a literal color — same pattern as
-    // LightBrush below — so a palette edit changes this surface too.
+    // LightBrush below — so a palette edit changes this surface too. Collapsed
+    // when empty rather than left as a blank line, same as LiveRatesLabel below.
     private void SetAuthStatus(string status, string brushKey)
     {
         var brush = (Brush)FindResource(brushKey);
+        var visibility = string.IsNullOrEmpty(status) ? Visibility.Collapsed : Visibility.Visible;
         AuthStatusLabel.Text = status;
         AuthStatusLabel.Foreground = brush;
+        AuthStatusLabel.Visibility = visibility;
         AccountStatusLabel.Text = status;
         AccountStatusLabel.Foreground = brush;
+        AccountStatusLabel.Visibility = visibility;
     }
 
     private CharacterInfo? SelectedCharacter => CharacterCombo.SelectedItem as CharacterInfo;

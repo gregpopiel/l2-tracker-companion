@@ -62,7 +62,8 @@
                         </StackPanel>
                     </StackPanel>
                     <TextBlock x:Name="AuthStatusLabel"
-                               Text="Not signed in."
+                               Text=""
+                               Visibility="Collapsed"
                                Style="{StaticResource StatusText}" />
                 </StackPanel>
             </ContentControl>
