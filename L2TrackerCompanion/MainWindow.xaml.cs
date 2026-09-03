@@ -827,8 +827,8 @@ public partial class MainWindow : Window
                 + (created ? " (new World spot)" : "")
                 + $" ({totals.XpFarmed}k XP, {totals.Minutes} min). "
                 + (wasTracking
-                    ? "Tracking stopped. Save again for another log, or Start reading for a later panel."
-                    : "Save again for another log, or Start reading for a later panel.");
+                    ? "Tracking stopped. Start reading to save another log."
+                    : "Start reading to save another log.");
 
             if (SaveConfirmationHold.ShouldStopTracking(wasTracking, saved: true))
             {
@@ -843,12 +843,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Drop the snapshot comparison buffer. The last Play Report reading stays
-    /// so Save can post it again without Start reading.
+    /// After a 2xx, drop every companion-side reading. Character, spot and
+    /// bonus stay. Start reading to capture the panel again.
     /// </summary>
     private void ResetLocalSessionAfterSave()
     {
         _sessionStore.NewSession();
+        _lastReport = null;
+        _lastComparison = null;
+        ShowLiveStatus(LiveStatus.Idle());
         SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
     }
 

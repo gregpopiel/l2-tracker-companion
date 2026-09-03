@@ -140,7 +140,7 @@ Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **W
 3. **`StaleBaselineStrikes` (3) rejections in a row** against the same stored row: a real misread is transient, so several in a row mean the stored row is the stale thing. It is dropped and counting restarts.
 4. **Pressing Start reading**, and starting the app, clear the buffer outright.
 
-Anything else stays a misread and is discarded. Mistaking a misread for a reset costs a dropped buffer and nothing more — the save is built from a single frame and its lock lives in a separate table.
+Anything else stays a misread and is discarded. Mistaking a misread for a reset costs a dropped buffer and nothing more — the save is built from a single frame.
 
 **Live status (plan step 16):** a traffic light on the latest parse (not only accepted snapshots). Red = unread farm field or a lamp table that is in frame but unreadable; orange = Magic Lamp panel closed; green = farm + lamps read. Missing minimap hint does not change the colour. Updates every poll tick. The card also shows live XP and Adena rates from that same parse (plan step 23).
 
@@ -179,7 +179,7 @@ Must print `HTTP 200` and `JSON: yes` for `/api/characters` and `/api/settings`.
 
 Save is gated by `SaveGate`, which trusts a frame on **in-frame agreement** rather than repetition — OCR of an unchanged screen is deterministic, so re-reading a static panel would only reproduce the same misread. It blocks when: the play-time dual-read contradicted itself, the two Adena reads disagreed, the two XP reads disagreed on digit count, XP / Adena / play time are unread, play time is 0, the Magic Lamp panel is closed or its XP column unread (no silent zeros), lamp XP exceeds dialog XP, or the previous tick was a misread. A spliced XP figure warns (orange) but still saves — and the warning **names both competing figures** ("XP disputed — token read 4,210,400, crop read 9,210,400. Saving 9,210,400 (spliced)") so the player, who has the panel on screen, can settle it at a glance. A blocked Adena says the same, which distinguishes a dropped digit from a failed read. Duplicate POSTs of the same (or a later) Play Report are allowed: one in-game session may become several farm logs, including the same stretch more than once.
 
-After a successful Save the WPF app **stops** the 10s tracking loop and wipes the snapshot comparison buffer. The last reading stays, so Save can post that same panel again immediately. Poll ticks, Capture once, and Parse last do not change Live status until **Start reading** (which also captures a later panel). The session-status line keeps the confirmation until **Start reading**, sign-out, or a game restart.
+After a successful Save the WPF app **stops** the 10s tracking loop and clears the companion session: snapshot buffer, last reading, and Live status. Character / spot / bonus stay. Poll ticks, Capture once, and Parse last do not refill Live until **Start reading**. Duplicate POSTs of the same Play Report are still allowed — Start reading to capture it again, then Save. The session-status line keeps the confirmation until **Start reading**, sign-out, or a game restart.
 
 ```bash
 chmod +x scripts/save.sh   # once
