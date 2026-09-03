@@ -198,7 +198,7 @@ Uses the stored JWT. Switching character in the window reloads spots.
 
 ## Publish (plan step 22, revised for auto-update)
 
-Self-contained `win-x64` app, packaged with [Velopack](https://velopack.io) as an installer (`L2TrackerCompanion-win-Setup.exe`) and a portable zip (`L2TrackerCompanion-win-Portable.zip`). Both auto-update against this repo's GitHub Releases feed. The installer puts the app in `%LocalAppData%\L2TrackerCompanion\current\` with a Start Menu shortcut; the zip unpacks the same layout into whatever folder you choose. Velopack needs individual (non-bundled) files to compute delta patches — there is no single-file `PublishSingleFile` `.exe`. Requires the `vpk` global dotnet tool once per machine: `dotnet tool install -g vpk`. Output is gitignored (`publish-output/`, `releases/`).
+Self-contained `win-x64` app, packaged with [Velopack](https://velopack.io) as an installer (`L2Tracker-Setup.exe`) and a portable zip (`L2Tracker-Portable.zip`). Both auto-update against this repo's GitHub Releases feed. The installer puts the app in `%LocalAppData%\L2Tracker\current\` with a Start Menu shortcut; the zip unpacks the same layout into whatever folder you choose. Velopack needs individual (non-bundled) files to compute delta patches — there is no single-file `PublishSingleFile` `.exe`. Requires the `vpk` global dotnet tool once per machine: `dotnet tool install -g vpk`. Output is gitignored (`publish-output/`, `releases/`).
 
 ```bash
 chmod +x scripts/publish.sh   # once
@@ -209,10 +209,13 @@ From Windows:
 
 ```bash
 dotnet publish L2TrackerCompanion/L2TrackerCompanion.csproj -c Release -r win-x64 --self-contained -p:DebugType=none -o publish-output
-vpk pack -u L2TrackerCompanion -v <version-from-csproj> -p publish-output -e L2TrackerCompanion.exe -o releases
+vpk pack -u L2Tracker --packTitle "L2 Tracker Companion" -v <version-from-csproj> -p publish-output -e L2TrackerCompanion.exe -o releases
+# then drop the channel suffix from the two user downloads (vpk names them {id}-win-*):
+#   L2Tracker-win-Setup.exe    → L2Tracker-Setup.exe
+#   L2Tracker-win-Portable.zip → L2Tracker-Portable.zip
 ```
 
-Ship the resulting `releases/` set as a GitHub Release on this repo (not the VPS / Docker stack) — Setup.exe, Portable.zip, `.nupkg`, and the `RELEASES` / `assets.win.json` / `releases.win.json` manifests. `vpk upload github` can push them directly given a PAT with `contents:write` on this repo. Bump `<Version>` in `L2TrackerCompanion.csproj` before every release; that's what the running app compares against to detect an update. Do not attach a lone `L2TrackerCompanion.exe`: that old single-file publish cannot check the update feed.
+Ship as a GitHub Release on this repo (not the VPS / Docker stack) only what users or the updater need: Setup.exe, Portable.zip, the `.nupkg`, and `releases.win.json`. `vpk pack` also writes `RELEASES` (Squirrel leftover) and `assets.win.json` (for `vpk upload` only) — do not attach those. `vpk upload github` can push the set given a PAT with `contents:write` on this repo; drop the two extras afterward if it re-uploads them. Bump `<Version>` in `L2TrackerCompanion.csproj` before every release; that's what the running app compares against to detect an update. Do not attach a lone `L2TrackerCompanion.exe`: that old single-file publish cannot check the update feed.
 
 **Auto-update:** the app checks this repo's public GitHub Releases feed on startup and every 4 hours while running (`UpdateService.cs`, stops re-checking once a download is pending), downloading silently in the background — a failed check/download is traced (`Trace.WriteLine`) and simply retried next cycle, never surfaced to the user. It never restarts on its own: a downloaded update shows a status-bar button ("Update available — restart to install") that the user clicks when ready. That click goes through the same unsaved-session gate as **Sign out** (`_saveInFlight`, `ConfirmDiscardSession` — "Restarting to update" phrasing) before restarting, since the app may be mid-poll or holding an unsaved farm-log delta; the button disables itself once clicked, and a failed apply (locked file, AV interference) re-enables it with a status message instead of crashing. Both the Setup.exe install and the portable zip update this way (Velopack `IsInstalled`); `dotnet run` does not check the feed.
 
