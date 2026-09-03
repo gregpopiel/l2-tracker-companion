@@ -325,7 +325,24 @@ public sealed record SpotCreateRequest(string Name, int AreaId);
 
 public sealed record SpotCreatedResponse(int Id, string Name, int AreaId);
 
-public sealed record SpotInfo(int Id, string Name, int AreaId, SpotAreaInfo? Area)
+/// <summary>
+/// <c>GET /api/spots?characterId=</c>. The three hourly figures are averages of
+/// <em>that character's</em> logs only (the endpoint filters the relation by
+/// <c>characterId</c>), and are null when the character has never logged here.
+/// <see cref="LogCount"/> is the one field that is not character-scoped — it
+/// counts every character on the account, because it gates spot deletion, which
+/// cascades account-wide. Never read it as a sample count for these averages.
+/// Amounts follow the API's thousands convention — see <see cref="LegacyThousands"/>.
+/// </summary>
+public sealed record SpotInfo(
+    int Id,
+    string Name,
+    int AreaId,
+    SpotAreaInfo? Area,
+    long? FarmXpHourly = null,
+    long? AdenaHourly = null,
+    long? AverageXpHourly = null,
+    int LogCount = 0)
 {
     public string Label
     {

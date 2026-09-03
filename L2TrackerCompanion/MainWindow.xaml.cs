@@ -40,6 +40,8 @@ public partial class MainWindow : Window
     private bool _holdEmptySpot;
     private bool _spotsLoaded;
     private AreaInfo? _worldArea;
+    private IReadOnlyList<AreaInfo>? _areas;
+    private readonly LocationChangeWatch _locationWatch = new();
     private bool _isAdmin;
     private readonly GameProcessWatch _gameWatch = new();
     private UpdateInfo? _pendingUpdate;
@@ -81,6 +83,8 @@ public partial class MainWindow : Window
         _updateTimer.Start();
 
         RefreshPollStatus(string.Empty);
+        // "All areas" from launch; the real areas arrive with the first sign-in.
+        FillAreaFilter(null);
         ShowLiveStatus(LiveStatus.Idle());
         ApplyLoadedMode();
         AppVersionLabel.Text = $"Version {_updates.CurrentVersion}";
@@ -271,6 +275,7 @@ public partial class MainWindow : Window
         _saveConfirmation.Release();
         _lastReport = null;
         _lastComparison = null;
+        HideLocationChange();
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
         // Sign Out is a deliberate click on a button labeled "Sign out" — the gate
@@ -406,6 +411,7 @@ public partial class MainWindow : Window
         _holdEmptySpot = false;
         _spotsLoaded = false;
         _worldArea = null;
+        _areas = null;
         _suppressPickerEvents = true;
         try
         {
@@ -427,6 +433,8 @@ public partial class MainWindow : Window
             _suppressPickerEvents = false;
         }
 
+        // Sets the flag itself, so it cannot run inside the block above.
+        FillAreaFilter(null);
         PickerStatusLabel.Text = message;
     }
 
@@ -630,6 +638,11 @@ public partial class MainWindow : Window
 
         RefreshSaveEnabled();
 
+        // Drop the old character's ranking now rather than at the end: every
+        // early return below (no character, expired token, failed fetch) would
+        // otherwise leave it on screen as if it described the new one.
+        ShowLiveStatus(_liveStatus);
+
         if (character is null)
         {
             PickerStatusLabel.Text = "Pick a character.";
@@ -659,7 +672,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        await EnsureWorldAreaAsync(token, cancellationToken);
+        await EnsureAreasAsync(token, cancellationToken);
         if (cancellationToken.IsCancellationRequested)
         {
             return;
@@ -680,20 +693,66 @@ public partial class MainWindow : Window
 
         ApplyLocationHint(_sessionStore.Last()?.Report.LocationHint);
         RefreshSaveEnabled();
+
+        // The benchmark ranks against this list, so it can only be right once
+        // the list is loaded.
+        ShowLiveStatus(_liveStatus);
     }
 
-    private async Task EnsureWorldAreaAsync(string token, CancellationToken cancellationToken)
+    /// <summary>
+    /// Fetches the account's areas once: World is what auto-created spots are
+    /// filed under, and the whole list fills the benchmark's area picker.
+    /// A failed fetch leaves the picker at "All areas" — the ranking itself
+    /// needs no areas at all.
+    /// </summary>
+    private async Task EnsureAreasAsync(string token, CancellationToken cancellationToken)
     {
-        if (_worldArea is not null)
+        if (_areas is not null)
         {
             return;
         }
 
         var areas = await Api.GetAreasAsync(token, cancellationToken);
-        if (areas.Success)
+        if (!areas.Success || areas.Value is null)
         {
-            _worldArea = WorldArea.Find(areas.Value);
+            return;
         }
+
+        _areas = areas.Value;
+        _worldArea = WorldArea.Find(_areas);
+        FillAreaFilter(_areas);
+    }
+
+    /// <summary>
+    /// The areas belong to the account, not to one character, so the picker is
+    /// built once and a chosen area survives switching characters.
+    /// </summary>
+    private void FillAreaFilter(IEnumerable<AreaInfo>? areas)
+    {
+        var chosen = (AreaFilterCombo.SelectedItem as AreaChoice)?.AreaId;
+        var choices = AreaChoice.Build(areas);
+        _suppressPickerEvents = true;
+        try
+        {
+            AreaFilterCombo.ItemsSource = choices;
+            AreaFilterCombo.SelectedItem =
+                choices.FirstOrDefault(choice => choice.AreaId == chosen) ?? AreaChoice.All;
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
+    }
+
+    private void AreaFilterCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressPickerEvents)
+        {
+            return;
+        }
+
+        // Same reading, narrower field — no re-parse needed.
+        ShowLiveStatus(_liveStatus);
     }
 
     private async Task LoadSettingsAsync(bool keepExistingOnFailure = false)
@@ -851,6 +910,7 @@ public partial class MainWindow : Window
         _sessionStore.NewSession();
         _lastReport = null;
         _lastComparison = null;
+        HideLocationChange();
         ShowLiveStatus(LiveStatus.Idle());
         SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
     }
@@ -958,6 +1018,7 @@ public partial class MainWindow : Window
         }
 
         _holdEmptySpot = hold;
+        ShowLiveStatus(_liveStatus);
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -1102,6 +1163,7 @@ public partial class MainWindow : Window
         _saveConfirmation.Release();
         _lastReport = null;
         _lastComparison = null;
+        HideLocationChange();
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
         RefreshPollStatus("Game restarted — the Play Report is counting from zero again.");
@@ -1134,7 +1196,66 @@ public partial class MainWindow : Window
         LiveRatesLabel.Visibility = string.IsNullOrEmpty(rates)
             ? Visibility.Collapsed
             : Visibility.Visible;
+        var benchmark = showData ? FormatBenchmark(status.Report) : string.Empty;
+        BenchmarkLabel.Text = benchmark;
+        // The picker rides with the ranking: on an idle card it would be a
+        // control that changes nothing. An area filtered down to nothing still
+        // prints a line, so there is always a way back to "All areas".
+        var benchmarkVisibility = string.IsNullOrEmpty(benchmark)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        BenchmarkLabel.Visibility = benchmarkVisibility;
+        AreaFilterRow.Visibility = benchmarkVisibility;
         LiveValuesLabel.Text = showData ? LiveStatus.FormatValues(status.Report) : string.Empty;
+    }
+
+    /// <summary>
+    /// Where this reading's pace places among the character's own spots.
+    /// </summary>
+    /// <remarks>
+    /// Silent until the spots are loaded: an empty picker is not proof that the
+    /// character has no history, and claiming so would flash "nothing to
+    /// compare against" on every character switch. Hours regardless of the
+    /// display unit — the stored averages are per hour.
+    /// </remarks>
+    private string FormatBenchmark(PlayReport? report)
+    {
+        if (report is null || !_spotsLoaded)
+        {
+            return string.Empty;
+        }
+
+        var snapshot = SpotBenchmark.Evaluate(
+            LiveRates.PerHour(report.Xp, report.Minutes),
+            LiveRates.PerHour(report.Adena, report.Minutes),
+            SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
+            (AreaFilterCombo.SelectedItem as AreaChoice)?.AreaId);
+
+        return SpotBenchmark.Format(snapshot, _ratePerHour);
+    }
+
+    /// <summary>
+    /// A settled move to another location, shown once. Only a reminder to
+    /// restart the in-game Play Report — nothing is blocked or hidden.
+    /// </summary>
+    private void ShowLocationChange()
+    {
+        var stability = CurrentLocationStability();
+        var message = _locationWatch.Notice(stability.IsStable ? stability.CanonicalName : null);
+        if (message is null)
+        {
+            return;
+        }
+
+        LocationChangeLabel.Text = message;
+        LocationChangeLabel.Visibility = Visibility.Visible;
+    }
+
+    private void HideLocationChange()
+    {
+        _locationWatch.Reset();
+        LocationChangeLabel.Text = string.Empty;
+        LocationChangeLabel.Visibility = Visibility.Collapsed;
     }
 
     // Resolved from the theme rather than rebuilt from literals: these were the
@@ -1238,6 +1359,10 @@ public partial class MainWindow : Window
         _saveConfirmation.Release();
         _sessionStore.NewSession();
         _lastComparison = null;
+        // Where the player is now is a first sighting for this run, not a move
+        // from wherever the previous run ended — they may have restarted the
+        // Play Report themselves in between.
+        HideLocationChange();
         _polling.Start();
         _pollCts = new CancellationTokenSource();
         StartStopButton.Content = "Stop reading";
@@ -1374,6 +1499,7 @@ public partial class MainWindow : Window
                 if (tick.Tracking)
                 {
                     RefreshPollStatus(tick.Message);
+                    ShowLocationChange();
 
                     if (tick.Appended && tick.Outcome == MonotonicityOutcome.Reset)
                     {

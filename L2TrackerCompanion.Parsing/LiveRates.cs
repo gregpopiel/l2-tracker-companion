@@ -60,6 +60,16 @@ public static class LiveRates
         return builder.ToString();
     }
 
+    /// <summary>
+    /// One raw amount as an hourly rate, whatever the user's display unit is.
+    /// The website's own spot statistics are per hour, so anything comparing a
+    /// live reading against them has to ask for hours explicitly rather than
+    /// scaling a per-minute figure back up — that would round twice.
+    /// </summary>
+    /// <returns>Null when the amount is unread or the play time is unusable.</returns>
+    public static long? PerHour(long? amount, int? minutes)
+        => minutes is null or <= 0 ? null : PerUnit(amount, minutes.Value, scale: 60);
+
     private static long? PerUnit(long? amount, int minutes, int scale)
     {
         if (amount is null)

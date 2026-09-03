@@ -139,6 +139,30 @@ public class LiveRatesTests
         Assert.True(xp > adenaMin);
     }
 
+    [Fact]
+    public void PerHourScalesTheRawAmountByTheHour()
+    {
+        // 506,625 XP in 4 minutes is 7,599,375 XP/h.
+        Assert.Equal(7_599_375, LiveRates.PerHour(506_625, 4));
+        Assert.Equal(892_395, LiveRates.PerHour(59_493, 4));
+    }
+
+    [Fact]
+    public void PerHourKeepsFullPrecisionAtInt64Magnitudes()
+    {
+        // Past 2^53 a double would round the product; the decimal path does not.
+        Assert.Equal(540_431_955_284_459_940, LiveRates.PerHour(9_007_199_254_740_999, 1));
+    }
+
+    [Fact]
+    public void PerHourIsUnavailableWithoutAnAmountOrPlayTime()
+    {
+        Assert.Null(LiveRates.PerHour(null, 4));
+        Assert.Null(LiveRates.PerHour(506_625, null));
+        Assert.Null(LiveRates.PerHour(506_625, 0));
+        Assert.Null(LiveRates.PerHour(506_625, -1));
+    }
+
     private static PlayReport Report(long? xp, long? adena, int? minutes)
         => PlayReport.From(xp, adena, minutes, OpenLamps(0, 0, 0, 0, dialogXp: xp ?? 1), null);
 
