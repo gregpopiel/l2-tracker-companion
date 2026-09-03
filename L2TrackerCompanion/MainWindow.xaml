@@ -86,7 +86,7 @@
                                  hint and the button stay aligned with the fields
                                  without repeating a width anywhere. -->
                             <StackPanel Grid.IsSharedSizeScope="True">
-                                <TextBlock Text="Character and spot are required. Lists come from the website — this app does not create or edit them."
+                                <TextBlock Text="Pick a character. Spot is optional when Location is stable: Save uses a matching spot or creates one in World."
                                            Style="{StaticResource SubtleText}"
                                            Margin="0,0,0,10" />
                                 <Grid Style="{StaticResource FieldRow}">
@@ -114,16 +114,25 @@
                                     <TextBlock Text="Spot"
                                                Margin="0,0,12,0"
                                                Style="{StaticResource FieldLabelText}" />
-                                    <ComboBox x:Name="SpotCombo"
-                                              Grid.Column="1"
-                                              MaxWidth="{StaticResource FieldMaxWidth}"
-                                              HorizontalAlignment="Left"
-                                              MinWidth="240"
-                                              DisplayMemberPath="Label"
-                                              IsEnabled="False"
-                                              IsEditable="False"
-                                              IsTextSearchEnabled="True"
-                                              SelectionChanged="SpotCombo_SelectionChanged" />
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal">
+                                        <ComboBox x:Name="SpotCombo"
+                                                  MaxWidth="{StaticResource FieldMaxWidth}"
+                                                  HorizontalAlignment="Left"
+                                                  MinWidth="240"
+                                                  DisplayMemberPath="Label"
+                                                  IsEnabled="False"
+                                                  IsEditable="False"
+                                                  IsTextSearchEnabled="True"
+                                                  SelectionChanged="SpotCombo_SelectionChanged" />
+                                        <Button x:Name="ClearSpotButton"
+                                                Content="Clear"
+                                                Style="{StaticResource SmallSecondaryButton}"
+                                                Margin="8,0,0,0"
+                                                VerticalAlignment="Center"
+                                                IsEnabled="False"
+                                                Click="ClearSpotButton_Click" />
+                                    </StackPanel>
                                 </Grid>
                                 <Grid Style="{StaticResource FieldRow}">
                                     <Grid.ColumnDefinitions>
@@ -150,6 +159,19 @@
                                                Grid.Column="1"
                                                Text=""
                                                Style="{StaticResource MutedText}" />
+                                </Grid>
+                                <Grid x:Name="SpotResolveHintRow"
+                                      Style="{StaticResource FieldRow}"
+                                      Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="SpotResolveHintLabel"
+                                               Grid.Column="1"
+                                               Text=""
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource SubtleText}" />
                                 </Grid>
                                 <Grid Margin="0,4,0,0">
                                     <Grid.ColumnDefinitions>

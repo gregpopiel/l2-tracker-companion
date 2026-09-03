@@ -161,7 +161,7 @@ chmod +x scripts/auth.sh   # once
 
 A single window titled **L2 Tracker Companion** should open.
 
-**Character + spot pickers (plan step 18):** after a valid token, the window lists characters from `GET /api/characters` and, on character change, spots from `GET /api/spots?characterId=`. Save stays disabled until both are chosen (the POST is step 20). `% Bonus` prefills from `GET /api/settings` (`defaultBonus`; lamp values and `defaultMinutes` are ignored). Live rates use that same GET's `rateUnit` (`hour` or `minute`). If the GET fails, bonus is schema default 25 and rates are schema default `hour`, with a hint saying why. Session minutes on Save are wall-clock, not a form field. Headless:
+**Character + spot pickers (plan step 18):** after a valid token, the window lists characters from `GET /api/characters` and, on character change, spots from `GET /api/spots?characterId=`. Character is required. Spot may be left empty when Location is stable (see step 21). `% Bonus` prefills from `GET /api/settings` (`defaultBonus`; lamp values and `defaultMinutes` are ignored). Live rates use that same GET's `rateUnit` (`hour` or `minute`). If the GET fails, bonus is schema default 25 and rates are schema default `hour`, with a hint saying why. Session minutes on Save are wall-clock, not a form field. Headless:
 
 ```bash
 ./scripts/auth.sh --spots
@@ -183,12 +183,12 @@ Save is gated by `SaveGate`, which trusts a frame on **in-frame agreement** rath
 
 ```bash
 chmod +x scripts/save.sh   # once
-./scripts/save.sh --character-id <id> --spot-id <id> [--bonus <n>]
+./scripts/save.sh --character-id <id> [--spot-id <id>] [--bonus <n>]
 ```
 
-It saves the most recent stored reading, subject to the same gate.
+It saves the most recent stored reading, subject to the same gate. Omit `--spot-id` to resolve from a stable Location hint (exact match, or create under World).
 
-**Spot preselect from hint (plan step 21):** a minimap `locationHint` exact-matches a spot **name** (case-insensitive, never fuzzy, never the area label). A hit preselects that ComboBox row; a miss leaves the current selection. Never auto-saves.
+**Spot preselect from hint (plan step 21):** a minimap `locationHint` exact-matches a spot **name** (case-insensitive, never fuzzy, never the area label). Preselect only runs when Location is already stable (last 5 non-empty accepted hints, 4/5 the same) **and** this reading names that same hint; **Clear** or a manual choice still wins. A miss leaves the picker empty. Save with an empty picker uses that same stable name: existing exact match, or a new World spot. The current reading must still show that name (so a move in the last tick does not file under the old majority). Never auto-saves.
 
 ```bash
 ./scripts/ocr-parse.sh --match-hint /path/to/hud.png

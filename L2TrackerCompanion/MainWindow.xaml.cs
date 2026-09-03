@@ -36,6 +36,9 @@ public partial class MainWindow : Window
     private DateTimeOffset _lastReportAt;
     private MonotonicityOutcome? _lastComparison;
     private bool _saveInFlight;
+    private bool _holdEmptySpot;
+    private bool _spotsLoaded;
+    private AreaInfo? _worldArea;
     private bool _isAdmin;
     private readonly GameProcessWatch _gameWatch = new();
     private long? _savedPanelMinutes;
@@ -383,6 +386,7 @@ public partial class MainWindow : Window
             SpotCombo.ItemsSource = null;
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
+            ClearSpotButton.IsEnabled = false;
             BonusBox.IsEnabled = true;
             SaveButton.IsEnabled = false;
         }
@@ -405,6 +409,9 @@ public partial class MainWindow : Window
     private void ClearPickers(string message)
     {
         _spotsCts.Cancel();
+        _holdEmptySpot = false;
+        _spotsLoaded = false;
+        _worldArea = null;
         _suppressPickerEvents = true;
         try
         {
@@ -414,6 +421,8 @@ public partial class MainWindow : Window
             SpotCombo.ItemsSource = null;
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
+            ClearSpotButton.IsEnabled = false;
+            HideSpotResolveHint();
             BonusBox.Text = string.Empty;
             BonusBox.IsEnabled = false;
             HideBonusHint();
@@ -443,6 +452,27 @@ public partial class MainWindow : Window
         if (_suppressPickerEvents)
         {
             return;
+        }
+
+        if (SelectedSpot is not null)
+        {
+            _holdEmptySpot = false;
+        }
+
+        RefreshSaveEnabled();
+    }
+
+    private void ClearSpotButton_Click(object sender, RoutedEventArgs e)
+    {
+        _holdEmptySpot = true;
+        _suppressPickerEvents = true;
+        try
+        {
+            SpotCombo.SelectedItem = null;
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
         }
 
         RefreshSaveEnabled();
@@ -478,16 +508,60 @@ public partial class MainWindow : Window
         return _sessionStore.IsSaveLocked(current);
     }
 
+    private LocationStabilityDecision CurrentLocationStability()
+        => LocationStability.Evaluate(_sessionStore.List().Select(row => row.Report.LocationHint));
+
+    private SpotResolveDecision CurrentSpotResolve()
+    {
+        var stability = CurrentLocationStability();
+        return SpotResolve.Evaluate(
+            SelectedSpot,
+            stability.IsStable ? stability.CanonicalName : null,
+            _lastReport?.LocationHint,
+            SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
+            _spotsLoaded,
+            _worldArea);
+    }
+
+    private void ShowSpotResolveHint(SpotResolveDecision resolve, LocationStabilityDecision stability)
+    {
+        var text = resolve.Kind == SpotResolveKind.UseSelected
+            ? string.Empty
+            : resolve.Hint(stability.SampleCount, LocationStability.WindowSize);
+        SpotResolveHintLabel.Text = text;
+        SpotResolveHintRow.Visibility = string.IsNullOrEmpty(text)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    private void HideSpotResolveHint()
+    {
+        SpotResolveHintLabel.Text = string.Empty;
+        SpotResolveHintRow.Visibility = Visibility.Collapsed;
+    }
+
     private void RefreshSaveEnabled()
     {
-        var pickersReady = SessionPickers.SaveEnabled(SelectedCharacter, SelectedSpot);
+        ClearSpotButton.IsEnabled = SelectedSpot is not null && SpotCombo.IsEnabled;
+        var stability = CurrentLocationStability();
+        var resolve = SpotResolve.Evaluate(
+            SelectedSpot,
+            stability.IsStable ? stability.CanonicalName : null,
+            _lastReport?.LocationHint,
+            SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
+            _spotsLoaded,
+            _worldArea);
+        ShowSpotResolveHint(resolve, stability);
+
+        var pickersReady = SessionPickers.SaveReady(SelectedCharacter, resolve);
         var gate = CurrentGate();
 
         // A poll tick lands here every 10s, including while a save is awaiting
         // its response — without this the button would re-arm mid-POST and a
         // second click would duplicate the log.
         SaveButton.IsEnabled = pickersReady && gate.CanSave && !_saveInFlight;
-        if (!pickersReady)
+
+        if (!SessionPickers.CharacterChosen(SelectedCharacter))
         {
             return;
         }
@@ -498,9 +572,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!resolve.CanSave)
+        {
+            PickerStatusLabel.Text = resolve.Hint(stability.SampleCount, LocationStability.WindowSize);
+            return;
+        }
+
+        var at = resolve.Kind == SpotResolveKind.UseSelected
+            ? SelectedSpot!.Label
+            : resolve.Name;
         var totals = gate.Totals!;
         var text =
-            $"Ready to save {SelectedCharacter!.Name} at {SelectedSpot!.Label}: "
+            $"Ready to save {SelectedCharacter!.Name} at {at}: "
             + $"{totals.XpFarmed}k XP, {totals.Adena}k Adena, "
             + $"{totals.Minutes} min from the Play Report.";
         // Separated, not stacked: this lands in the status bar, and a newline
@@ -515,19 +598,33 @@ public partial class MainWindow : Window
 
     private void ApplyLocationHint(string? hint)
     {
+        if (_holdEmptySpot || SelectedSpot is not null)
+        {
+            return;
+        }
+
+        var stability = CurrentLocationStability();
+        if (!stability.IsStable || !SpotMatch.SameName(hint, stability.CanonicalName))
+        {
+            return;
+        }
+
         var spots = SpotCombo.ItemsSource as IEnumerable<SpotInfo>;
-        var match = SpotMatch.ExactName(hint, spots);
+        var match = SpotMatch.ExactName(stability.CanonicalName, spots);
         if (match is null)
         {
             return;
         }
 
-        if (SelectedSpot is not null && SelectedSpot.Id == match.Id)
+        _suppressPickerEvents = true;
+        try
         {
-            return;
+            SpotCombo.SelectedItem = match;
         }
-
-        SpotCombo.SelectedItem = match;
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
     }
 
     private async Task LoadSpotsAsync(CharacterInfo? character)
@@ -535,6 +632,8 @@ public partial class MainWindow : Window
         _spotsCts.Cancel();
         _spotsCts = new CancellationTokenSource();
         var cancellationToken = _spotsCts.Token;
+        _holdEmptySpot = false;
+        _spotsLoaded = false;
 
         _suppressPickerEvents = true;
         try
@@ -573,16 +672,25 @@ public partial class MainWindow : Window
 
         if (!call.Success || call.Value is null)
         {
+            _spotsLoaded = false;
+            RefreshSaveEnabled();
             PickerStatusLabel.Text = $"Could not load spots: {call.Error}";
             return;
         }
 
+        await EnsureWorldAreaAsync(token, cancellationToken);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        _spotsLoaded = true;
         _suppressPickerEvents = true;
         try
         {
             SpotCombo.ItemsSource = call.Value;
             SpotCombo.SelectedItem = null;
-            SpotCombo.IsEnabled = call.Value.Count > 0;
+            SpotCombo.IsEnabled = true;
         }
         finally
         {
@@ -591,11 +699,19 @@ public partial class MainWindow : Window
 
         ApplyLocationHint(_sessionStore.Last()?.Report.LocationHint);
         RefreshSaveEnabled();
-        if (SelectedSpot is null)
+    }
+
+    private async Task EnsureWorldAreaAsync(string token, CancellationToken cancellationToken)
+    {
+        if (_worldArea is not null)
         {
-            PickerStatusLabel.Text = call.Value.Count == 0
-                ? "No spots on this account. Add them on the website."
-                : $"{call.Value.Count} spot{(call.Value.Count == 1 ? "" : "s")} for {character.Name}. Pick one to enable Save.";
+            return;
+        }
+
+        var areas = await Api.GetAreasAsync(token, cancellationToken);
+        if (areas.Success)
+        {
+            _worldArea = WorldArea.Find(areas.Value);
         }
     }
 
@@ -657,7 +773,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!SessionPickers.SaveEnabled(SelectedCharacter, SelectedSpot))
+        if (!SessionPickers.SaveReady(SelectedCharacter, CurrentSpotResolve()))
         {
             RefreshSaveEnabled();
             return;
@@ -691,10 +807,18 @@ public partial class MainWindow : Window
         var saved = false;
         try
         {
+            var resolve = CurrentSpotResolve();
+            var ensured = await EnsureSpotForSaveAsync(token, resolve);
+            if (ensured is null)
+            {
+                return;
+            }
+
+            var spot = ensured.Spot;
             var totals = gate.Totals;
             var request = new FarmLogRequest(
                 CharacterId: SelectedCharacter!.Id,
-                SpotId: SelectedSpot!.Id,
+                SpotId: spot.Id,
                 XpFarmed: totals.XpFarmed,
                 Adena: totals.Adena,
                 Minutes: totals.Minutes,
@@ -707,7 +831,7 @@ public partial class MainWindow : Window
             var call = await Api.PostFarmLogAsync(token, request);
             if (!call.Success)
             {
-                PickerStatusLabel.Text = $"Save failed: {call.Error}";
+                PickerStatusLabel.Text = await FormatSaveFailureAsync(token, call.Error, ensured);
                 return;
             }
 
@@ -734,9 +858,11 @@ public partial class MainWindow : Window
                 lockNote = $" (warning: could not record it locally — {ex.Message})";
             }
 
+            var created = ensured.Created;
             PickerStatusLabel.Text =
-                $"Saved farm log #{call.Value!.Id} for {SelectedCharacter.Name} at {SelectedSpot.Label} "
-                + $"({totals.XpFarmed}k XP, {totals.Minutes} min). "
+                $"Saved farm log #{call.Value!.Id} for {SelectedCharacter.Name} at {spot.Label}"
+                + (created ? " (new World spot)" : "")
+                + $" ({totals.XpFarmed}k XP, {totals.Minutes} min). "
                 + "Reset the Play Report in-game to start a new session."
                 + lockNote;
         }
@@ -748,6 +874,111 @@ public partial class MainWindow : Window
                 RefreshSaveEnabled();
             }
         }
+    }
+
+    /// <summary>
+    /// The spot row the farm log should attach to — the picker, an exact
+    /// name match, or a newly created World spot. A failed create retries
+    /// GET spots in case the name landed from a race.
+    /// </summary>
+    private async Task<EnsuredSpot?> EnsureSpotForSaveAsync(string token, SpotResolveDecision resolve)
+    {
+        if (resolve.Kind is SpotResolveKind.UseSelected or SpotResolveKind.UseExisting)
+        {
+            return resolve.Spot is null ? null : new EnsuredSpot(resolve.Spot, Created: false);
+        }
+
+        if (resolve.Kind != SpotResolveKind.CreateWorld
+            || string.IsNullOrWhiteSpace(resolve.Name)
+            || resolve.WorldArea is null)
+        {
+            RefreshSaveEnabled();
+            return null;
+        }
+
+        var world = resolve.WorldArea;
+        var created = await Api.PostSpotAsync(token, resolve.Name, world.Id);
+        if (created.Success && created.Value is not null)
+        {
+            var spot = WithWorldArea(created.Value, world);
+            await MergeCreatedSpotAsync(spot);
+            return new EnsuredSpot(spot, Created: true);
+        }
+
+        var spots = await Api.GetSpotsAsync(token, SelectedCharacter!.Id);
+        if (spots.Success)
+        {
+            var match = SpotMatch.ExactName(resolve.Name, spots.Value);
+            if (match is not null)
+            {
+                await MergeCreatedSpotAsync(match);
+                return new EnsuredSpot(match, Created: false);
+            }
+        }
+
+        PickerStatusLabel.Text = $"Could not create spot: {created.Error}";
+        return null;
+    }
+
+    private async Task<string> FormatSaveFailureAsync(string token, string? error, EnsuredSpot ensured)
+    {
+        var message = $"Save failed: {error}";
+        if (!ensured.Created)
+        {
+            return message;
+        }
+
+        var undone = await Api.DeleteSpotAsync(token, ensured.Spot.Id);
+        if (undone.Success)
+        {
+            return message + " The new spot was not kept.";
+        }
+
+        return message
+            + $" Spot \"{ensured.Spot.Name}\" was created — delete it on the website if you do not want it.";
+    }
+
+    private sealed record EnsuredSpot(SpotInfo Spot, bool Created);
+
+    private static SpotInfo WithWorldArea(SpotInfo spot, AreaInfo world)
+        => new(spot.Id, spot.Name, spot.AreaId, new SpotAreaInfo(world.Id, world.Name));
+
+    private async Task MergeCreatedSpotAsync(SpotInfo spot)
+    {
+        var token = _auth.TryLoadToken();
+        if (token is null || SelectedCharacter is null)
+        {
+            return;
+        }
+
+        var call = await Api.GetSpotsAsync(token, SelectedCharacter.Id);
+        if (!call.Success || call.Value is null)
+        {
+            return;
+        }
+
+        var hold = _holdEmptySpot;
+        var selectedId = SelectedSpot?.Id;
+        _suppressPickerEvents = true;
+        try
+        {
+            SpotCombo.ItemsSource = call.Value;
+            SpotCombo.IsEnabled = true;
+            if (hold || selectedId is null)
+            {
+                SpotCombo.SelectedItem = null;
+            }
+            else
+            {
+                SpotCombo.SelectedItem = call.Value.FirstOrDefault(s => s.Id == selectedId) ?? spot;
+            }
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
+
+        _holdEmptySpot = hold;
     }
 
     private void OnClosed(object? sender, EventArgs e)

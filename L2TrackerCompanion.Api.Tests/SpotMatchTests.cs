@@ -42,6 +42,28 @@ public class SpotMatchTests
     }
 
     [Fact]
+    public void TwoExactHitsAreNotAUniqueMatch()
+    {
+        var spots = new[]
+        {
+            Dragon,
+            new SpotInfo(11, "dragon valley (east)", 1, new SpotAreaInfo(1, "World")),
+        };
+
+        Assert.Equal(2, SpotMatch.ExactNames("Dragon Valley (east)", spots).Count);
+        Assert.Null(SpotMatch.ExactName("Dragon Valley (east)", spots));
+    }
+
+    [Fact]
+    public void SameNameIgnoresCaseAndWhitespaceAndRejectsBlanks()
+    {
+        Assert.True(SpotMatch.SameName("  Dragon Valley (east) ", "DRAGON VALLEY (EAST)"));
+        Assert.False(SpotMatch.SameName(null, "Dragon Valley (east)"));
+        Assert.False(SpotMatch.SameName("", "  "));
+        Assert.False(SpotMatch.SameName("Alpha", "Beta"));
+    }
+
+    [Fact]
     public void DialogOnlyHintDoesNotSelect()
     {
         Assert.Null(SpotMatch.ExactName(null, Spots));

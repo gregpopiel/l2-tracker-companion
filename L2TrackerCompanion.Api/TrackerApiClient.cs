@@ -69,6 +69,97 @@ public sealed class TrackerApiClient
         return GetListAsync<SpotInfo>($"api/spots?characterId={characterId}", token, cancellationToken);
     }
 
+    public Task<ApiCallResult<IReadOnlyList<AreaInfo>>> GetAreasAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+        => GetListAsync<AreaInfo>("api/areas", token, cancellationToken);
+
+    public async Task<ApiCallResult<SpotInfo>> PostSpotAsync(
+        string token,
+        string name,
+        int areaId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (areaId <= 0)
+        {
+            return ApiCallResult<SpotInfo>.Fail("areaId is required");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/spots");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(new SpotCreateRequest(name.Trim(), areaId), JsonOptions),
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return ApiCallResult<SpotInfo>.Fail(ex.Message);
+        }
+
+        var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return ApiCallResult<SpotInfo>.Fail(ReadMessage(text, response.StatusCode), response.StatusCode);
+        }
+
+        try
+        {
+            var created = JsonSerializer.Deserialize<SpotCreatedResponse>(text, JsonOptions);
+            if (created is null || created.Id <= 0)
+            {
+                return ApiCallResult<SpotInfo>.Fail("Empty JSON response.");
+            }
+
+            return ApiCallResult<SpotInfo>.Ok(
+                new SpotInfo(created.Id, created.Name, created.AreaId, null));
+        }
+        catch (JsonException)
+        {
+            return ApiCallResult<SpotInfo>.Fail("Response was not JSON.");
+        }
+    }
+
+    public async Task<ApiCallResult<bool>> DeleteSpotAsync(
+        string token,
+        int spotId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        if (spotId <= 0)
+        {
+            return ApiCallResult<bool>.Fail("spotId is required");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"api/spots/{spotId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return ApiCallResult<bool>.Fail(ex.Message);
+        }
+
+        var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return ApiCallResult<bool>.Fail(ReadMessage(text, response.StatusCode), response.StatusCode);
+        }
+
+        return ApiCallResult<bool>.Ok(true);
+    }
+
     public Task<ApiCallResult<UserSettingsInfo>> GetSettingsAsync(
         string token,
         CancellationToken cancellationToken = default)
@@ -209,7 +300,30 @@ public sealed record CharacterInfo(
     double Percentage,
     int TargetLevel);
 
+public sealed record AreaInfo(int Id, string Name);
+
+public static class WorldArea
+{
+    public const string Name = "World";
+
+    public static AreaInfo? Find(IEnumerable<AreaInfo>? areas)
+    {
+        if (areas is null)
+        {
+            return null;
+        }
+
+        return areas.FirstOrDefault(area =>
+            !string.IsNullOrWhiteSpace(area.Name)
+            && string.Equals(area.Name.Trim(), Name, StringComparison.OrdinalIgnoreCase));
+    }
+}
+
 public sealed record SpotAreaInfo(int Id, string Name);
+
+public sealed record SpotCreateRequest(string Name, int AreaId);
+
+public sealed record SpotCreatedResponse(int Id, string Name, int AreaId);
 
 public sealed record SpotInfo(int Id, string Name, int AreaId, SpotAreaInfo? Area)
 {
@@ -292,8 +406,14 @@ public static class SessionPickers
 
     public const string SignInToSave = "Sign in to save.";
 
+    public static bool CharacterChosen(CharacterInfo? character)
+        => character is not null && character.Id > 0;
+
     public static bool SaveEnabled(CharacterInfo? character, SpotInfo? spot)
-        => character is not null && character.Id > 0 && spot is not null && spot.Id > 0;
+        => CharacterChosen(character) && spot is not null && spot.Id > 0;
+
+    public static bool SaveReady(CharacterInfo? character, SpotResolveDecision resolve)
+        => CharacterChosen(character) && resolve.CanSave;
 }
 
 /// <summary>
@@ -303,16 +423,41 @@ public static class SessionPickers
 /// </summary>
 public static class SpotMatch
 {
-    public static SpotInfo? ExactName(string? locationHint, IEnumerable<SpotInfo>? spots)
+    /// <summary>
+    /// Trimmed, case-insensitive equality of two location / spot names.
+    /// Blank values never match, including two blanks.
+    /// </summary>
+    public static bool SameName(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
+            return false;
+        }
+
+        return string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static IReadOnlyList<SpotInfo> ExactNames(string? locationHint, IEnumerable<SpotInfo>? spots)
     {
         if (string.IsNullOrWhiteSpace(locationHint) || spots is null)
         {
-            return null;
+            return [];
         }
 
         var needle = locationHint.Trim();
-        return spots.FirstOrDefault(spot =>
-            !string.IsNullOrWhiteSpace(spot.Name)
-            && string.Equals(spot.Name.Trim(), needle, StringComparison.OrdinalIgnoreCase));
+        return spots
+            .Where(spot =>
+                !string.IsNullOrWhiteSpace(spot.Name)
+                && string.Equals(spot.Name.Trim(), needle, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    /// <summary>
+    /// A unique exact name hit, or null when there is none or more than one.
+    /// </summary>
+    public static SpotInfo? ExactName(string? locationHint, IEnumerable<SpotInfo>? spots)
+    {
+        var matches = ExactNames(locationHint, spots);
+        return matches.Count == 1 ? matches[0] : null;
     }
 }

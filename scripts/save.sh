@@ -6,7 +6,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WIN_ROOT="$(wslpath -w "$ROOT")"
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 --character-id <id> --spot-id <id> [--bonus <n>]" >&2
+  echo "Usage: $0 --character-id <id> [--spot-id <id>] [--bonus <n>]" >&2
+  echo "Omit --spot-id to resolve from a stable Location hint (match or create in World)." >&2
   exit 1
 fi
 

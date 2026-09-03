@@ -376,12 +376,14 @@ static FarmLogRequest ToFarmLogRequest(SessionTotals totals, int characterId, in
 
 static async Task<int> RunSaveAsync(string[] args)
 {
-    if (ReadFlag(args, "--character-id", out var characterId) < 0
-        || ReadFlag(args, "--spot-id", out var spotId) < 0)
+    if (ReadFlag(args, "--character-id", out var characterId) < 0)
     {
-        Console.Error.WriteLine("Usage: L2TrackerCompanion.OcrDump --save --character-id <id> --spot-id <id> [--bonus <n>]");
+        Console.Error.WriteLine(
+            "Usage: L2TrackerCompanion.OcrDump --save --character-id <id> [--spot-id <id>] [--bonus <n>]");
         return 1;
     }
+
+    var hasSpotId = ReadFlag(args, "--spot-id", out var spotId) >= 0;
 
     var auth = new AuthService(TokenStore.GetDefault());
     var token = auth.TryLoadToken();
@@ -416,10 +418,35 @@ static async Task<int> RunSaveAsync(string[] args)
 
     var bonus = ReadBonusFlag(args);
     var client = TrackerApiClient.Create(auth.BaseUrl);
+    var createdSpotId = (int?)null;
+    if (!hasSpotId)
+    {
+        var resolved = await ResolveSpotFromLocationAsync(client, token, characterId, store);
+        if (resolved is null)
+        {
+            return 2;
+        }
+
+        spotId = resolved.Value.Id;
+        if (resolved.Value.Created)
+        {
+            createdSpotId = resolved.Value.Id;
+        }
+    }
+
     var call = await client.PostFarmLogAsync(token, ToFarmLogRequest(gate.Totals, characterId, spotId, bonus));
     if (!call.Success)
     {
-        Console.WriteLine($"Save failed: {call.Error}");
+        var extra = "";
+        if (createdSpotId is int id)
+        {
+            var undone = await client.DeleteSpotAsync(token, id);
+            extra = undone.Success
+                ? " The new spot was not kept."
+                : " The new World spot was left on the account.";
+        }
+
+        Console.WriteLine($"Save failed: {call.Error}.{extra}");
         return 2;
     }
 
@@ -428,6 +455,61 @@ static async Task<int> RunSaveAsync(string[] args)
         $"Saved farm log #{call.Value!.Id} ({gate.Totals.XpFarmed}k XP, {gate.Totals.Adena}k Adena, "
         + $"{gate.Totals.Minutes} min from the Play Report). Reset the panel in-game to start a new session.");
     return 0;
+}
+
+static async Task<(int Id, bool Created)?> ResolveSpotFromLocationAsync(
+    TrackerApiClient client,
+    string token,
+    int characterId,
+    SessionStore store)
+{
+    var spotsCall = await client.GetSpotsAsync(token, characterId);
+    if (!spotsCall.Success || spotsCall.Value is null)
+    {
+        Console.WriteLine($"Could not load spots: {spotsCall.Error}");
+        return null;
+    }
+
+    var areasCall = await client.GetAreasAsync(token);
+    var world = areasCall.Success ? WorldArea.Find(areasCall.Value) : null;
+    var stability = LocationStability.Evaluate(store.List().Select(row => row.Report.LocationHint));
+    var latest = store.Last();
+    var resolve = SpotResolve.Evaluate(
+        selected: null,
+        stability.IsStable ? stability.CanonicalName : null,
+        latest?.Report.LocationHint,
+        spotsCall.Value,
+        spotsLoaded: true,
+        world);
+    if (!resolve.CanSave)
+    {
+        Console.WriteLine(resolve.Hint(stability.SampleCount, LocationStability.WindowSize));
+        return null;
+    }
+
+    if (resolve.Kind is SpotResolveKind.UseExisting or SpotResolveKind.UseSelected)
+    {
+        Console.WriteLine($"Using existing spot: {resolve.Spot!.Name}.");
+        return (resolve.Spot.Id, Created: false);
+    }
+
+    var created = await client.PostSpotAsync(token, resolve.Name!, resolve.WorldArea!.Id);
+    if (created.Success && created.Value is not null)
+    {
+        Console.WriteLine($"Created World spot: {created.Value.Name}.");
+        return (created.Value.Id, Created: true);
+    }
+
+    var retry = await client.GetSpotsAsync(token, characterId);
+    var match = SpotMatch.ExactName(resolve.Name, retry.Value);
+    if (match is not null)
+    {
+        Console.WriteLine($"Using existing spot: {match.Name}.");
+        return (match.Id, Created: false);
+    }
+
+    Console.WriteLine($"Could not create spot: {created.Error}");
+    return null;
 }
 
 static async Task<int> RunMatchHintAsync(string input)

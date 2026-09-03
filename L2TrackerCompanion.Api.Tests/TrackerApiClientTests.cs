@@ -176,6 +176,81 @@ public class TrackerApiClientTests
     }
 
     [Fact]
+    public async Task GetAreasDoesNotSendOrigin()
+    {
+        HttpRequestMessage? seen = null;
+        var handler = new StubHandler(request =>
+        {
+            seen = request;
+            return Json(HttpStatusCode.OK, """
+                [{"id":1,"name":"World","spots":[]},{"id":2,"name":"Special Zone","spots":[]}]
+                """);
+        });
+        var client = new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+
+        var result = await client.GetAreasAsync("jwt");
+        Assert.True(result.Success);
+        Assert.Equal("/api/areas", seen!.RequestUri?.AbsolutePath);
+        Assert.False(seen.Headers.Contains("Origin"));
+        var world = WorldArea.Find(result.Value);
+        Assert.NotNull(world);
+        Assert.Equal(1, world.Id);
+        Assert.Equal("World", world.Name);
+    }
+
+    [Fact]
+    public async Task PostSpotSendsNameAndAreaIdWithoutOrigin()
+    {
+        HttpRequestMessage? seen = null;
+        string? body = null;
+        var handler = new StubHandler(request =>
+        {
+            seen = request;
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Json(HttpStatusCode.OK, """{"id":50,"userId":"u1","name":"Brand New Camp","areaId":1}""");
+        });
+        var client = new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+
+        var call = await client.PostSpotAsync("jwt", "Brand New Camp", 1);
+        Assert.True(call.Success);
+        Assert.Equal(50, call.Value!.Id);
+        Assert.Equal("Brand New Camp", call.Value.Name);
+        Assert.Equal(1, call.Value.AreaId);
+        Assert.Equal(HttpMethod.Post, seen!.Method);
+        Assert.Equal("/api/spots", seen.RequestUri?.AbsolutePath);
+        Assert.False(seen.Headers.Contains("Origin"));
+        Assert.Contains("\"name\":\"Brand New Camp\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"areaId\":1", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DeleteSpotDoesNotSendOrigin()
+    {
+        HttpRequestMessage? seen = null;
+        var handler = new StubHandler(request =>
+        {
+            seen = request;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var client = new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+
+        var call = await client.DeleteSpotAsync("jwt", 50);
+        Assert.True(call.Success);
+        Assert.Equal(HttpMethod.Delete, seen!.Method);
+        Assert.Equal("/api/spots/50", seen.RequestUri?.AbsolutePath);
+        Assert.False(seen.Headers.Contains("Origin"));
+    }
+
+    [Fact]
     public void SaveIsDisabledUntilCharacterAndSpotAreChosen()
     {
         var character = new CharacterInfo(1, "TestChar", "S", 80, 0, 85);
@@ -184,6 +259,26 @@ public class TrackerApiClientTests
         Assert.False(SessionPickers.SaveEnabled(character, null));
         Assert.False(SessionPickers.SaveEnabled(null, spot));
         Assert.True(SessionPickers.SaveEnabled(character, spot));
+        var fromLocation = SpotResolve.Evaluate(
+            null,
+            "Dragon Valley (east)",
+            "Dragon Valley (east)",
+            [spot],
+            spotsLoaded: true,
+            new AreaInfo(1, "World"));
+        Assert.True(SessionPickers.SaveReady(character, fromLocation));
+        Assert.False(SessionPickers.SaveReady(
+            character,
+            SpotResolve.Evaluate(null, null, null, [spot], spotsLoaded: true, null)));
+        Assert.False(SessionPickers.SaveReady(
+            character,
+            SpotResolve.Evaluate(
+                null,
+                "Brand New Camp",
+                "Brand New Camp",
+                spots: null,
+                spotsLoaded: false,
+                new AreaInfo(1, "World"))));
         Assert.Contains("Sign in", SessionPickers.SignInToLoad, StringComparison.Ordinal);
         Assert.Contains("Sign in", SessionPickers.SignInToSave, StringComparison.Ordinal);
     }
