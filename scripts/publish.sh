@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Velopack release build (plan step 22, revised for auto-update).
-# Output: releases/Setup.exe + .nupkg + delta files (gitignored). Requires the
-# `vpk` global dotnet tool on this machine: dotnet tool install -g vpk
+# Output: releases/Setup.exe + Portable.zip + .nupkg + manifests (gitignored).
+# Requires the `vpk` global dotnet tool: dotnet tool install -g vpk
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
