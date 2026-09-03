@@ -27,6 +27,30 @@ public static class LiveStatus
     {
         ArgumentNullException.ThrowIfNull(report);
 
+        // A field whose two independent reads disagree is worse than an unread
+        // one: it has a plausible-looking value that must not be trusted.
+        if (report.Confidence.AdenaDisagreed)
+        {
+            var dispute = report.Confidence.DescribeAdenaDispute();
+            return new(
+                TrafficLight.Red,
+                dispute is null
+                    ? "Adena's two reads disagreed."
+                    : $"Adena's two reads disagreed — {dispute}.",
+                report);
+        }
+
+        if (report.Confidence.XpMagnitudeMismatch)
+        {
+            var dispute = report.Confidence.DescribeXpDispute();
+            return new(
+                TrafficLight.Red,
+                dispute is null
+                    ? "XP's two reads disagreed on the digit count."
+                    : $"XP's two reads disagreed on the digit count — {dispute}.",
+                report);
+        }
+
         if (report.UnreadFields.Count > 0)
         {
             return new(TrafficLight.Red, DescribeFarmUnread(report.UnreadFields), report);
@@ -43,6 +67,11 @@ public static class LiveStatus
                 ? "Lamp XP discarded (sum exceeds dialog XP)."
                 : "Lamp table XP column couldn't be read.";
             return new(TrafficLight.Red, detail, report);
+        }
+
+        if (report.Confidence.XpSpliced)
+        {
+            return new(TrafficLight.Orange, "XP was assembled from two disagreeing reads.", report);
         }
 
         return new(TrafficLight.Green, "Farm and lamps read.", report);

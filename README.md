@@ -127,9 +127,20 @@ chmod +x scripts/ocr-parse.sh   # once
 
 Writes debug crops under `%LOCALAPPDATA%\L2TrackerCompanion\ocr-poc-parse\`. **Windows required.**
 
-**Session store (plan step 14):** each successful parse (WPF or `ocr-parse.sh`) appends a snapshot to `%LOCALAPPDATA%\L2TrackerCompanion\session.db` unless monotonicity rejects it. The WPF window lists those rows; **New session** (or `./scripts/ocr-parse.sh --new-session`) wipes the file.
+**Session store (plan step 14):** each successful parse (WPF or `ocr-parse.sh`) appends a snapshot to `%LOCALAPPDATA%\L2TrackerCompanion\session.db` unless monotonicity rejects it. The WPF window lists those rows. There is no **New session** button: a session begins when the player resets the Play Report **in-game**, which the app detects on its own (see *Reset detection* below). The buffer is also cleared when the app starts and whenever **Start reading** is pressed, so a stale baseline is never more than one button away from being discarded.
 
-**Polling (plan step 15):** **Start tracking** captures → OCR → accept-or-discard every 10s until **Stop tracking**. A tick whose XP / Adena / play time dropped versus the last accepted snapshot is discarded (OCR misread). Lamp XP is monotonic only when both ticks had `lampXpRead`; a closed Magic Lamp panel is not a misread. A tick that finishes after Stop does not append.
+**Offline parsing does not touch the live session.** *Capture once* reads the panel as it is now and counts as a real reading; *OCR last capture* and *Parse a PNG…* re-read a file that may be hours old, which is indistinguishable from a fresh reset — they display their result and store nothing.
+
+**Polling (plan step 15):** **Start reading** captures → OCR → accept-or-discard every 10s until **Stop reading**. The buttons control whether the app is looking at the screen; they do not open or close a session. A tick whose XP / Adena / play time dropped versus the last accepted snapshot is discarded (OCR misread). Lamp XP is monotonic only when both ticks had `lampXpRead`; a closed Magic Lamp panel is not a misread. A tick that finishes after Stop does not append.
+
+**Reset detection:** because the player restarts the Play Report in-game to begin a session, the panel legitimately drops — so a drop is no longer automatically a misread. Four layers, because no single one covers every route:
+
+1. **The client went away and came back under a new process id** (`GameProcessWatch`) — a restarted client always comes back with a zeroed panel. A changed id on its own is not enough: the app follows whichever client is in front, so with two clients open the id flips on every alt-tab, and again when one of the two is closed. The app has to have observed *no* game window at all in between.
+2. **A coherent drop**: the duration went backwards *and* XP actually fell *and* Adena did not grow, with every field readable. There is deliberately **no ceiling** on how far the new duration may have advanced: whether the reset is caught in its first minute or its fifteenth depends only on when a tick happened to land, and readings stop landing for ordinary reasons (panel closed, client relogged, tracking paused). XP has to have *fallen*, not merely failed to grow — an unchanged XP beside a shorter duration is the duration line being misread.
+3. **`StaleBaselineStrikes` (3) rejections in a row** against the same stored row: a real misread is transient, so several in a row mean the stored row is the stale thing. It is dropped and counting restarts.
+4. **Pressing Start reading**, and starting the app, clear the buffer outright.
+
+Anything else stays a misread and is discarded. Mistaking a misread for a reset costs a dropped buffer and nothing more — the save is built from a single frame and its lock lives in a separate table.
 
 **Live status (plan step 16):** a traffic light on the latest parse (not only accepted snapshots). Red = unread farm field or a lamp table that is in frame but unreadable; orange = Magic Lamp panel closed; green = farm + lamps read. Missing minimap hint does not change the colour. Updates every poll tick. The card also shows live XP and Adena rates from that same parse (plan step 23).
 
@@ -164,12 +175,18 @@ A single window titled **L2 Tracker Companion** should open.
 
 Must print `HTTP 200` and `JSON: yes` for `/api/characters` and `/api/settings`.
 
-**Save session (plan step 20):** Save POSTs last−first accepted snapshots as a `FarmLog` (`xpFarmed` / `adena` / lamp XP **in thousands**, `minutes` = wall-clock, `% Bonus` = `acquiredXpSp`). Blocked until both pickers are chosen, there are two accepted snapshots, and lamp XP was read at both ends (no silent zeros). On 2xx the local session file is cleared.
+**Save session (plan step 20):** Save POSTs **the latest single reading** as a `FarmLog` (`xpFarmed` / `adena` / lamp XP **in thousands**, `minutes` taken from the Play Report's own duration, `% Bonus` = `acquiredXpSp`). The panel is already a complete session record, so nothing is subtracted and the wall clock is not consulted — a log can be saved long after the farming stopped, and the companion need not have been running for it.
+
+Save is gated by `SaveGate`, which trusts a frame on **in-frame agreement** rather than repetition — OCR of an unchanged screen is deterministic, so re-reading a static panel would only reproduce the same misread. It blocks when: the play-time dual-read contradicted itself, the two Adena reads disagreed, the two XP reads disagreed on digit count, XP / Adena / play time are unread, play time is 0, the Magic Lamp panel is closed or its XP column unread (no silent zeros), lamp XP exceeds dialog XP, the previous tick was a misread, or the session is still locked by an earlier save. A spliced XP figure warns (orange) but still saves — and the warning **names both competing figures** ("XP disputed — token read 4,210,400, crop read 9,210,400. Saving 9,210,400 (spliced)") so the player, who has the panel on screen, can settle it at a glance. A blocked Adena says the same, which distinguishes a dropped digit from a failed read. On 2xx the panel's play time and XP are recorded in `saved_logs` and the session is **locked**: because the panel is cumulative, a later frame still contains every minute already posted, so a second save would double-count the whole first stretch. The lock is released by a frame whose **XP** is below the saved figure. XP never falls within one run, so that is proof of a different run — at any duration, which matters because a reset nobody was watching can easily have outgrown the saved session by the time the app looks again. A shorter play time on its own does **not** release it, so a misread of the duration line cannot unlock a live session; play time is the release signal only for the degenerate case of a log saved at zero XP. Detecting a reset does **not** release it separately: the XP comparison already covers the real case, and a second, heuristic release path would only add a way to lose the lock on one misclassified frame.
+
+`saved_logs` holds exactly one row — the current lock, not a history; keeping every save and reading an aggregate meant a short session after a long one never locked at all. It is deliberately independent of the snapshot buffer: the buffer is dropped routinely (pressing Start, app startup, a stale baseline) and none of those may re-open a session that was already posted. The lock is also mirrored in memory, so a failed write cannot let the next poll tick re-arm the button for a log already on the server. The local session is **not** cleared on save — the panel keeps counting until the player resets it.
 
 ```bash
 chmod +x scripts/save.sh   # once
 ./scripts/save.sh --character-id <id> --spot-id <id> [--bonus <n>]
 ```
+
+It saves the most recent stored reading, subject to the same gate.
 
 **Spot preselect from hint (plan step 21):** a minimap `locationHint` exact-matches a spot **name** (case-insensitive, never fuzzy, never the area label). A hit preselects that ComboBox row; a miss leaves the current selection. Never auto-saves.
 

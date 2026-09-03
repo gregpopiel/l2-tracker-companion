@@ -80,7 +80,18 @@ public static class PlayReportPipeline
                 lamps.Blue,
                 lamps.Green);
 
-            var report = PlayReport.From(farm.Xp, farm.Adena, play.Minutes, decision, hint);
+            var confidence = new ReadConfidence(
+                XpDisagreed: farm.XpDisagreed,
+                XpSpliced: farm.XpSpliced,
+                XpMagnitudeMismatch: farm.XpMagnitudeMismatch,
+                AdenaDisagreed: farm.AdenaDisagreed,
+                PlayTimeDisagreed: play.RefusedContradiction,
+                XpFromTokens: farm.XpFromTokens,
+                XpFromCrop: farm.XpFromCrop,
+                AdenaFromTokens: farm.AdenaFromTokens,
+                AdenaFromCrop: farm.AdenaFromCrop);
+
+            var report = PlayReport.From(farm.Xp, farm.Adena, play.Minutes, decision, hint, confidence);
             return new PlayReportResult
             {
                 Success = true,

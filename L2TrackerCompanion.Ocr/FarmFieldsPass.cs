@@ -110,25 +110,35 @@ public static class FarmFieldsPass
             }
         }
 
-        var xp = tokens.XpTokens.Count == 0
-            ? xpFromCrop ?? tokens.XpFromTokens
-            : XpReads.Combine(tokens.XpFromTokens, xpFromCrop);
+        var xpCombine = tokens.XpTokens.Count == 0
+            ? new XpCombineResult(xpFromCrop ?? tokens.XpFromTokens, false, false, false)
+            : XpReads.CombineDetailed(tokens.XpFromTokens, xpFromCrop);
+        var xp = xpCombine.Value;
 
         long? adenaFromCrop = null;
         string? adenaCropPath = null;
         var usedFallback = false;
-        if (tokens.AdenaFromTokens is null && tokens.Unit is not null)
+
+        // Always take the second opinion, not only when the token read failed.
+        // OCR of an unchanged frame is deterministic, so a lone read can never
+        // be re-confirmed by looking again later — the crop is the only
+        // independent check Adena gets, and its figure goes straight to the API.
+        if (tokens.Unit is not null)
         {
             var adenaRect = FarmFields.AdenaFallbackCrop(tokens.Unit, cropWidth, cropHeight);
             if (!adenaRect.IsEmpty)
             {
-                usedFallback = true;
+                usedFallback = tokens.AdenaFromTokens is null;
+
+                // The crop is now read on every frame, but its debug PNG is
+                // only worth writing when it is the figure being used — during
+                // tracking that is a file write every 10s for nothing.
                 var (text, pngPath) = await EnhanceAndRecognizeAsync(
                         dialog.CropBitmap,
                         dialog.Engine,
                         adenaRect,
                         outputDirectory,
-                        stem + "_adena-crop.png",
+                        usedFallback ? stem + "_adena-crop.png" : null,
                         cancellationToken)
                     .ConfigureAwait(false);
                 adenaFromCrop = GameNumber.ParseLine(text);
@@ -137,6 +147,9 @@ public static class FarmFieldsPass
         }
 
         var adena = tokens.AdenaFromTokens ?? adenaFromCrop;
+        var adenaDisagreed = tokens.AdenaFromTokens is not null
+            && adenaFromCrop is not null
+            && tokens.AdenaFromTokens != adenaFromCrop;
 
         Directory.CreateDirectory(outputDirectory);
         var dumpPath = Path.Combine(outputDirectory, stem + ".txt");
@@ -159,6 +172,10 @@ public static class FarmFieldsPass
             AdenaFromTokens = tokens.AdenaFromTokens,
             AdenaFromCrop = adenaFromCrop,
             UsedAdenaFallback = usedFallback,
+            AdenaDisagreed = adenaDisagreed,
+            XpDisagreed = xpCombine.Disagreed,
+            XpSpliced = xpCombine.Spliced,
+            XpMagnitudeMismatch = xpCombine.MagnitudeMismatch,
             Pitch = tokens.Pitch,
             XpTokenTexts = tokens.XpTokens.Select(w => w.Text).ToArray(),
             AdenaTokenTexts = tokens.AdenaTokens.Select(w => w.Text).ToArray(),
@@ -319,12 +336,16 @@ public static class FarmFieldsPass
         return map;
     }
 
-    private static async Task<(string Text, string PngPath)> EnhanceAndRecognizeAsync(
+    /// <param name="fileName">
+    /// Debug PNG to write beside the dump, or <c>null</c> to recognise without
+    /// leaving a file behind.
+    /// </param>
+    private static async Task<(string Text, string? PngPath)> EnhanceAndRecognizeAsync(
         SoftwareBitmap source,
         OcrEngine engine,
         CropRect crop,
         string outputDirectory,
-        string fileName,
+        string? fileName,
         CancellationToken cancellationToken)
     {
         using var enhanced = await ImageEnhance.CropAndEnhanceAsync(
@@ -333,9 +354,14 @@ public static class FarmFieldsPass
                 FarmFields.EnhanceTargetHeight,
                 cancellationToken)
             .ConfigureAwait(false);
-        Directory.CreateDirectory(outputDirectory);
-        var pngPath = Path.GetFullPath(Path.Combine(outputDirectory, fileName));
-        await OcrRecognize.SavePngAsync(enhanced, pngPath, cancellationToken).ConfigureAwait(false);
+
+        string? pngPath = null;
+        if (fileName is not null)
+        {
+            Directory.CreateDirectory(outputDirectory);
+            pngPath = Path.GetFullPath(Path.Combine(outputDirectory, fileName));
+            await OcrRecognize.SavePngAsync(enhanced, pngPath, cancellationToken).ConfigureAwait(false);
+        }
 
         var recognized = await engine.RecognizeAsync(enhanced).AsTask(cancellationToken).ConfigureAwait(false);
         return (OcrRecognize.JoinRecognizedText(recognized), pngPath);

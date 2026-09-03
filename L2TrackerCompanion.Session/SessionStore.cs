@@ -8,7 +8,8 @@ namespace L2TrackerCompanion.Session;
 
 /// <summary>
 /// Append-only SQLite snapshots for the active session (plan step 14).
-/// <see cref="NewSession"/> wipes the file after a successful save.
+/// <see cref="NewSession"/> wipes the file when the player resets the
+/// Play Report in-game, which is what now starts a session.
 /// </summary>
 public sealed class SessionStore : IDisposable
 {
@@ -20,9 +21,21 @@ public sealed class SessionStore : IDisposable
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    /// <summary>
+    /// Rejections in a row against the same stored baseline before that
+    /// baseline is treated as the stale thing and dropped.
+    /// </summary>
+    /// <remarks>
+    /// A real OCR misread is transient — the next tick recovers. Several
+    /// rejections in a row all measured against one unchanged row are evidence
+    /// that the row is out of date (a reset nobody was watching for), not that
+    /// the readings are bad. Without this the buffer can never advance again.
+    /// </remarks>
+    public const int StaleBaselineStrikes = 3;
+
     private readonly string _path;
-    private readonly bool _isMemory;
     private SqliteConnection _connection;
+    private int _consecutiveRejections;
 
     public string Path => _path;
 
@@ -30,8 +43,7 @@ public sealed class SessionStore : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         _path = path;
-        _isMemory = string.Equals(path, ":memory:", StringComparison.Ordinal);
-        if (!_isMemory)
+        if (!string.Equals(path, ":memory:", StringComparison.Ordinal))
         {
             var directory = System.IO.Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
@@ -64,12 +76,16 @@ public sealed class SessionStore : IDisposable
                 captured_at, xp, adena, minutes,
                 red_lamp_xp, purple_lamp_xp, blue_lamp_xp, green_lamp_xp,
                 lamp_xp_read, lamp_panel_closed, lamp_xp_exceeds_dialog, lamp_xp_total,
-                location_hint, unread_fields, warnings)
+                location_hint, unread_fields, warnings,
+                xp_disagreed, xp_spliced, xp_magnitude_mismatch, adena_disagreed, play_time_disagreed,
+                xp_from_tokens, xp_from_crop, adena_from_tokens, adena_from_crop)
             VALUES (
                 $captured_at, $xp, $adena, $minutes,
                 $red, $purple, $blue, $green,
                 $lamp_read, $lamp_closed, $lamp_exceeds, $lamp_total,
-                $hint, $unread, $warnings);
+                $hint, $unread, $warnings,
+                $xp_disagreed, $xp_spliced, $xp_magnitude_mismatch, $adena_disagreed, $play_time_disagreed,
+                $xp_from_tokens, $xp_from_crop, $adena_from_tokens, $adena_from_crop);
             SELECT last_insert_rowid();
             """;
         command.Parameters.AddWithValue("$captured_at", at.ToString("o", CultureInfo.InvariantCulture));
@@ -87,6 +103,15 @@ public sealed class SessionStore : IDisposable
         command.Parameters.AddWithValue("$hint", (object?)report.LocationHint ?? DBNull.Value);
         command.Parameters.AddWithValue("$unread", JsonSerializer.Serialize(report.UnreadFields, JsonOptions));
         command.Parameters.AddWithValue("$warnings", JsonSerializer.Serialize(report.Warnings, JsonOptions));
+        command.Parameters.AddWithValue("$xp_disagreed", report.Confidence.XpDisagreed ? 1 : 0);
+        command.Parameters.AddWithValue("$xp_spliced", report.Confidence.XpSpliced ? 1 : 0);
+        command.Parameters.AddWithValue("$xp_magnitude_mismatch", report.Confidence.XpMagnitudeMismatch ? 1 : 0);
+        command.Parameters.AddWithValue("$adena_disagreed", report.Confidence.AdenaDisagreed ? 1 : 0);
+        command.Parameters.AddWithValue("$play_time_disagreed", report.Confidence.PlayTimeDisagreed ? 1 : 0);
+        BindLong(command, "$xp_from_tokens", report.Confidence.XpFromTokens);
+        BindLong(command, "$xp_from_crop", report.Confidence.XpFromCrop);
+        BindLong(command, "$adena_from_tokens", report.Confidence.AdenaFromTokens);
+        BindLong(command, "$adena_from_crop", report.Confidence.AdenaFromCrop);
 
         var id = (long)command.ExecuteScalar()!;
         return new SnapshotRow(id, at, report);
@@ -100,7 +125,9 @@ public sealed class SessionStore : IDisposable
             SELECT id, captured_at, xp, adena, minutes,
                    red_lamp_xp, purple_lamp_xp, blue_lamp_xp, green_lamp_xp,
                    lamp_xp_read, lamp_panel_closed, lamp_xp_exceeds_dialog, lamp_xp_total,
-                   location_hint, unread_fields, warnings
+                   location_hint, unread_fields, warnings,
+                   xp_disagreed, xp_spliced, xp_magnitude_mismatch, adena_disagreed, play_time_disagreed,
+                   xp_from_tokens, xp_from_crop, adena_from_tokens, adena_from_crop
             FROM snapshots
             ORDER BY id DESC
             LIMIT 1;
@@ -117,24 +144,102 @@ public sealed class SessionStore : IDisposable
     {
         ArgumentNullException.ThrowIfNull(report);
         var decision = Monotonicity.Evaluate(Last()?.Report, report);
-        if (!decision.Accepted)
+        if (decision.Outcome == MonotonicityOutcome.Misread)
         {
-            return SnapshotAcceptResult.Discarded(decision.Reason!);
+            _consecutiveRejections++;
+            if (_consecutiveRejections < StaleBaselineStrikes)
+            {
+                return SnapshotAcceptResult.Discarded(decision.Reason!);
+            }
+
+            // Nothing has been accepted for several ticks running: the baseline
+            // is what is wrong, not the readings.
+            NewSession();
+            return SnapshotAcceptResult.AfterReset(
+                Append(report, capturedAt),
+                $"No reading matched the previous one for {StaleBaselineStrikes} ticks — "
+                + "the stored baseline was dropped and counting restarted.");
+        }
+
+        _consecutiveRejections = 0;
+        if (decision.IsReset)
+        {
+            // The player restarted the Play Report in-game, which is how a
+            // session now begins. Everything buffered belongs to the previous
+            // one, so it goes rather than being compared against the new run.
+            //
+            // The save lock is deliberately left alone: SaveLock releases it on
+            // any frame whose XP is below the saved figure, which is what a real
+            // reset produces anyway. Clearing it here would add nothing except a
+            // way to lose it on a single misclassified frame.
+            NewSession();
+            return SnapshotAcceptResult.AfterReset(Append(report, capturedAt), decision.Reason!);
         }
 
         return SnapshotAcceptResult.Accepted(Append(report, capturedAt));
     }
 
     /// <summary>
-    /// Last accepted − first accepted, in thousands, wall-clock minutes.
+    /// Is <paramref name="current"/> still covered by something already posted?
     /// </summary>
-    public SessionDeltaResult TryDelta()
+    /// <remarks>
+    /// The panel is cumulative, so farming on after a save produces a
+    /// <em>different</em> frame that still contains every minute already sent —
+    /// matching on the frame's identity would wave that overlapping log through
+    /// and double-count the first stretch. So the lock is released by the panel
+    /// going <em>backwards</em> past what was saved, which is what a reset looks
+    /// like. Both play time and XP have to be below the saved figures: a lone
+    /// misread of the duration line would otherwise unlock a live session.
+    /// This reads only <c>saved_logs</c>, so wiping the buffer cannot unlock it.
+    /// </remarks>
+    public bool IsSaveLocked(PlayReport current)
     {
-        var rows = List();
-        var snapshots = rows
-            .Select(row => new PlayReportSnapshot(row.Report, row.CapturedAt))
-            .ToArray();
-        return SessionDelta.TryCreate(snapshots);
+        ArgumentNullException.ThrowIfNull(current);
+        using var command = _connection.CreateCommand();
+        command.CommandText = "SELECT panel_minutes, panel_xp FROM saved_logs LIMIT 1;";
+        using var reader = command.ExecuteReader();
+        if (!reader.Read() || reader.IsDBNull(0))
+        {
+            return false;
+        }
+
+        return SaveLock.Covers(
+            reader.GetInt64(0),
+            reader.IsDBNull(1) ? null : reader.GetInt64(1),
+            current);
+    }
+
+    /// <summary>
+    /// Record a posted Play Report. Cleared along with the session on reset,
+    /// which is correct: a reset panel cannot collide with the old figures.
+    /// </summary>
+    public void MarkSaved(PlayReport report, DateTimeOffset? savedAt = null)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        // Exactly one row: this is the current lock, not a history. Keeping
+        // every save and reading an aggregate meant a short session after a
+        // long one never locked at all, because the older, higher figures
+        // still looked like something the new frame had gone back past.
+        // Transacted so that dying between the two statements cannot leave the
+        // table empty, which would read as "nothing was ever posted".
+        using var transaction = _connection.BeginTransaction();
+        using var command = _connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            DELETE FROM saved_logs;
+            INSERT INTO saved_logs (fingerprint, saved_at, panel_minutes, panel_xp)
+            VALUES ($fingerprint, $saved_at, $panel_minutes, $panel_xp);
+            """;
+        command.Parameters.AddWithValue("$fingerprint", SessionSnapshot.Fingerprint(report));
+        command.Parameters.AddWithValue(
+            "$saved_at",
+            (savedAt ?? DateTimeOffset.UtcNow).ToUniversalTime().ToString("o", CultureInfo.InvariantCulture));
+        BindLong(command, "$panel_minutes", report.Minutes);
+        BindLong(command, "$panel_xp", report.Xp);
+        command.ExecuteNonQuery();
+        transaction.Commit();
     }
 
     public IReadOnlyList<SnapshotRow> List()
@@ -145,7 +250,9 @@ public sealed class SessionStore : IDisposable
             SELECT id, captured_at, xp, adena, minutes,
                    red_lamp_xp, purple_lamp_xp, blue_lamp_xp, green_lamp_xp,
                    lamp_xp_read, lamp_panel_closed, lamp_xp_exceeds_dialog, lamp_xp_total,
-                   location_hint, unread_fields, warnings
+                   location_hint, unread_fields, warnings,
+                   xp_disagreed, xp_spliced, xp_magnitude_mismatch, adena_disagreed, play_time_disagreed,
+                   xp_from_tokens, xp_from_crop, adena_from_tokens, adena_from_crop
             FROM snapshots
             ORDER BY id ASC;
             """;
@@ -170,35 +277,33 @@ public sealed class SessionStore : IDisposable
     }
 
     /// <summary>
-    /// Wipe the active session. File-backed stores delete the db and open a
-    /// new empty one; in-memory stores just delete the rows.
+    /// Drop the comparison buffer. Deliberately leaves <c>saved_logs</c> alone:
+    /// clearing the buffer happens routinely now (in-game reset, client
+    /// restart, a stale baseline, pressing Start), and none of those may
+    /// silently re-open a session that has already been posted.
     /// </summary>
+    /// <remarks>
+    /// This used to delete the database file, which meant closing the
+    /// connection first and left the store unusable whenever the delete
+    /// failed. A DELETE keeps the connection alive and cannot half-succeed.
+    /// </remarks>
     public void NewSession()
     {
-        if (_isMemory)
-        {
-            using var command = _connection.CreateCommand();
-            command.CommandText = "DELETE FROM snapshots;";
-            command.ExecuteNonQuery();
-            return;
-        }
+        _consecutiveRejections = 0;
+        using var command = _connection.CreateCommand();
+        command.CommandText = "DELETE FROM snapshots;";
+        command.ExecuteNonQuery();
+    }
 
-        _connection.Dispose();
-        SqliteConnection.ClearPool(_connection);
-        File.Delete(_path);
-        var wal = _path + "-wal";
-        var shm = _path + "-shm";
-        if (File.Exists(wal))
-        {
-            File.Delete(wal);
-        }
-
-        if (File.Exists(shm))
-        {
-            File.Delete(shm);
-        }
-
-        _connection = OpenAndMigrate(_path);
+    /// <summary>
+    /// Forget that anything was posted. Only sign-out does this — the lock is
+    /// otherwise released by the panel itself going backwards.
+    /// </summary>
+    public void ClearSaveLock()
+    {
+        using var command = _connection.CreateCommand();
+        command.CommandText = "DELETE FROM saved_logs;";
+        command.ExecuteNonQuery();
     }
 
     public static string FormatInspect(IReadOnlyList<SnapshotRow> rows, string path)
@@ -271,11 +376,115 @@ public sealed class SessionStore : IDisposable
                 lamp_xp_total INTEGER NOT NULL,
                 location_hint TEXT,
                 unread_fields TEXT NOT NULL,
-                warnings TEXT NOT NULL
+                warnings TEXT NOT NULL,
+                xp_disagreed INTEGER NOT NULL DEFAULT 0,
+                xp_spliced INTEGER NOT NULL DEFAULT 0,
+                xp_magnitude_mismatch INTEGER NOT NULL DEFAULT 0,
+                adena_disagreed INTEGER NOT NULL DEFAULT 0,
+                play_time_disagreed INTEGER NOT NULL DEFAULT 0,
+                xp_from_tokens INTEGER,
+                xp_from_crop INTEGER,
+                adena_from_tokens INTEGER,
+                adena_from_crop INTEGER
+            );
+
+            CREATE TABLE IF NOT EXISTS saved_logs (
+                fingerprint TEXT PRIMARY KEY,
+                saved_at TEXT NOT NULL,
+                panel_minutes INTEGER,
+                panel_xp INTEGER
             );
             """;
         command.ExecuteNonQuery();
+        AddMissingColumns(connection);
         return connection;
+    }
+
+    /// <summary>
+    /// <c>CREATE TABLE IF NOT EXISTS</c> leaves a pre-existing session file on
+    /// its old shape, so add the in-frame agreement columns to databases that
+    /// were created before they existed.
+    /// </summary>
+    private static void AddMissingColumns(SqliteConnection connection)
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var probe = connection.CreateCommand())
+        {
+            probe.CommandText = "PRAGMA table_info(snapshots);";
+            using var reader = probe.ExecuteReader();
+            while (reader.Read())
+            {
+                existing.Add(reader.GetString(1));
+            }
+        }
+
+        string[] added =
+        [
+            "xp_disagreed",
+            "xp_spliced",
+            "xp_magnitude_mismatch",
+            "adena_disagreed",
+            "play_time_disagreed",
+        ];
+        foreach (var column in added)
+        {
+            if (existing.Contains(column))
+            {
+                continue;
+            }
+
+            using var alter = connection.CreateCommand();
+            alter.CommandText =
+                $"ALTER TABLE snapshots ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0;";
+            alter.ExecuteNonQuery();
+        }
+
+        string[] nullableAdded =
+        [
+            "xp_from_tokens",
+            "xp_from_crop",
+            "adena_from_tokens",
+            "adena_from_crop",
+        ];
+        foreach (var column in nullableAdded)
+        {
+            if (existing.Contains(column))
+            {
+                continue;
+            }
+
+            using var alter = connection.CreateCommand();
+            alter.CommandText = $"ALTER TABLE snapshots ADD COLUMN {column} INTEGER;";
+            alter.ExecuteNonQuery();
+        }
+
+        AddMissingSavedLogColumns(connection);
+    }
+
+    private static void AddMissingSavedLogColumns(SqliteConnection connection)
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var probe = connection.CreateCommand())
+        {
+            probe.CommandText = "PRAGMA table_info(saved_logs);";
+            using var reader = probe.ExecuteReader();
+            while (reader.Read())
+            {
+                existing.Add(reader.GetString(1));
+            }
+        }
+
+        foreach (var column in new[] { "panel_minutes", "panel_xp" })
+        {
+            if (existing.Contains(column))
+            {
+                continue;
+            }
+
+            using var alter = connection.CreateCommand();
+            alter.CommandText = $"ALTER TABLE saved_logs ADD COLUMN {column} INTEGER;";
+            alter.ExecuteNonQuery();
+        }
     }
 
     private static SnapshotRow ReadRow(SqliteDataReader reader)
@@ -286,6 +495,16 @@ public sealed class SessionStore : IDisposable
             DateTimeStyles.RoundtripKind);
         var unread = JsonSerializer.Deserialize<List<string>>(reader.GetString(14), JsonOptions) ?? [];
         var warnings = JsonSerializer.Deserialize<List<string>>(reader.GetString(15), JsonOptions) ?? [];
+        var confidence = new ReadConfidence(
+            XpDisagreed: reader.GetInt32(16) != 0,
+            XpSpliced: reader.GetInt32(17) != 0,
+            XpMagnitudeMismatch: reader.GetInt32(18) != 0,
+            AdenaDisagreed: reader.GetInt32(19) != 0,
+            PlayTimeDisagreed: reader.GetInt32(20) != 0,
+            XpFromTokens: GetNullableInt64(reader, 21),
+            XpFromCrop: GetNullableInt64(reader, 22),
+            AdenaFromTokens: GetNullableInt64(reader, 23),
+            AdenaFromCrop: GetNullableInt64(reader, 24));
         var report = new PlayReport(
             Xp: GetNullableInt64(reader, 2),
             Adena: GetNullableInt64(reader, 3),
@@ -300,7 +519,8 @@ public sealed class SessionStore : IDisposable
             LampXpTotal: reader.GetInt64(12),
             LocationHint: reader.IsDBNull(13) ? null : reader.GetString(13),
             UnreadFields: unread,
-            Warnings: warnings);
+            Warnings: warnings,
+            Confidence: confidence);
         return new SnapshotRow(reader.GetInt64(0), capturedAt, report);
     }
 
@@ -319,9 +539,19 @@ public sealed class SessionStore : IDisposable
 
 public sealed record SnapshotRow(long Id, DateTimeOffset CapturedAt, PlayReport Report);
 
-public sealed record SnapshotAcceptResult(bool Appended, string? Reason, SnapshotRow? Row)
+public sealed record SnapshotAcceptResult(
+    bool Appended,
+    string? Reason,
+    SnapshotRow? Row,
+    MonotonicityOutcome Outcome = MonotonicityOutcome.Accepted)
 {
+    public bool WasReset => Outcome == MonotonicityOutcome.Reset;
+
     public static SnapshotAcceptResult Accepted(SnapshotRow row) => new(true, null, row);
 
-    public static SnapshotAcceptResult Discarded(string reason) => new(false, reason, null);
+    public static SnapshotAcceptResult AfterReset(SnapshotRow row, string reason)
+        => new(true, reason, row, MonotonicityOutcome.Reset);
+
+    public static SnapshotAcceptResult Discarded(string reason)
+        => new(false, reason, null, MonotonicityOutcome.Misread);
 }

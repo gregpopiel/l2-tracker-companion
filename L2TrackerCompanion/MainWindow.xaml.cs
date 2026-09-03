@@ -28,12 +28,25 @@ public partial class MainWindow : Window
     private bool _suppressModeEvents;
     private bool _ratePerHour = UserSettingsInfo.SchemaDefaults.RatePerHour;
     private LiveStatusSnapshot _liveStatus = LiveStatus.Idle();
+    private PlayReport? _lastReport;
+    private DateTimeOffset _lastReportAt;
+    private MonotonicityOutcome? _lastComparison;
+    private bool _saveInFlight;
+    private readonly GameProcessWatch _gameWatch = new();
+    private long? _savedPanelMinutes;
+    private long? _savedPanelXp;
 
     public MainWindow()
     {
         InitializeComponent();
         Closed += OnClosed;
         Loaded += (_, _) => _ = RestoreAuthAsync();
+
+        // The buffer only exists to compare one reading against the previous
+        // one within a run, and anything left over from the last run is stale
+        // by definition — the panel may have been reset while we were closed.
+        // The save lock is a separate table and deliberately survives this.
+        _sessionStore.NewSession();
 
         _refreshTimer = new DispatcherTimer
         {
@@ -188,8 +201,16 @@ public partial class MainWindow : Window
 
     private void SignOutButton_Click(object sender, RoutedEventArgs e)
     {
-        var delta = _sessionStore.TryDelta();
-        if (delta.Ok && delta.Totals is not null && !ConfirmDiscardSession(delta.Totals))
+        if (_saveInFlight)
+        {
+            // The pending save still writes its lock row when it returns; wiping
+            // the store underneath it would hand that lock to the next account.
+            PickerStatusLabel.Text = "A save is still in progress — try again in a moment.";
+            return;
+        }
+
+        var gate = CurrentGate();
+        if (gate.CanSave && gate.Totals is not null && !ConfirmDiscardSession(gate.Totals))
         {
             return;
         }
@@ -202,6 +223,11 @@ public partial class MainWindow : Window
         // Unsaved snapshots belong to the account that produced them — the next
         // token pasted at the gate may be a different one. Confirmed above.
         _sessionStore.NewSession();
+        _sessionStore.ClearSaveLock();
+        _savedPanelMinutes = null;
+        _savedPanelXp = null;
+        _lastReport = null;
+        _lastComparison = null;
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
         ShowLogin("Signed out. Token removed from disk. Local session cleared.");
@@ -347,26 +373,67 @@ public partial class MainWindow : Window
         RefreshSaveEnabled();
     }
 
+    /// <summary>
+    /// Whether the latest reading may be saved, and what it would post.
+    /// </summary>
+    private SaveGateDecision CurrentGate()
+        => SaveGate.Evaluate(
+            _lastReport,
+            _lastReportAt,
+            _lastComparison,
+            _lastReport is not null && IsSaveLocked(_lastReport));
+
+    /// <summary>
+    /// The stored lock, plus an in-process copy of it.
+    /// </summary>
+    /// <remarks>
+    /// Writing the lock row can fail (a locked database) <em>after</em> the log
+    /// has already reached the server. Without the in-process copy the next
+    /// poll tick would find no lock and put Save back within ten seconds, ready
+    /// to duplicate a log that already exists.
+    /// </remarks>
+    private bool IsSaveLocked(PlayReport current)
+    {
+        if (_savedPanelMinutes is not null
+            && SaveLock.Covers(_savedPanelMinutes.Value, _savedPanelXp, current))
+        {
+            return true;
+        }
+
+        return _sessionStore.IsSaveLocked(current);
+    }
+
     private void RefreshSaveEnabled()
     {
         var pickersReady = SessionPickers.SaveEnabled(SelectedCharacter, SelectedSpot);
-        var delta = _sessionStore.TryDelta();
-        SaveButton.IsEnabled = pickersReady && delta.Ok;
+        var gate = CurrentGate();
+
+        // A poll tick lands here every 10s, including while a save is awaiting
+        // its response — without this the button would re-arm mid-POST and a
+        // second click would duplicate the log.
+        SaveButton.IsEnabled = pickersReady && gate.CanSave && !_saveInFlight;
         if (!pickersReady)
         {
             return;
         }
 
-        if (!delta.Ok)
+        if (!gate.CanSave)
         {
-            PickerStatusLabel.Text = delta.Error;
+            PickerStatusLabel.Text = gate.BlockReason;
             return;
         }
 
-        PickerStatusLabel.Text =
+        var totals = gate.Totals!;
+        var text =
             $"Ready to save {SelectedCharacter!.Name} at {SelectedSpot!.Label}: "
-            + $"{delta.Totals!.XpFarmed}k XP, {delta.Totals.Adena}k Adena, "
-            + $"{delta.Totals.Minutes} min wall-clock.";
+            + $"{totals.XpFarmed}k XP, {totals.Adena}k Adena, "
+            + $"{totals.Minutes} min from the Play Report.";
+        if (gate.Warnings.Count > 0)
+        {
+            text += "\n" + string.Join("\n", gate.Warnings);
+        }
+
+        PickerStatusLabel.Text = text;
     }
 
     private void ApplyLocationHint(string? hint)
@@ -506,9 +573,11 @@ public partial class MainWindow : Window
 
     private async void SaveButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_polling.IsRunning)
+        // Saving no longer ends anything: the log is built from the latest
+        // reading, so tracking keeps running and the panel keeps counting.
+        if (_saveInFlight)
         {
-            StopTracking("Stopped to save.");
+            return;
         }
 
         if (!SessionPickers.SaveEnabled(SelectedCharacter, SelectedSpot))
@@ -517,8 +586,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        var delta = _sessionStore.TryDelta();
-        if (!delta.Ok || delta.Totals is null)
+        var gate = CurrentGate();
+        var report = _lastReport;
+        if (!gate.CanSave || gate.Totals is null || report is null)
         {
             RefreshSaveEnabled();
             return;
@@ -538,12 +608,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        _saveInFlight = true;
         SaveButton.IsEnabled = false;
         PickerStatusLabel.Text = "Saving session…";
         var saved = false;
         try
         {
-            var totals = delta.Totals;
+            var totals = gate.Totals;
             var request = new FarmLogRequest(
                 CharacterId: SelectedCharacter!.Id,
                 SpotId: SelectedSpot!.Id,
@@ -563,16 +634,38 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _sessionStore.NewSession();
-            ShowLiveStatus(LiveStatus.Idle());
-            SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
+            // The log exists on the server from here on. Nothing below may put
+            // the button back or throw out of this async void handler.
             saved = true;
+            SaveButton.IsEnabled = false;
+
+            // Held in memory as well as on disk, so a failed write cannot let
+            // the next tick re-arm the button.
+            _savedPanelMinutes = report.Minutes;
+            _savedPanelXp = report.Xp;
+
+            var lockNote = string.Empty;
+            try
+            {
+                // Records the panel state this log covered, so a later frame
+                // cannot post the same minutes again.
+                _sessionStore.MarkSaved(report);
+                SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
+            }
+            catch (Exception ex)
+            {
+                lockNote = $" (warning: could not record it locally — {ex.Message})";
+            }
+
             PickerStatusLabel.Text =
                 $"Saved farm log #{call.Value!.Id} for {SelectedCharacter.Name} at {SelectedSpot.Label} "
-                + $"({totals.XpFarmed}k XP, {totals.Minutes} min). Local session cleared.";
+                + $"({totals.XpFarmed}k XP, {totals.Minutes} min). "
+                + "Reset the Play Report in-game to start a new session."
+                + lockNote;
         }
         finally
         {
+            _saveInFlight = false;
             if (!saved)
             {
                 RefreshSaveEnabled();
@@ -592,6 +685,7 @@ public partial class MainWindow : Window
     private void RefreshGameWindowStatus()
     {
         var gameWindow = _windowCaptureService.TryFindGameWindow();
+        NoticeGameProcess(gameWindow?.ProcessId);
         if (gameWindow is null)
         {
             GameWindowStatusLabel.Text = _options.DebugMode
@@ -613,6 +707,39 @@ public partial class MainWindow : Window
         {
             ShowLiveStatus(LiveStatus.GameNotRunning());
         }
+    }
+
+    /// <summary>
+    /// A restarted client always comes back with a zeroed Play Report, so an
+    /// observed restart is proof of a reset — no inference from the figures,
+    /// and no dependence on a tick landing in any particular window. The
+    /// decision itself lives in <see cref="GameProcessWatch"/>, which is
+    /// testable without Windows.
+    /// </summary>
+    private void NoticeGameProcess(int? processId)
+    {
+        // Only asked for when no window was found, and only to tell an exited
+        // client from one that is briefly without a usable window.
+        var followedAlive = true;
+        if (processId is null && _gameWatch.FollowedProcessId is int followed)
+        {
+            followedAlive = _windowCaptureService.IsGameProcessRunning(followed);
+        }
+
+        if (!_gameWatch.Notice(processId, followedAlive))
+        {
+            return;
+        }
+
+        // The lock is left to SaveLock: the restarted panel reads below the
+        // saved XP, so it releases itself. Clearing it here would only add a
+        // way to lose it wrongly.
+        _sessionStore.NewSession();
+        _lastReport = null;
+        _lastComparison = null;
+        ShowLiveStatus(LiveStatus.Idle());
+        RefreshSessionStatus();
+        RefreshPollStatus("Game restarted — the Play Report is counting from zero again.");
     }
 
     private void RefreshSessionStatus()
@@ -670,6 +797,8 @@ public partial class MainWindow : Window
             }
 
             CaptureStatusLabel.Text = FormatCaptureSuccess(result);
+
+            // A capture taken just now is a live reading of the panel.
             await RunParseAsync(outputPath, fromPoll: false);
         }
         finally
@@ -699,7 +828,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        await RunParseAsync(capturePath, fromPoll: false);
+        // Re-reading whatever is on disk: it may be minutes or hours old.
+        await RunParseAsync(capturePath, fromPoll: false, inspectOnly: true);
     }
 
     private async void ParsePngButton_Click(object sender, RoutedEventArgs e)
@@ -723,14 +853,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        await RunParseAsync(dialog.FileName, fromPoll: false);
-    }
-
-    private void NewSessionButton_Click(object sender, RoutedEventArgs e)
-    {
-        _sessionStore.NewSession();
-        RefreshSessionStatus();
-        ShowLiveStatus(LiveStatus.Idle());
+        await RunParseAsync(dialog.FileName, fromPoll: false, inspectOnly: true);
     }
 
     private async void StartStopButton_Click(object sender, RoutedEventArgs e)
@@ -741,9 +864,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Starting a reading run means starting fresh comparisons. Safe because
+        // the buffer no longer feeds the save (one frame does) and the save lock
+        // lives in saved_logs, so this cannot unlock anything. It is also the
+        // manual way out if the baseline ever goes stale.
+        _sessionStore.NewSession();
+        _lastComparison = null;
         _polling.Start();
         _pollCts = new CancellationTokenSource();
-        StartStopButton.Content = "Stop tracking";
+        StartStopButton.Content = "Stop reading";
         RefreshPollStatus("Starting…");
         _pollTimer.Start();
         await LoadSettingsAsync(keepExistingOnFailure: true);
@@ -755,7 +884,7 @@ public partial class MainWindow : Window
         _polling.Stop();
         _pollTimer.Stop();
         _pollCts.Cancel();
-        StartStopButton.Content = "Start tracking";
+        StartStopButton.Content = "Start reading";
         RefreshPollStatus(message);
     }
 
@@ -787,7 +916,20 @@ public partial class MainWindow : Window
             }
 
             CaptureStatusLabel.Text = FormatCaptureSuccess(capture);
-            await RunParseAsync(outputPath, fromPoll: true, _pollCts.Token);
+            await RunParseAsync(outputPath, fromPoll: true, cancellationToken: _pollCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Stop was pressed mid-tick; nothing to report.
+        }
+        catch (Exception ex)
+        {
+            // The timer discards this Task, so without a catch a throw here
+            // (a locked session.db, a capture that failed inside the pipeline)
+            // would be swallowed whole and tracking would look healthy while
+            // silently doing nothing every 10s.
+            RefreshPollStatus($"Tick failed: {ex.Message}");
+            ShowLiveStatus(LiveStatus.ParseFailed(ex.Message));
         }
         finally
         {
@@ -795,7 +937,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task RunParseAsync(string imagePath, bool fromPoll, CancellationToken cancellationToken = default)
+    /// <param name="inspectOnly">
+    /// The image is a file the user picked, not a reading of the panel as it is
+    /// right now. An old screenshot is indistinguishable from a fresh reset, so
+    /// it must never reach the buffer or the save.
+    /// </param>
+    private async Task RunParseAsync(
+        string imagePath,
+        bool fromPoll,
+        bool inspectOnly = false,
+        CancellationToken cancellationToken = default)
     {
         if (!fromPoll)
         {
@@ -841,19 +992,39 @@ public partial class MainWindow : Window
             {
                 var tick = _polling.Tick(_sessionStore, result.Report);
                 RefreshPollStatus(tick.Message);
-                if (!tick.Appended && tick.Tracking)
+                // A tick that finished after Stop compared nothing, so the
+                // previous verdict must not carry over onto this frame.
+                _lastComparison = tick.Tracking ? tick.Outcome : null;
+
+                if (tick.Appended && tick.Outcome == MonotonicityOutcome.Reset)
+                {
+                    ParseStatusLabel.Text += "\n\n" + tick.Message;
+                }
+                else if (!tick.Appended && tick.Tracking)
                 {
                     ParseStatusLabel.Text += "\n\n" + tick.Message;
                 }
             }
+            else if (inspectOnly)
+            {
+                ParseStatusLabel.Text += "\n\nInspected only — the live session was not touched.";
+                return;
+            }
             else
             {
                 var accepted = _sessionStore.TryAccept(result.Report);
+                _lastComparison = accepted.Outcome;
                 if (!accepted.Appended)
                 {
                     ParseStatusLabel.Text += $"\n\nDiscarded: {accepted.Reason}";
                 }
             }
+
+            // The save is built from this frame, not from the buffer, so the
+            // latest parse is kept even when the buffer rejected it — the gate
+            // is what decides whether it may be posted.
+            _lastReport = result.Report;
+            _lastReportAt = DateTimeOffset.UtcNow;
 
             RefreshSessionStatus();
         }

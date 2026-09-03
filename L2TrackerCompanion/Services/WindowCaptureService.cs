@@ -29,6 +29,13 @@ public sealed class WindowCaptureService
         return Path.Combine(directory, DefaultCaptureFileName);
     }
 
+    /// <summary>
+    /// Is this exact game process still alive? Distinguishes a client that was
+    /// restarted from one that merely lost the foreground to another client.
+    /// </summary>
+    public bool IsGameProcessRunning(int processId)
+        => Process.GetProcessesByName(GameProcessName).Any(process => process.Id == processId);
+
     public GameWindowInfo? TryFindGameWindow()
     {
         var processIds = Process.GetProcessesByName(GameProcessName)

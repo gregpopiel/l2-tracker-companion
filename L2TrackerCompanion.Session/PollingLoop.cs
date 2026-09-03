@@ -27,20 +27,38 @@ public sealed class PollingLoop
         }
 
         var accepted = store.TryAccept(report);
-        return accepted.Appended
-            ? TickResult.Accepted(accepted.Row!)
-            : TickResult.Discarded(accepted.Reason!);
+        if (!accepted.Appended)
+        {
+            return TickResult.Discarded(accepted.Reason!);
+        }
+
+        return accepted.WasReset
+            ? TickResult.AfterReset(accepted.Row!)
+            : TickResult.Accepted(accepted.Row!);
     }
 }
 
-public sealed record TickResult(bool Tracking, bool Appended, string Message, SnapshotRow? Row)
+public sealed record TickResult(
+    bool Tracking,
+    bool Appended,
+    string Message,
+    SnapshotRow? Row,
+    MonotonicityOutcome? Outcome = null)
 {
     public static TickResult NotTracking()
         => new(false, false, "Not tracking.", null);
 
     public static TickResult Accepted(SnapshotRow row)
-        => new(true, true, $"Accepted #{row.Id}.", row);
+        => new(true, true, $"Accepted #{row.Id}.", row, MonotonicityOutcome.Accepted);
+
+    public static TickResult AfterReset(SnapshotRow row)
+        => new(
+            true,
+            true,
+            "Play Report was reset in-game — new session started.",
+            row,
+            MonotonicityOutcome.Reset);
 
     public static TickResult Discarded(string reason)
-        => new(true, false, $"Discarded: {reason}.", null);
+        => new(true, false, $"Discarded: {reason}.", null, MonotonicityOutcome.Misread);
 }

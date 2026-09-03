@@ -131,14 +131,9 @@
                                    Margin="0,0,0,16" />
                         <StackPanel Orientation="Horizontal">
                             <Button x:Name="StartStopButton"
-                                    Content="Start tracking"
+                                    Content="Start reading"
                                     Style="{StaticResource PrimaryButton}"
                                     Click="StartStopButton_Click" />
-                            <Button x:Name="NewSessionButton"
-                                    Content="New session"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="10,0,0,0"
-                                    Click="NewSessionButton_Click" />
                             <TextBlock x:Name="PollStatusLabel"
                                        Text="Not tracking."
                                        Style="{StaticResource StatusText}"

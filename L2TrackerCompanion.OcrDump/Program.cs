@@ -138,6 +138,7 @@ if (args.Length >= 1 && string.Equals(args[0], "--new-session", StringComparison
 {
     using var wiped = new SessionStore(SessionStore.GetDefaultPath());
     wiped.NewSession();
+    wiped.ClearSaveLock();
     Console.WriteLine(SessionStore.FormatInspect(wiped.List(), wiped.Path));
     return 0;
 }
@@ -391,25 +392,41 @@ static async Task<int> RunSaveAsync(string[] args)
     }
 
     using var store = new SessionStore(SessionStore.GetDefaultPath());
-    var delta = store.TryDelta();
-    if (!delta.Ok || delta.Totals is null)
+    var latest = store.Last();
+    if (latest is null)
     {
-        Console.WriteLine(delta.Error);
+        Console.WriteLine("No reading stored yet. Parse or track first.");
         return 2;
+    }
+
+    var gate = SaveGate.Evaluate(
+        latest.Report,
+        latest.CapturedAt,
+        saveLocked: store.IsSaveLocked(latest.Report));
+    if (!gate.CanSave || gate.Totals is null)
+    {
+        Console.WriteLine(gate.BlockReason);
+        return 2;
+    }
+
+    foreach (var warning in gate.Warnings)
+    {
+        Console.WriteLine($"Warning: {warning}");
     }
 
     var bonus = ReadBonusFlag(args);
     var client = TrackerApiClient.Create(auth.BaseUrl);
-    var call = await client.PostFarmLogAsync(token, ToFarmLogRequest(delta.Totals, characterId, spotId, bonus));
+    var call = await client.PostFarmLogAsync(token, ToFarmLogRequest(gate.Totals, characterId, spotId, bonus));
     if (!call.Success)
     {
         Console.WriteLine($"Save failed: {call.Error}");
         return 2;
     }
 
-    store.NewSession();
+    store.MarkSaved(latest.Report);
     Console.WriteLine(
-        $"Saved farm log #{call.Value!.Id} ({delta.Totals.XpFarmed}k XP, {delta.Totals.Adena}k Adena, {delta.Totals.Minutes} min). Local session cleared.");
+        $"Saved farm log #{call.Value!.Id} ({gate.Totals.XpFarmed}k XP, {gate.Totals.Adena}k Adena, "
+        + $"{gate.Totals.Minutes} min from the Play Report). Reset the panel in-game to start a new session.");
     return 0;
 }
 

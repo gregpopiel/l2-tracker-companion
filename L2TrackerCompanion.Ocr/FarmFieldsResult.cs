@@ -40,6 +40,18 @@ public sealed class FarmFieldsResult
 
     public bool UsedAdenaFallback { get; init; }
 
+    /// <summary>Both Adena sources parsed and returned different figures.</summary>
+    public bool AdenaDisagreed { get; init; }
+
+    /// <summary>Both XP sources parsed and returned different figures.</summary>
+    public bool XpDisagreed { get; init; }
+
+    /// <summary><see cref="Xp"/> is a hybrid of the two disagreeing sources.</summary>
+    public bool XpSpliced { get; init; }
+
+    /// <summary>The two XP sources disagreed on the digit count.</summary>
+    public bool XpMagnitudeMismatch { get; init; }
+
     public double? Pitch { get; init; }
 
     public IReadOnlyList<string> XpTokenTexts { get; init; } = [];
