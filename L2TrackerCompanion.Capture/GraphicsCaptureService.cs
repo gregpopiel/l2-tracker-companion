@@ -104,11 +104,21 @@ public sealed class GraphicsCaptureService
 
             // Windows draws a yellow "capture border" around the captured window by
             // default (Win11 22H2+). IsBorderRequired lets us suppress it, but it's
-            // only present on newer builds, so guard with an ApiInformation check.
+            // only present on newer builds (ApiInformation guard), and even where
+            // present, setting it has been observed to throw (COMException, "Element
+            // not found") on some Windows builds/capture-item combinations — this is
+            // a cosmetic nicety, so swallow that rather than fail the whole capture.
             if (Windows.Foundation.Metadata.ApiInformation.IsPropertyPresent(
                     "Windows.Graphics.Capture.GraphicsCaptureSession", "IsBorderRequired"))
             {
-                session.IsBorderRequired = false;
+                try
+                {
+                    session.IsBorderRequired = false;
+                }
+                catch (Exception)
+                {
+                    // Best-effort: leave the default (yellow-bordered) capture behavior.
+                }
             }
 
             var frameReady = new ManualResetEventSlim(false);
