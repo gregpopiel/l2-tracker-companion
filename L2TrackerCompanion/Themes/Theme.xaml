@@ -507,6 +507,12 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
+                                <!-- ContentTemplateSelector is required, not
+                                     redundant: DisplayMemberPath is implemented as
+                                     an internal ItemTemplateSelector, so ItemTemplate
+                                     (and with it SelectionBoxItemTemplate) stays null
+                                     and the closed picker would fall back to
+                                     ToString() on the bound object. -->
                                 <ContentPresenter x:Name="ContentSite"
                                                   Margin="{TemplateBinding Padding}"
                                                   VerticalAlignment="Center"
@@ -514,7 +520,8 @@
                                                   IsHitTestVisible="False"
                                                   Content="{TemplateBinding SelectionBoxItem}"
                                                   ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
+                                                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                  ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" />
                                 <Path x:Name="Arrow"
                                       Grid.Column="1"
                                       Margin="0,0,10,0"
