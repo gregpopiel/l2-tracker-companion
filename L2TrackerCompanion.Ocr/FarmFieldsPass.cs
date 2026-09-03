@@ -70,6 +70,12 @@ public static class FarmFieldsPass
 
         var cropWidth = dialog.CropBitmap.PixelWidth;
         var cropHeight = dialog.CropBitmap.PixelHeight;
+
+        // One GDI+ conversion of the dialog crop, shared by the XP and Adena
+        // micro-crops below — converting per crop re-encoded the whole dialog
+        // each time.
+        using var source = new ImageEnhance.Source(dialog.CropBitmap);
+
         var boxes = OcrRecognize.ToWordBoxes(dialog.CropWords);
         var tokens = FarmFields.ReadTokens(boxes);
 
@@ -81,7 +87,7 @@ public static class FarmFieldsPass
             if (!xpRect.IsEmpty)
             {
                 var (text, pngPath) = await EnhanceAndRecognizeAsync(
-                        dialog.CropBitmap,
+                        source,
                         dialog.Engine,
                         xpRect,
                         outputDirectory,
@@ -98,7 +104,7 @@ public static class FarmFieldsPass
             if (!xpRect.IsEmpty)
             {
                 var (text, pngPath) = await EnhanceAndRecognizeAsync(
-                        dialog.CropBitmap,
+                        source,
                         dialog.Engine,
                         xpRect,
                         outputDirectory,
@@ -134,7 +140,7 @@ public static class FarmFieldsPass
                 // only worth writing when it is the figure being used — during
                 // tracking that is a file write every 10s for nothing.
                 var (text, pngPath) = await EnhanceAndRecognizeAsync(
-                        dialog.CropBitmap,
+                        source,
                         dialog.Engine,
                         adenaRect,
                         outputDirectory,
@@ -341,7 +347,7 @@ public static class FarmFieldsPass
     /// leaving a file behind.
     /// </param>
     private static async Task<(string Text, string? PngPath)> EnhanceAndRecognizeAsync(
-        SoftwareBitmap source,
+        ImageEnhance.Source source,
         OcrEngine engine,
         CropRect crop,
         string outputDirectory,

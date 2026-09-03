@@ -71,6 +71,12 @@ public static class LampXpPass
 
         var cropWidth = dialog.CropBitmap.PixelWidth;
         var cropHeight = dialog.CropBitmap.PixelHeight;
+
+        // The dialog crop and (below) the scaled lamp table are each converted
+        // to GDI+ once and reused by every cell read. Converting per crop meant
+        // re-encoding the whole image for all four colours, several times each.
+        using var dialogSource = new ImageEnhance.Source(dialog.CropBitmap);
+
         var dialogBoxes = OcrRecognize.ToWordBoxes(dialog.CropWords);
         var dialogRows = LampGeometry.FindRows(dialogBoxes);
         var dialogPitch = LampGeometry.RowPitch(dialogRows);
@@ -85,7 +91,7 @@ public static class LampXpPass
         else
         {
             var amounts = await ReadFarmAmountsAsync(
-                    dialog, dialogBoxes, outputDirectory, cancellationToken)
+                    dialog, dialogSource, dialogBoxes, outputDirectory, cancellationToken)
                 .ConfigureAwait(false);
             dialogXp = amounts.Xp;
             dialogAdena = amounts.Adena;
@@ -98,18 +104,20 @@ public static class LampXpPass
         var tableCrop = LampGeometry.TableCrop(dialogRows, dialogPitch ?? 0, cropWidth, cropHeight);
 
         SoftwareBitmap? tableBitmap = null;
+        ImageEnhance.Source? tableSource = null;
         try
         {
             if (!tableCrop.IsEmpty)
             {
                 tableBitmap = await ImageEnhance.ScaleCropAsync(
-                        dialog.CropBitmap,
+                        dialogSource,
                         tableCrop,
                         LampGeometry.TableScale,
                         cancellationToken)
                     .ConfigureAwait(false);
                 Directory.CreateDirectory(outputDirectory);
                 tablePngPath = Path.GetFullPath(Path.Combine(outputDirectory, stem + "_table.png"));
+                tableSource = new ImageEnhance.Source(tableBitmap);
                 await OcrRecognize.SavePngAsync(tableBitmap, tablePngPath, cancellationToken)
                     .ConfigureAwait(false);
 
@@ -126,12 +134,12 @@ public static class LampXpPass
             {
                 parsed[color] = await ReadRowXpAsync(
                         color,
-                        dialog.CropBitmap,
+                        dialogSource,
                         dialog.Engine,
                         dialogBoxes,
                         dialogRows,
                         dialogPitch,
-                        tableBitmap,
+                        tableSource,
                         tableBoxes,
                         tableRows,
                         tablePitch,
@@ -178,6 +186,7 @@ public static class LampXpPass
         }
         finally
         {
+            tableSource?.Dispose();
             tableBitmap?.Dispose();
         }
     }
@@ -360,12 +369,12 @@ public static class LampXpPass
 
     private static async Task<long?> ReadRowXpAsync(
         string color,
-        SoftwareBitmap dialogBitmap,
+        ImageEnhance.Source dialogBitmap,
         OcrEngine engine,
         IReadOnlyList<WordBox> dialogBoxes,
         IReadOnlyDictionary<string, WordBox> dialogRows,
         double? dialogPitch,
-        SoftwareBitmap? tableBitmap,
+        ImageEnhance.Source? tableBitmap,
         IReadOnlyList<WordBox> tableBoxes,
         IReadOnlyDictionary<string, WordBox> tableRows,
         double? tablePitch,
@@ -437,7 +446,7 @@ public static class LampXpPass
     /// retry without contrast, then on the right half, before giving up.
     /// </summary>
     private static async Task<long?> ReadCellAsync(
-        SoftwareBitmap source,
+        ImageEnhance.Source source,
         OcrEngine engine,
         CropRect cell,
         string outputDirectory,
@@ -503,6 +512,7 @@ public static class LampXpPass
 
     private static async Task<(long? Xp, long? Adena)> ReadFarmAmountsAsync(
         DialogCropRecognition dialog,
+        ImageEnhance.Source source,
         IReadOnlyList<WordBox> boxes,
         string outputDirectory,
         CancellationToken cancellationToken)
@@ -518,7 +528,7 @@ public static class LampXpPass
             if (!xpRect.IsEmpty)
             {
                 var text = await EnhanceAndRecognizeAsync(
-                        dialog.CropBitmap,
+                        source,
                         dialog.Engine!,
                         xpRect,
                         FarmFields.EnhanceTargetHeight,
@@ -535,7 +545,7 @@ public static class LampXpPass
             if (!xpRect.IsEmpty)
             {
                 var text = await EnhanceAndRecognizeAsync(
-                        dialog.CropBitmap,
+                        source,
                         dialog.Engine!,
                         xpRect,
                         FarmFields.EnhanceTargetHeight,
@@ -558,7 +568,7 @@ public static class LampXpPass
             if (!adenaRect.IsEmpty)
             {
                 var text = await EnhanceAndRecognizeAsync(
-                        dialog.CropBitmap,
+                        source,
                         dialog.Engine!,
                         adenaRect,
                         FarmFields.EnhanceTargetHeight,
@@ -574,7 +584,7 @@ public static class LampXpPass
     }
 
     private static async Task<string> EnhanceAndRecognizeAsync(
-        SoftwareBitmap source,
+        ImageEnhance.Source source,
         OcrEngine engine,
         CropRect crop,
         int targetHeight,

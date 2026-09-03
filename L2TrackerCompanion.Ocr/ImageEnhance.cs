@@ -16,16 +16,69 @@ namespace L2TrackerCompanion.Ocr;
 /// </summary>
 public static class ImageEnhance
 {
+    /// <summary>
+    /// One source image, converted to GDI+ once and reused for every crop taken
+    /// from it. The conversion runs a full-size PNG encode plus decode, so doing
+    /// it per micro-crop meant re-compressing the whole dialog (or lamp table)
+    /// once per field — roughly ten times per 10s poll tick. Hold one of these
+    /// for as long as you are cropping the same source, and dispose it.
+    /// Not thread-safe: every pass awaits its crops one at a time, and two
+    /// concurrent first calls would each convert and leak one of the results.
+    /// Add a gate here before cropping from one source in parallel.
+    /// </summary>
+    public sealed class Source : IDisposable
+    {
+        private readonly SoftwareBitmap _source;
+        private DrawingBitmap? _converted;
+
+        public Source(SoftwareBitmap source) => _source = source;
+
+        public int PixelWidth => _source.PixelWidth;
+
+        public int PixelHeight => _source.PixelHeight;
+
+        internal async Task<DrawingBitmap> GetAsync(CancellationToken cancellationToken)
+            => _converted ??= await ToBitmapAsync(_source, cancellationToken).ConfigureAwait(false);
+
+        public void Dispose()
+        {
+            _converted?.Dispose();
+            _converted = null;
+        }
+    }
+
+    public static async Task<SoftwareBitmap> CropAndEnhanceAsync(
+        Source source,
+        CropRect crop,
+        int targetHeight,
+        CancellationToken cancellationToken)
+    {
+        var sourceBmp = await source.GetAsync(cancellationToken).ConfigureAwait(false);
+        using var enhanced = CropAndEnhance(sourceBmp, crop, targetHeight);
+        var png = EncodeBitmapPng(enhanced);
+        return await OcrRecognize.DecodePngBytesAsync(png, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static async Task<SoftwareBitmap> ScaleCropAsync(
+        Source source,
+        CropRect crop,
+        double scale,
+        CancellationToken cancellationToken)
+    {
+        var sourceBmp = await source.GetAsync(cancellationToken).ConfigureAwait(false);
+        using var scaled = ScaleCrop(sourceBmp, crop, scale);
+        var png = EncodeBitmapPng(scaled);
+        return await OcrRecognize.DecodePngBytesAsync(png, cancellationToken).ConfigureAwait(false);
+    }
+
     public static async Task<SoftwareBitmap> CropAndEnhanceAsync(
         SoftwareBitmap source,
         CropRect crop,
         int targetHeight,
         CancellationToken cancellationToken)
     {
-        using var sourceBmp = await ToBitmapAsync(source, cancellationToken).ConfigureAwait(false);
-        using var enhanced = CropAndEnhance(sourceBmp, crop, targetHeight);
-        var png = EncodeBitmapPng(enhanced);
-        return await OcrRecognize.DecodePngBytesAsync(png, cancellationToken).ConfigureAwait(false);
+        using var owned = new Source(source);
+        return await CropAndEnhanceAsync(owned, crop, targetHeight, cancellationToken).ConfigureAwait(false);
     }
 
     public static DrawingBitmap CropAndEnhance(DrawingBitmap source, CropRect crop, int targetHeight)
@@ -65,10 +118,8 @@ public static class ImageEnhance
         double scale,
         CancellationToken cancellationToken)
     {
-        using var sourceBmp = await ToBitmapAsync(source, cancellationToken).ConfigureAwait(false);
-        using var scaled = ScaleCrop(sourceBmp, crop, scale);
-        var png = EncodeBitmapPng(scaled);
-        return await OcrRecognize.DecodePngBytesAsync(png, cancellationToken).ConfigureAwait(false);
+        using var owned = new Source(source);
+        return await ScaleCropAsync(owned, crop, scale, cancellationToken).ConfigureAwait(false);
     }
 
     public static DrawingBitmap ScaleCrop(DrawingBitmap source, CropRect crop, double scale)
