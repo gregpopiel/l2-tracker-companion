@@ -261,7 +261,7 @@ public partial class MainWindow : Window
 
         ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
         ClearPickers(SessionPickers.SignInToLoad);
-        ShowLogin($"Not signed in. {result.Message}");
+        ShowLogin(result.Message);
     }
 
     /// <summary>

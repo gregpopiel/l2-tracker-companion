@@ -42,7 +42,7 @@ public sealed class AuthService
         // Only Sign Out and an actual 401/403 remove it.
         if (string.IsNullOrWhiteSpace(token))
         {
-            return AuthResult.Fail("Paste a token from the website (localStorage l2_jwt_token).");
+            return AuthResult.Fail("Paste a token before signing in.");
         }
 
         return await ValidateAndStoreAsync(token.Trim(), cancellationToken).ConfigureAwait(false);
