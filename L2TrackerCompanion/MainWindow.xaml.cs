@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private DateTimeOffset _lastReportAt;
     private MonotonicityOutcome? _lastComparison;
     private bool _saveInFlight;
+    private readonly SaveConfirmationHold _saveConfirmation = new();
     private bool _holdEmptySpot;
     private bool _spotsLoaded;
     private AreaInfo? _worldArea;
@@ -273,6 +274,7 @@ public partial class MainWindow : Window
         // token pasted at the gate may be a different one. Confirmed above.
         _sessionStore.NewSession();
         _sessionStore.ClearSaveLock();
+        _saveConfirmation.Release();
         _savedPanelMinutes = null;
         _savedPanelXp = null;
         _lastReport = null;
@@ -561,6 +563,14 @@ public partial class MainWindow : Window
         // second click would duplicate the log.
         SaveButton.IsEnabled = pickersReady && gate.CanSave && !_saveInFlight;
 
+        // Button enablement always updates. The status line does not: a tick
+        // during POST used to replace "Saving session…" with "Ready to save…",
+        // and after a 2xx the lock reason replaced the confirmation.
+        if (_saveConfirmation.FreezePickerStatus(_saveInFlight))
+        {
+            return;
+        }
+
         if (!SessionPickers.CharacterChosen(SelectedCharacter))
         {
             return;
@@ -766,8 +776,6 @@ public partial class MainWindow : Window
 
     private async void SaveButton_Click(object sender, RoutedEventArgs e)
     {
-        // Saving no longer ends anything: the log is built from the latest
-        // reading, so tracking keeps running and the panel keeps counting.
         if (_saveInFlight)
         {
             return;
@@ -802,6 +810,7 @@ public partial class MainWindow : Window
         }
 
         _saveInFlight = true;
+        _saveConfirmation.BeginSave();
         SaveButton.IsEnabled = false;
         PickerStatusLabel.Text = "Saving session…";
         var saved = false;
@@ -859,12 +868,24 @@ public partial class MainWindow : Window
             }
 
             var created = ensured.Created;
+            var wasTracking = _polling.IsRunning;
+            _saveConfirmation.Saved();
             PickerStatusLabel.Text =
                 $"Saved farm log #{call.Value!.Id} for {SelectedCharacter.Name} at {spot.Label}"
                 + (created ? " (new World spot)" : "")
                 + $" ({totals.XpFarmed}k XP, {totals.Minutes} min). "
-                + "Reset the Play Report in-game to start a new session."
+                + (wasTracking
+                    ? "Tracking stopped. Reset the Play Report in-game before the next session."
+                    : "Reset the Play Report in-game before the next session.")
                 + lockNote;
+
+            // Another save is locked until the panel is reset, so further
+            // ticks would only repeat that reminder. The in-game report is
+            // left as-is; Start reading again after resetting it.
+            if (SaveConfirmationHold.ShouldStopTracking(wasTracking, saved: true))
+            {
+                StopTracking("Session saved.");
+            }
         }
         finally
         {
@@ -1115,6 +1136,7 @@ public partial class MainWindow : Window
         // saved XP, so it releases itself. Clearing it here would only add a
         // way to lose it wrongly.
         _sessionStore.NewSession();
+        _saveConfirmation.Release();
         _lastReport = null;
         _lastComparison = null;
         ShowLiveStatus(LiveStatus.Idle());
@@ -1251,6 +1273,7 @@ public partial class MainWindow : Window
         // the buffer no longer feeds the save (one frame does) and the save lock
         // lives in saved_logs, so this cannot unlock anything. It is also the
         // manual way out if the baseline ever goes stale.
+        _saveConfirmation.Release();
         _sessionStore.NewSession();
         _lastComparison = null;
         _polling.Start();
@@ -1374,18 +1397,22 @@ public partial class MainWindow : Window
             if (fromPoll)
             {
                 var tick = _polling.Tick(_sessionStore, result.Report);
-                RefreshPollStatus(tick.Message);
                 // A tick that finished after Stop compared nothing, so the
-                // previous verdict must not carry over onto this frame.
+                // previous verdict must not carry over onto this frame — and
+                // must not replace StopTracking's poll-status line either.
                 _lastComparison = tick.Tracking ? tick.Outcome : null;
+                if (tick.Tracking)
+                {
+                    RefreshPollStatus(tick.Message);
 
-                if (tick.Appended && tick.Outcome == MonotonicityOutcome.Reset)
-                {
-                    ParseStatusLabel.Text += "\n\n" + tick.Message;
-                }
-                else if (!tick.Appended && tick.Tracking)
-                {
-                    ParseStatusLabel.Text += "\n\n" + tick.Message;
+                    if (tick.Appended && tick.Outcome == MonotonicityOutcome.Reset)
+                    {
+                        ParseStatusLabel.Text += "\n\n" + tick.Message;
+                    }
+                    else if (!tick.Appended)
+                    {
+                        ParseStatusLabel.Text += "\n\n" + tick.Message;
+                    }
                 }
             }
             else if (inspectOnly)
