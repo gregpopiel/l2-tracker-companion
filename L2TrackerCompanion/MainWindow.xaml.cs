@@ -35,8 +35,6 @@ public partial class MainWindow : Window
         Closed += OnClosed;
         Loaded += (_, _) => _ = RestoreAuthAsync();
 
-        BaseUrlBox.Text = _auth.BaseUrl;
-
         _refreshTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1),
@@ -110,7 +108,6 @@ public partial class MainWindow : Window
             ? "Paste the JWT from the website (browser localStorage key l2_jwt_token)."
             : "Paste the token from the website.";
 
-        RefreshApiUrlHint();
         RefreshGameWindowStatus();
         RefreshSessionStatus();
         if (!debug)
@@ -128,15 +125,6 @@ public partial class MainWindow : Window
             ParseStatusLabel.Text =
                 "Capture once, or parse a PNG, to read XP / Adena / play time / lamps / location.";
         }
-    }
-
-    private void RefreshApiUrlHint()
-    {
-        var debug = _options.DebugMode;
-        ApiUrlRow.Visibility = debug ? Visibility.Visible : Visibility.Collapsed;
-        var custom = !TokenStore.IsDefaultBaseUrl(_auth.BaseUrl);
-        CustomApiLabel.Visibility = !debug && custom ? Visibility.Visible : Visibility.Collapsed;
-        CustomApiLabel.Text = custom ? $"API: {_auth.BaseUrl}" : string.Empty;
     }
 
     private async Task RestoreAuthAsync()
@@ -182,10 +170,8 @@ public partial class MainWindow : Window
         AuthStatusLabel.Text = "Validating token…";
         try
         {
-            _auth.SetBaseUrl(string.IsNullOrWhiteSpace(BaseUrlBox.Text)
-                ? TokenStore.DefaultBaseUrl
-                : BaseUrlBox.Text);
-            BaseUrlBox.Text = _auth.BaseUrl;
+            // The base URL is whatever AuthService loaded from api-base-url.txt;
+            // there is no longer any in-app surface that reads or writes it.
             var result = await _auth.SignInAsync(TokenBox.Password);
             if (result.Success)
             {
@@ -197,7 +183,6 @@ public partial class MainWindow : Window
         finally
         {
             SignInButton.IsEnabled = true;
-            RefreshApiUrlHint();
         }
     }
 
