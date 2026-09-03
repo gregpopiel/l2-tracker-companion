@@ -206,7 +206,7 @@ public partial class MainWindow : Window
     private async void SignInButton_Click(object sender, RoutedEventArgs e)
     {
         SignInButton.IsEnabled = false;
-        AuthStatusLabel.Text = "Validating token…";
+        SetAuthStatus("Validating token…", isError: false);
         try
         {
             // The base URL is whatever AuthService loaded from api-base-url.txt;
@@ -283,13 +283,16 @@ public partial class MainWindow : Window
 
         ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
         ClearPickers(SessionPickers.SignInToLoad);
-        ShowLogin(result.Message);
+        ShowLogin(result.Message, isError: true);
     }
 
     /// <summary>
     /// Sign-in gate: nothing but the token form is reachable until the JWT validates.
+    /// <paramref name="isError"/> distinguishes a rejected/unreachable token from a
+    /// neutral gate state (idle, checking, just signed out) — without it every message
+    /// here rendered in the same gray, so a rejection read no differently than "signed out".
     /// </summary>
-    private void ShowLogin(string status, bool checking = false)
+    private void ShowLogin(string status, bool checking = false, bool isError = false)
     {
         // Stop tracking here, not at each caller: the gate hides the Stop button,
         // so a loop left running could not be stopped without signing back in.
@@ -302,8 +305,7 @@ public partial class MainWindow : Window
         _isAdmin = false;
         ApplyAdminGating();
 
-        AuthStatusLabel.Text = status;
-        AccountStatusLabel.Text = status;
+        SetAuthStatus(status, isError);
         GateForm.Visibility = checking ? Visibility.Collapsed : Visibility.Visible;
         RetryButton.Visibility = _auth.HasStoredToken ? Visibility.Visible : Visibility.Collapsed;
         MainTabs.Visibility = Visibility.Collapsed;
@@ -317,12 +319,25 @@ public partial class MainWindow : Window
 
     private void ShowWorkspace(string status)
     {
-        AuthStatusLabel.Text = status;
-        AccountStatusLabel.Text = status;
+        SetAuthStatus(status, "ConfirmGreenBrush");
         LoginView.Visibility = Visibility.Collapsed;
         MainTabs.Visibility = Visibility.Visible;
         StatusBar.Visibility = Visibility.Visible;
         MainTabs.SelectedIndex = 0;
+    }
+
+    private void SetAuthStatus(string status, bool isError)
+        => SetAuthStatus(status, isError ? "AlarmRedBrush" : "StaticGrayBrush");
+
+    // Resolved from the theme rather than a literal color — same pattern as
+    // LightBrush below — so a palette edit changes this surface too.
+    private void SetAuthStatus(string status, string brushKey)
+    {
+        var brush = (Brush)FindResource(brushKey);
+        AuthStatusLabel.Text = status;
+        AuthStatusLabel.Foreground = brush;
+        AccountStatusLabel.Text = status;
+        AccountStatusLabel.Foreground = brush;
     }
 
     private CharacterInfo? SelectedCharacter => CharacterCombo.SelectedItem as CharacterInfo;
@@ -519,7 +534,7 @@ public partial class MainWindow : Window
         if (token is null)
         {
             ClearPickers(SessionPickers.SignInToLoad);
-            ShowLogin("Session expired. Paste a token to continue.");
+            ShowLogin("Session expired. Paste a token to continue.", isError: true);
             return;
         }
 
@@ -640,7 +655,7 @@ public partial class MainWindow : Window
         if (token is null)
         {
             ClearPickers(SessionPickers.SignInToSave);
-            ShowLogin("Session expired. Paste a token to continue.");
+            ShowLogin("Session expired. Paste a token to continue.", isError: true);
             return;
         }
 
