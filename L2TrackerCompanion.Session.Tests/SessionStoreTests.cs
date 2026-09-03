@@ -74,6 +74,34 @@ public class SessionStoreTests
     }
 
     [Fact]
+    public void NewSessionRestartsIdsAtOne()
+    {
+        using var store = new SessionStore(":memory:");
+        store.Append(OpenRead(1, 1, 1));
+        store.Append(OpenRead(2, 2, 2));
+        Assert.Equal(2, store.List()[1].Id);
+
+        store.NewSession();
+        store.Append(OpenRead(3, 3, 3));
+
+        // AUTOINCREMENT keeps a highest-ever-used id, so wiping the rows alone
+        // used to leave the next session's first reading numbered #3.
+        Assert.Equal(1, store.List().Single().Id);
+    }
+
+    [Fact]
+    public void NewSessionOnUntouchedStoreDoesNotThrow()
+    {
+        // MainWindow calls NewSession() at startup, before anything is ever
+        // appended. sqlite_sequence is created with the AUTOINCREMENT table
+        // rather than on first insert, so the reset must not depend on a row
+        // having been written first.
+        using var store = new SessionStore(":memory:");
+        store.NewSession();
+        Assert.Equal(0, store.Count);
+    }
+
+    [Fact]
     public void FileStoreSurvivesReopen()
     {
         var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"l2-session-{Guid.NewGuid():N}.db");

@@ -216,12 +216,21 @@ public sealed class SessionStore : IDisposable
     /// This used to delete the database file, which meant closing the
     /// connection first and left the store unusable whenever the delete
     /// failed. A DELETE keeps the connection alive and cannot half-succeed.
+    /// The sqlite_sequence row goes with it: id is declared AUTOINCREMENT,
+    /// whose whole job is to never reuse a value, so deleting the rows alone
+    /// left the next session counting on from the old one — "Accepted #47"
+    /// on the first reading of a fresh session. Nothing depends on ids being
+    /// unique across sessions; they only order rows within the current one.
     /// </remarks>
     public void NewSession()
     {
         _consecutiveRejections = 0;
         using var command = _connection.CreateCommand();
-        command.CommandText = "DELETE FROM snapshots;";
+        command.CommandText =
+            """
+            DELETE FROM snapshots;
+            DELETE FROM sqlite_sequence WHERE name = 'snapshots';
+            """;
         command.ExecuteNonQuery();
     }
 
