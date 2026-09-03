@@ -31,17 +31,9 @@
                                    Text="Paste the token from the website."
                                    Style="{StaticResource SubtleText}"
                                    Margin="0,0,0,18" />
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                            <RadioButton x:Name="LoginUserModeRadio"
-                                         Content="User"
-                                         VerticalAlignment="Center"
-                                         Checked="AppMode_Checked" />
-                            <RadioButton x:Name="LoginDebugModeRadio"
-                                         Content="Debug"
-                                         VerticalAlignment="Center"
-                                         Margin="20,0,0,0"
-                                         Checked="AppMode_Checked" />
-                        </StackPanel>
+                        <!-- The mode itself is switched on the Settings tab; this
+                             row just follows the stored mode, since the API has to
+                             be pointed somewhere before there is a session. -->
                         <Grid x:Name="ApiUrlRow"
                               Margin="0,0,0,10"
                               Visibility="Collapsed">
@@ -255,7 +247,7 @@
                                          Margin="20,0,0,0"
                                          Checked="AppMode_Checked" />
                         </StackPanel>
-                        <TextBlock Text="User hides capture dumps, parse tools, and session inspect. Debug shows them for troubleshooting."
+                        <TextBlock Text="User hides capture dumps, parse tools, and session inspect. Debug shows them for troubleshooting, and reveals the API field on the sign-in screen."
                                    Style="{StaticResource SubtleText}"
                                    Margin="0,0,0,28" />
                         <TextBlock Text="Account"

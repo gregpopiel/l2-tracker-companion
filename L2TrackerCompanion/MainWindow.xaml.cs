@@ -79,8 +79,6 @@ public partial class MainWindow : Window
         {
             UserModeRadio.IsChecked = !_options.DebugMode;
             DebugModeRadio.IsChecked = _options.DebugMode;
-            LoginUserModeRadio.IsChecked = !_options.DebugMode;
-            LoginDebugModeRadio.IsChecked = _options.DebugMode;
         }
         finally
         {
@@ -95,21 +93,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var debug = radio == DebugModeRadio || radio == LoginDebugModeRadio;
-        _suppressModeEvents = true;
-        try
-        {
-            UserModeRadio.IsChecked = !debug;
-            DebugModeRadio.IsChecked = debug;
-            LoginUserModeRadio.IsChecked = !debug;
-            LoginDebugModeRadio.IsChecked = debug;
-        }
-        finally
-        {
-            _suppressModeEvents = false;
-        }
-
-        _options.SetDebugMode(debug);
+        // One radio group now, so WPF clears the sibling itself — nothing to mirror.
+        _options.SetDebugMode(radio == DebugModeRadio);
         ApplyUiMode();
     }
 
