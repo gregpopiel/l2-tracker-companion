@@ -312,6 +312,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                     <!-- Capped: RefreshPollStatus can write a whole sentence (a
                          game restart, or "Tick failed: {ex.Message}"), and an
                          uncapped Auto column would trim the save status beside
@@ -321,8 +322,16 @@
                 <TextBlock x:Name="PickerStatusLabel"
                            Text="Loading characters…"
                            Style="{StaticResource StatusBarText}" />
+                <!-- Content is set in code-behind (CheckForUpdatesAsync) with the
+                     found version number before Visibility ever flips to Visible. -->
+                <Button x:Name="UpdateAvailableButton"
+                        Grid.Column="1"
+                        Style="{StaticResource SmallSecondaryButton}"
+                        Margin="16,0,0,0"
+                        Visibility="Collapsed"
+                        Click="UpdateAvailableButton_Click" />
                 <TextBlock x:Name="PollStatusLabel"
-                           Grid.Column="1"
+                           Grid.Column="2"
                            Text="Not tracking."
                            Style="{StaticResource StatusBarText}"
                            Margin="16,0,0,0" />

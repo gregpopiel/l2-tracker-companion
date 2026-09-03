@@ -196,9 +196,9 @@ It saves the most recent stored reading, subject to the same gate.
 
 Uses the stored JWT. Switching character in the window reloads spots.
 
-## Publish (plan step 22)
+## Publish (plan step 22, revised for auto-update)
 
-Self-contained `win-x64` single-file `.exe` — no separate .NET install on the user's machine. Native SQLite is extracted from the bundle (`IncludeNativeLibrariesForSelfExtract`). Output is gitignored (`artifacts/win-x64/`).
+Self-contained `win-x64` app, packaged with [Velopack](https://velopack.io) into an installer (`L2TrackerCompanion-win-Setup.exe`) rather than a portable single-file `.exe` — Velopack owns install location (`%LocalAppData%\L2TrackerCompanion\current\`), Start Menu shortcut, and in-app updates, and needs individual (non-bundled) files to compute delta patches between versions. Requires the `vpk` global dotnet tool once per machine: `dotnet tool install -g vpk`. Output is gitignored (`publish-output/`, `releases/`).
 
 ```bash
 chmod +x scripts/publish.sh   # once
@@ -208,10 +208,13 @@ chmod +x scripts/publish.sh   # once
 From Windows:
 
 ```bash
-dotnet publish L2TrackerCompanion/L2TrackerCompanion.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o artifacts/win-x64
+dotnet publish L2TrackerCompanion/L2TrackerCompanion.csproj -c Release -r win-x64 --self-contained -p:DebugType=none -o publish-output
+vpk pack -u L2TrackerCompanion -v <version-from-csproj> -p publish-output -e L2TrackerCompanion.exe -o releases
 ```
 
-Ship the resulting `L2TrackerCompanion.exe` as a GitHub Release on this repo (not the VPS / Docker stack).
+Ship the resulting `releases/L2TrackerCompanion-win-Setup.exe` (plus the `.nupkg`/delta files alongside it) as a GitHub Release on this repo (not the VPS / Docker stack) — `vpk upload github` can push them directly given a PAT with `contents:write` on this repo. Bump `<Version>` in `L2TrackerCompanion.csproj` before every release; that's what the running app compares against to detect an update.
+
+**Auto-update:** the app checks this repo's public GitHub Releases feed on startup and every 4 hours while running (`UpdateService.cs`, stops re-checking once a download is pending), downloading silently in the background — a failed check/download is traced (`Trace.WriteLine`) and simply retried next cycle, never surfaced to the user. It never restarts on its own: a downloaded update shows a status-bar button ("Update available — restart to install") that the user clicks when ready. That click goes through the same unsaved-session gate as **Sign out** (`_saveInFlight`, `ConfirmDiscardSession` — "Restarting to update" phrasing) before restarting, since the app may be mid-poll or holding an unsaved farm-log delta; the button disables itself once clicked, and a failed apply (locked file, AV interference) re-enables it with a status message instead of crashing. Velopack only manages installs it created: existing users on the old portable `.exe` won't auto-update to the first Velopack release and need to grab `L2TrackerCompanion-win-Setup.exe` once manually.
 
 **Live rates (plan step 23):** the live-status card (and `ocr-parse.sh` / `--parse`) shows XP and Adena rates from the **current screenshot**: raw OCR XP and Adena divided by OCR play-time minutes, rounded away from zero. The WPF Session tab uses the signed-in account's `user_settings.rate_unit` from `GET /api/settings` (`minute` → XP/min, `hour` → XP/h; Prisma default is `hour`). Settings are re-fetched when tracking starts. CLI parse output stays per minute. Display-only — Save still uses last−first / wall-clock, and these figures are not converted to thousands. Play time must be greater than 0; otherwise both rates show `(need play time)`. Unread XP still allows Adena rate and the reverse. Dialog XP includes lamps, so a Magic Lamp pop jumps the XP rate. Play Report time is whole minutes (the rate only moves when that digit or the totals change) and is the panel's own duration, not this companion session.
 

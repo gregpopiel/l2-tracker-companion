@@ -9,6 +9,7 @@ using L2TrackerCompanion.Ocr;
 using L2TrackerCompanion.Parsing;
 using L2TrackerCompanion.Services;
 using L2TrackerCompanion.Session;
+using Velopack;
 
 namespace L2TrackerCompanion;
 
@@ -19,10 +20,13 @@ public partial class MainWindow : Window
     private readonly AuthService _auth = new(TokenStore.GetDefault());
     private readonly AppOptionsStore _options = AppOptionsStore.GetDefault();
     private readonly PollingLoop _polling = new();
+    private readonly UpdateService _updates = new();
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _pollTimer;
+    private readonly DispatcherTimer _updateTimer;
     private CancellationTokenSource _pollCts = new();
     private CancellationTokenSource _spotsCts = new();
+    private readonly CancellationTokenSource _updateCts = new();
     private int _pollTickBusy;
     private bool _suppressPickerEvents;
     private bool _suppressModeEvents;
@@ -36,12 +40,15 @@ public partial class MainWindow : Window
     private readonly GameProcessWatch _gameWatch = new();
     private long? _savedPanelMinutes;
     private long? _savedPanelXp;
+    private UpdateInfo? _pendingUpdate;
+    private bool _updateCheckInFlight;
 
     public MainWindow()
     {
         InitializeComponent();
         Closed += OnClosed;
         Loaded += (_, _) => _ = RestoreAuthAsync();
+        Loaded += (_, _) => _ = CheckForUpdatesAsync();
 
         // The buffer only exists to compare one reading against the previous
         // one within a run, and anything left over from the last run is stale
@@ -61,6 +68,16 @@ public partial class MainWindow : Window
             Interval = PollingLoop.Interval,
         };
         _pollTimer.Tick += (_, _) => _ = RunPollTickAsync();
+
+        // Long enough that a farming session isn't repeatedly hitting GitHub, short
+        // enough that an update lands the same day it's published. A tick is a no-op
+        // once _pendingUpdate is already set.
+        _updateTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromHours(4),
+        };
+        _updateTimer.Tick += (_, _) => _ = CheckForUpdatesAsync();
+        _updateTimer.Start();
 
         RefreshPollStatus(string.Empty);
         ShowLiveStatus(LiveStatus.Idle());
@@ -263,11 +280,11 @@ public partial class MainWindow : Window
         ShowLogin(string.Empty);
     }
 
-    private bool ConfirmDiscardSession(SessionTotals totals)
+    private bool ConfirmDiscardSession(SessionTotals totals, string action = "Signing out")
         => MessageBox.Show(
             this,
             $"This session has {totals.XpFarmed}k XP, {totals.Adena}k Adena and {totals.Minutes} min "
-            + "that have not been saved yet. Signing out discards them for good.\n\nSign out anyway?",
+            + $"that have not been saved yet. {action} discards them for good.\n\n{action} anyway?",
             "Unsaved session",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
@@ -736,9 +753,81 @@ public partial class MainWindow : Window
     {
         _polling.Stop();
         _pollTimer.Stop();
+        _updateTimer.Stop();
         _pollCts.Cancel();
         _spotsCts.Cancel();
+        _updateCts.Cancel();
         _sessionStore.Dispose();
+    }
+
+    /// <summary>
+    /// Silent, background check — never surfaces a failure (offline, GitHub hiccup),
+    /// never restarts on its own. Once an update is downloaded, <see cref="UpdateAvailableButton"/>
+    /// appears and the actual apply/restart waits for that explicit click, since the
+    /// app can be mid-poll or holding an unsaved farm-log delta.
+    /// </summary>
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_pendingUpdate is not null || _updateCheckInFlight)
+        {
+            return;
+        }
+
+        _updateCheckInFlight = true;
+        try
+        {
+            var updateInfo = await _updates.CheckAndDownloadAsync(_updateCts.Token);
+            if (updateInfo is null)
+            {
+                return;
+            }
+
+            _pendingUpdate = updateInfo;
+            // Nothing left to poll for once a version is already downloaded and
+            // waiting on the user's click.
+            _updateTimer.Stop();
+            UpdateAvailableButton.Content = $"Update available (v{updateInfo.TargetFullRelease.Version}) — restart to install";
+            UpdateAvailableButton.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _updateCheckInFlight = false;
+        }
+    }
+
+    private void UpdateAvailableButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is null)
+        {
+            return;
+        }
+
+        if (_saveInFlight)
+        {
+            // Same rationale as SignOutButton_Click: the pending save still writes
+            // its lock row when it returns, and restarting out from under it would
+            // leave the client unsure whether the log ever reached the server.
+            PickerStatusLabel.Text = "A save is still in progress — try again in a moment.";
+            return;
+        }
+
+        var gate = CurrentGate();
+        if (gate.CanSave && gate.Totals is not null && !ConfirmDiscardSession(gate.Totals, "Restarting to update"))
+        {
+            return;
+        }
+
+        UpdateAvailableButton.IsEnabled = false;
+        try
+        {
+            _updates.ApplyAndRestart(_pendingUpdate);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine(ex);
+            UpdateAvailableButton.IsEnabled = true;
+            PickerStatusLabel.Text = "Update failed to apply — try again later.";
+        }
     }
 
     private void RefreshGameWindowStatus()

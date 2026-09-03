@@ -26,6 +26,8 @@ bld/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+publish-output/
+releases/
 
 # OS
 .DS_Store

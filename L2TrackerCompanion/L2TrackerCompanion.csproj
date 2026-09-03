@@ -11,9 +11,9 @@
     <AssemblyName>L2TrackerCompanion</AssemblyName>
     <Version>1.0.0</Version>
     <Product>L2 Tracker Companion</Product>
-    <!-- e_sqlite3.dll (and any other native assets) must extract from the
-         single-file bundle at runtime; without this, session.db fails to open. -->
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Program.cs owns startup (VelopackApp.Build().Run() must run before the
+         WPF Application is constructed), not App.xaml's StartupUri. -->
+    <StartupObject>L2TrackerCompanion.Program</StartupObject>
     <!-- Assets/app.ico is the frontend's favicon.svg (the BrandMark arc) re-cut
          to icon sizes; Assets/app-icon.svg is kept as its source. The window
          needs no Icon of its own: with no Icon set, WPF falls back to the
@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.Drawing.Common" Version="8.0.11" />
+    <PackageReference Include="Velopack" Version="1.2.0" />
   </ItemGroup>
 
   <ItemGroup>
