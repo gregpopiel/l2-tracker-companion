@@ -36,6 +36,13 @@
                                    Text="Paste the token from the website."
                                    Style="{StaticResource SubtleText}"
                                    Margin="0,0,0,12" />
+                        <TextBlock Style="{StaticResource SubtleText}"
+                                   Margin="0,0,0,12"
+                                   TextWrapping="Wrap">
+                            Don't have an account yet? Sign up at
+                            <Hyperlink NavigateUri="https://l2tracker.cc"
+                                       RequestNavigate="WebsiteLink_RequestNavigate">l2tracker.cc</Hyperlink>
+                        </TextBlock>
                         <PasswordBox x:Name="TokenBox"
                                      Margin="0,0,0,12"
                                      KeyDown="TokenBox_KeyDown" />

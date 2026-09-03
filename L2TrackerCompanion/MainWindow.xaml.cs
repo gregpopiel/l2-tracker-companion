@@ -168,6 +168,12 @@ public partial class MainWindow : Window
 
     private void RetryButton_Click(object sender, RoutedEventArgs e) => _ = RestoreAuthAsync();
 
+    private void WebsiteLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        e.Handled = true;
+    }
+
     private void TokenBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == System.Windows.Input.Key.Enter && SignInButton.IsEnabled)
