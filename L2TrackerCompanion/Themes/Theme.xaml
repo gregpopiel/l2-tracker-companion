@@ -1,0 +1,706 @@
+<!--
+    Night Ops Terminal — the desktop companion's port of the web app's design
+    system (see l2-tracker-frontend/LANDING_PAGE_DESIGN_SPEC.md).
+
+    Two deliberate deviations, both forced by WPF rather than chosen:
+      * No backdrop blur exists for a plain Border, so the translucent "glass"
+        panels are flattened to the opaque colors they resolve to over the
+        Terminal Black page background.
+      * Body copy is Normal weight, not 200. Arial ships no such face and WPF
+        does not synthesize one, so asking for 200 renders identically to
+        Normal while lying about the intent.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- ===================== 1. COLOR PALETTE ===================== -->
+
+    <Color x:Key="BeaconBlueColor">#FF58A6FF</Color>
+    <Color x:Key="BeaconBlueBrightColor">#FF79C0FF</Color>
+    <Color x:Key="BeaconBlueDeepColor">#FF1F6FEB</Color>
+    <Color x:Key="AlarmRedColor">#FFF85149</Color>
+
+    <SolidColorBrush x:Key="BeaconBlueBrush" Color="{StaticResource BeaconBlueColor}" />
+    <SolidColorBrush x:Key="BeaconBlueBrightBrush" Color="{StaticResource BeaconBlueBrightColor}" />
+    <SolidColorBrush x:Key="BeaconBlueDeepBrush" Color="{StaticResource BeaconBlueDeepColor}" />
+
+    <!-- Backgrounds -->
+    <SolidColorBrush x:Key="TerminalBlackBrush" Color="#FF0D1117" />
+    <SolidColorBrush x:Key="VoidBlackBrush" Color="#FF010409" />
+
+    <!-- Panels: flattened glass (see header note) -->
+    <SolidColorBrush x:Key="GlassPanelBrush" Color="#FF161B22" />
+    <SolidColorBrush x:Key="GlassPanelRaisedBrush" Color="#FF21262D" />
+    <SolidColorBrush x:Key="GlassPanelLiftedBrush" Color="#FF30363D" />
+    <SolidColorBrush x:Key="BeaconSeamBrush" Color="#6658A6FF" />
+    <SolidColorBrush x:Key="HairlineBrush" Color="#8030363D" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="SignalWhiteBrush" Color="#FFE6EDF3" />
+    <SolidColorBrush x:Key="StaticGrayBrush" Color="#FF8B949E" />
+    <SolidColorBrush x:Key="DimGrayBrush" Color="#FF7D848E" />
+
+    <!-- Status -->
+    <SolidColorBrush x:Key="AlarmRedBrush" Color="{StaticResource AlarmRedColor}" />
+    <SolidColorBrush x:Key="AlarmRedBrightBrush" Color="#FFFF7B72" />
+    <SolidColorBrush x:Key="ConfirmGreenBrush" Color="#FF3FB950" />
+
+    <LinearGradientBrush x:Key="PrimaryFillBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="{StaticResource BeaconBlueColor}" />
+        <GradientStop Offset="1" Color="{StaticResource BeaconBlueDeepColor}" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="PrimaryFillHoverBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="{StaticResource BeaconBlueBrightColor}" />
+        <GradientStop Offset="1" Color="{StaticResource BeaconBlueColor}" />
+    </LinearGradientBrush>
+
+    <!-- ===================== 2. TYPOGRAPHY ===================== -->
+
+    <!-- Arial is the only face in the system: no monospace, no display faces. -->
+    <FontFamily x:Key="AppFontFamily">Arial</FontFamily>
+
+    <sys:Double x:Key="FontSizeLabel">12</sys:Double>
+    <sys:Double x:Key="FontSizeButton">13</sys:Double>
+    <sys:Double x:Key="FontSizeBody">14.5</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">16</sys:Double>
+    <sys:Double x:Key="FontSizeHeadline">19</sys:Double>
+
+    <CornerRadius x:Key="BorderRadiusBase" TopLeft="6" TopRight="6" BottomRight="6" BottomLeft="6" />
+
+    <!-- ===================== 3. SHARED EFFECTS ===================== -->
+
+    <!-- The Beacon Rule: glow marks focus and the login card only, never resting chrome. -->
+    <DropShadowEffect x:Key="BeaconGlowEffect"
+                      Color="{StaticResource BeaconBlueColor}"
+                      BlurRadius="8"
+                      ShadowDepth="0"
+                      Opacity="0.45" />
+
+    <DropShadowEffect x:Key="PanelDropShadowEffect"
+                      Color="#FF000000"
+                      BlurRadius="30"
+                      ShadowDepth="10"
+                      Direction="270"
+                      Opacity="0.2" />
+
+    <!-- ===================== 4. TEXT STYLES ===================== -->
+
+    <Style x:Key="BodyText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="LineHeight" Value="21" />
+    </Style>
+
+    <Style x:Key="SubtleText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+        <Setter Property="Foreground" Value="{StaticResource StaticGrayBrush}" />
+    </Style>
+
+    <!-- Static Gray, not Dim Gray: at 12px over the raised panel Dim Gray lands
+         at 4.05:1, under the 4.5:1 AA floor. Dim Gray stays defined as part of
+         the palette but has no use in this window. -->
+    <Style x:Key="MutedText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeLabel}" />
+        <Setter Property="Foreground" Value="{StaticResource StaticGrayBrush}" />
+    </Style>
+
+    <!-- Machine output (statuses, parse results). Arial, not Consolas — the
+         system has one face; status text is set apart by color, not family. -->
+    <Style x:Key="StatusText" TargetType="TextBlock" BasedOn="{StaticResource SubtleText}" />
+
+    <Style x:Key="TitleText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="HeadlineText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeHeadline}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- Section stamps: [LOGGED]-style labels, uppercase at the call site. -->
+    <Style x:Key="StampText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeLabel}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource StaticGrayBrush}" />
+    </Style>
+
+    <Style x:Key="FieldLabelText" TargetType="TextBlock" BasedOn="{StaticResource SubtleText}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- ===================== 5. PANELS ===================== -->
+
+    <!-- No Effect here on purpose. An Effect applies to the whole visual
+         subtree, so a shadow on the panel would drop every label inside it out
+         of ClearType and re-blur on each content change — and LiveStatusBorder
+         rewrites its labels on every poll tick. A near-black drop shadow over a
+         near-black page buys nothing worth that. Where elevation genuinely
+         reads (the login card, the dropdown), the glow is painted by a separate
+         layer behind the content instead — see BeaconPanel below. -->
+    <Style x:Key="GlassPanel" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource BorderRadiusBase}" />
+        <Setter Property="Padding" Value="18" />
+    </Style>
+
+    <!-- The login card is one of the surfaces allowed a Beacon Seam + glow.
+         A ContentControl rather than a Border so the glow can live on a sibling
+         layer underneath the content, keeping the card's text crisp. -->
+    <Style x:Key="BeaconPanel" TargetType="ContentControl">
+        <!-- Decoration, not a control: it must not land in the tab order the
+             way a bare ContentControl otherwise could. -->
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Grid>
+                        <!-- Glow layer: fill only, no content, so the effect has
+                             no text to blur. -->
+                        <Border Background="{StaticResource GlassPanelRaisedBrush}"
+                                CornerRadius="{StaticResource BorderRadiusBase}"
+                                Effect="{StaticResource BeaconGlowEffect}" />
+                        <Border BorderBrush="{StaticResource BeaconSeamBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource BorderRadiusBase}"
+                                Padding="30">
+                            <ContentPresenter />
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===================== 6. BUTTONS ===================== -->
+
+    <Style x:Key="ButtonBase" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeButton}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="14,7" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <!-- The template draws its own focus ring, so the system dotted rect
+             (invisible enough over the primary gradient) is turned off. -->
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                        </Grid.RenderTransform>
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource BorderRadiusBase}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <!-- Sits outside the fill and holds no text, so its glow
+                             costs the label nothing. -->
+                        <Border x:Name="FocusRing"
+                                Margin="-3"
+                                BorderBrush="{StaticResource BeaconBlueBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource BorderRadiusBase}"
+                                Effect="{StaticResource BeaconGlowEffect}"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <!-- Press feedback is uniform across every variant. -->
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="RenderTransform">
+                                <Setter.Value>
+                                    <ScaleTransform ScaleX="0.97" ScaleY="0.97" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <!-- IsKeyboardFocused, not IsFocused: a click should not
+                             leave a ring behind. -->
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+        <Setter Property="Background" Value="{StaticResource PrimaryFillBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource PrimaryFillHoverBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+        <Setter Property="Background" Value="{StaticResource GlassPanelRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Style.Triggers>
+            <!-- Neutral action: hover lifts the background, it does not warn. -->
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource GlassPanelLiftedBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+        <Setter Property="Background" Value="{StaticResource GlassPanelRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AlarmRedBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{StaticResource AlarmRedBrush}" />
+        <Style.Triggers>
+            <!-- Warning action: hover fills solid and flips the text. -->
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource AlarmRedBrush}" />
+                <Setter Property="Foreground" Value="#FFFFFFFF" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="SmallSecondaryButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeLabel}" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="MinHeight" Value="24" />
+    </Style>
+
+    <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}" />
+
+    <!-- ===================== 7. TEXT INPUTS ===================== -->
+
+    <ControlTemplate x:Key="TextInputTemplate" TargetType="TextBoxBase">
+        <Grid>
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{StaticResource BorderRadiusBase}"
+                    Padding="{TemplateBinding Padding}">
+                <ScrollViewer x:Name="PART_ContentHost" Focusable="False" />
+            </Border>
+            <!-- The glow rides its own layer so focusing a field does not drop
+                 what you are typing out of ClearType. -->
+            <Border x:Name="FocusRing"
+                    BorderBrush="{StaticResource BeaconBlueBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource BorderRadiusBase}"
+                    Effect="{StaticResource BeaconGlowEffect}"
+                    Visibility="Collapsed" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BeaconBlueBrush}" />
+                <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style TargetType="TextBox">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Background" Value="{StaticResource VoidBlackBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="CaretBrush" Value="{StaticResource BeaconBlueBrush}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource BeaconBlueBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Template" Value="{StaticResource TextInputTemplate}" />
+    </Style>
+
+    <Style TargetType="PasswordBox">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Background" Value="{StaticResource VoidBlackBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="CaretBrush" Value="{StaticResource BeaconBlueBrush}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource BeaconBlueBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Grid>
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource BorderRadiusBase}"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" />
+                        </Border>
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{StaticResource BeaconBlueBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource BorderRadiusBase}"
+                                Effect="{StaticResource BeaconGlowEffect}"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BeaconBlueBrush}" />
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===================== 8. RADIO BUTTONS ===================== -->
+
+    <Style TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Grid Width="16" Height="16" VerticalAlignment="Center">
+                            <Ellipse x:Name="Ring"
+                                     Stroke="{StaticResource HairlineBrush}"
+                                     StrokeThickness="1"
+                                     Fill="{StaticResource VoidBlackBrush}" />
+                            <Ellipse x:Name="Dot"
+                                     Width="7"
+                                     Height="7"
+                                     Fill="{StaticResource BeaconBlueBrush}"
+                                     Visibility="Collapsed" />
+                        </Grid>
+                        <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource BeaconBlueBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource BeaconBlueBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource BeaconBlueBrush}" />
+                            <Setter TargetName="Ring" Property="Effect" Value="{StaticResource BeaconGlowEffect}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===================== 9. COMBO BOX ===================== -->
+
+    <Style x:Key="ComboBoxToggle" TargetType="ToggleButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="ClickMode" Value="Press" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Bd"
+                            Background="Transparent"
+                            Padding="{TemplateBinding Padding}"
+                            CornerRadius="{StaticResource BorderRadiusBase}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource GlassPanelLiftedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource GlassPanelLiftedBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource BeaconBlueBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ComboBox">
+        <!-- Replacing the theme style drops its ItemsPanel and CanContentScroll
+             setters with it. Without these the Spot picker realizes all ~117
+             default spots on every open instead of the visible handful. -->
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="VirtualizingStackPanel.IsVirtualizing" Value="True" />
+        <Setter Property="VirtualizingStackPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="Background" Value="{StaticResource VoidBlackBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource BorderRadiusBase}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter x:Name="ContentSite"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Left"
+                                                  IsHitTestVisible="False"
+                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
+                                <Path x:Name="Arrow"
+                                      Grid.Column="1"
+                                      Margin="0,0,10,0"
+                                      VerticalAlignment="Center"
+                                      Data="M 0 0 L 4 4 L 8 0 Z"
+                                      Fill="{StaticResource StaticGrayBrush}" />
+                            </Grid>
+                        </Border>
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{StaticResource BeaconBlueBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource BorderRadiusBase}"
+                                Effect="{StaticResource BeaconGlowEffect}"
+                                Visibility="Collapsed" />
+                        <ToggleButton Style="{StaticResource ComboBoxToggle}"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Popup x:Name="PART_Popup"
+                               AllowsTransparency="True"
+                               Placement="Bottom"
+                               Focusable="False"
+                               PopupAnimation="Fade"
+                               IsOpen="{TemplateBinding IsDropDownOpen}">
+                            <Grid Margin="0,4,0,0"
+                                  MinWidth="{TemplateBinding ActualWidth}"
+                                  MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                <Border Background="{StaticResource GlassPanelRaisedBrush}"
+                                        CornerRadius="{StaticResource BorderRadiusBase}"
+                                        Effect="{StaticResource PanelDropShadowEffect}" />
+                                <Border BorderBrush="{StaticResource HairlineBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="{StaticResource BorderRadiusBase}"
+                                        Padding="4">
+                                    <ScrollViewer CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource GlassPanelLiftedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BeaconBlueBrush}" />
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsDropDownOpen" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BeaconBlueBrush}" />
+                            <Setter TargetName="Arrow" Property="Fill" Value="{StaticResource BeaconBlueBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===================== 10. TABS ===================== -->
+
+    <Style TargetType="TabItem">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Grid>
+                        <Border x:Name="Bd"
+                                Background="Transparent"
+                                Padding="14,10"
+                                Margin="0,0,4,0">
+                            <ContentPresenter x:Name="Label"
+                                              ContentSource="Header"
+                                              TextElement.Foreground="{StaticResource StaticGrayBrush}"
+                                              TextElement.FontWeight="Normal"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <!-- Active indicator: the one place Beacon Blue marks "you are here". -->
+                        <Border x:Name="Underline"
+                                Height="2"
+                                Margin="0,0,4,0"
+                                VerticalAlignment="Bottom"
+                                Background="{StaticResource BeaconBlueBrush}"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Label" Property="TextElement.Foreground" Value="{StaticResource SignalWhiteBrush}" />
+                            <Setter TargetName="Label" Property="TextElement.FontWeight" Value="SemiBold" />
+                            <Setter TargetName="Underline" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsSelected" Value="False" />
+                                <Condition Property="IsMouseOver" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Label" Property="TextElement.Foreground" Value="{StaticResource SignalWhiteBrush}" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Border BorderBrush="{StaticResource HairlineBrush}"
+                                BorderThickness="0,0,0,1">
+                            <TabPanel IsItemsHost="True"
+                                      Panel.ZIndex="1"
+                                      Margin="0,0,0,-1"
+                                      Background="Transparent" />
+                        </Border>
+                        <ContentPresenter Grid.Row="1"
+                                          Margin="{TemplateBinding Padding}"
+                                          ContentSource="SelectedContent" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===================== 11. SCROLLBARS ===================== -->
+
+    <Style x:Key="ScrollBarThumb" TargetType="Thumb">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="Bd"
+                            Background="{StaticResource GlassPanelLiftedBrush}"
+                            CornerRadius="{StaticResource BorderRadiusBase}"
+                            Margin="2" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource StaticGrayBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="10" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ScrollBarThumb}" />
+                            </Track.Thumb>
+                            <!-- No stepper buttons: the page is a quiet surface. -->
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False" />
+                            </Track.DecreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter Property="Width" Value="Auto" />
+                            <Setter Property="Height" Value="10" />
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

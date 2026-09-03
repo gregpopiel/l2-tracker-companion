@@ -1,0 +1,11 @@
+<!--
+  The BrandMark arc (src/components/BrandMark.jsx), re-cut for favicon sizes.
+  Two deliberate differences from the component: no inner "L2", which is
+  unreadable at 16px, and a heavier stroke — the component's 3 units would
+  render under a pixel wide at tab size.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" fill="none">
+    <circle cx="28" cy="28" r="24" stroke="#58a6ff" stroke-opacity="0.2" stroke-width="6" />
+    <circle cx="28" cy="28" r="24" stroke="#58a6ff" stroke-width="6" stroke-linecap="round"
+            stroke-dasharray="110.1 40.7" transform="rotate(-90 28 28)" />
+</svg>
