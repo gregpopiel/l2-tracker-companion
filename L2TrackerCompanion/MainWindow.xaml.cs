@@ -258,7 +258,9 @@ public partial class MainWindow : Window
         _lastComparison = null;
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
-        ShowLogin("Signed out. Token removed from disk. Local session cleared.");
+        // Sign Out is a deliberate click on a button labeled "Sign out" — the gate
+        // reappearing with its own hint already confirms it happened.
+        ShowLogin(string.Empty);
     }
 
     private bool ConfirmDiscardSession(SessionTotals totals)
