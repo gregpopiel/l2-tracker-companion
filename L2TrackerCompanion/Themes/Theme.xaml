@@ -46,28 +46,29 @@
     <SolidColorBrush x:Key="AlarmRedBrightBrush" Color="#FFFF7B72" />
     <SolidColorBrush x:Key="ConfirmGreenBrush" Color="#FF3FB950" />
 
-    <LinearGradientBrush x:Key="PrimaryFillBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Offset="0" Color="{StaticResource BeaconBlueColor}" />
-        <GradientStop Offset="1" Color="{StaticResource BeaconBlueDeepColor}" />
-    </LinearGradientBrush>
-
-    <LinearGradientBrush x:Key="PrimaryFillHoverBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Offset="0" Color="{StaticResource BeaconBlueBrightColor}" />
-        <GradientStop Offset="1" Color="{StaticResource BeaconBlueColor}" />
-    </LinearGradientBrush>
-
     <!-- ===================== 2. TYPOGRAPHY ===================== -->
 
     <!-- Arial is the only face in the system: no monospace, no display faces. -->
     <FontFamily x:Key="AppFontFamily">Arial</FontFamily>
 
-    <sys:Double x:Key="FontSizeLabel">12</sys:Double>
-    <sys:Double x:Key="FontSizeButton">13</sys:Double>
-    <sys:Double x:Key="FontSizeBody">14.5</sys:Double>
-    <sys:Double x:Key="FontSizeTitle">16</sys:Double>
-    <sys:Double x:Key="FontSizeHeadline">19</sys:Double>
+    <!-- Re-anchored to desktop metrics rather than the web scale's rem values:
+         Windows UI sits around 12px, and the 14.5px body the spec implies is
+         what made this window read as a page rather than an application. -->
+    <sys:Double x:Key="FontSizeLabel">11</sys:Double>
+    <sys:Double x:Key="FontSizeButton">12</sys:Double>
+    <sys:Double x:Key="FontSizeBody">12.5</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">13</sys:Double>
+    <sys:Double x:Key="FontSizeHeadline">15</sys:Double>
 
-    <CornerRadius x:Key="BorderRadiusBase" TopLeft="6" TopRight="6" BottomRight="6" BottomLeft="6" />
+    <!-- Control geometry, shared so rows line up: 24px is the standard desktop
+         control height, and 78px the classic minimum button width. -->
+    <sys:Double x:Key="ControlHeight">24</sys:Double>
+    <sys:Double x:Key="ButtonMinWidth">78</sys:Double>
+    <sys:Double x:Key="FieldMaxWidth">340</sys:Double>
+    <sys:Double x:Key="FieldLabelWidth">84</sys:Double>
+    <sys:Double x:Key="ContentMaxWidth">560</sys:Double>
+
+    <CornerRadius x:Key="BorderRadiusBase" TopLeft="4" TopRight="4" BottomRight="4" BottomLeft="4" />
 
     <!-- ===================== 3. SHARED EFFECTS ===================== -->
 
@@ -153,7 +154,7 @@
         <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource BorderRadiusBase}" />
-        <Setter Property="Padding" Value="18" />
+        <Setter Property="Padding" Value="10" />
     </Style>
 
     <!-- The login card is one of the surfaces allowed a Beacon Seam + glow.
@@ -176,7 +177,7 @@
                         <Border BorderBrush="{StaticResource BeaconSeamBrush}"
                                 BorderThickness="1"
                                 CornerRadius="{StaticResource BorderRadiusBase}"
-                                Padding="30">
+                                Padding="20">
                             <ContentPresenter />
                         </Border>
                     </Grid>
@@ -191,9 +192,9 @@
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeButton}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Padding" Value="14,7" />
-        <Setter Property="MinHeight" Value="30" />
-        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="12,3" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="MinWidth" Value="{StaticResource ButtonMinWidth}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="HorizontalAlignment" Value="Left" />
         <!-- The template draws its own focus ring, so the system dotted rect
@@ -242,7 +243,6 @@
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
-                            <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -250,13 +250,18 @@
         </Setter>
     </Style>
 
+    <!-- Flat accent fill, not the spec's gradient-and-glow: on a desktop surface
+         a gradient button reads as a web call-to-action rather than a default
+         action. Both colors are still the palette's own. -->
     <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
-        <Setter Property="Background" Value="{StaticResource PrimaryFillBrush}" />
-        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="{StaticResource BeaconBlueDeepBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BeaconBlueDeepBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Foreground" Value="#FFFFFFFF" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource PrimaryFillHoverBrush}" />
+                <Setter Property="Background" Value="{StaticResource BeaconBlueBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource BeaconBlueBrush}" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -290,8 +295,9 @@
 
     <Style x:Key="SmallSecondaryButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
         <Setter Property="FontSize" Value="{StaticResource FontSizeLabel}" />
-        <Setter Property="Padding" Value="10,4" />
-        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Padding" Value="9,2" />
+        <Setter Property="MinHeight" Value="20" />
+        <Setter Property="MinWidth" Value="0" />
     </Style>
 
     <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}" />
@@ -337,7 +343,8 @@
         <Setter Property="SelectionBrush" Value="{StaticResource BeaconBlueBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Template" Value="{StaticResource TextInputTemplate}" />
     </Style>
 
@@ -350,7 +357,8 @@
         <Setter Property="SelectionBrush" Value="{StaticResource BeaconBlueBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="PasswordBox">
@@ -390,7 +398,6 @@
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
         <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
@@ -447,7 +454,7 @@
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
         <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
-        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Padding" Value="8,3" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBoxItem">
@@ -493,9 +500,9 @@
         <Setter Property="Background" Value="{StaticResource VoidBlackBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="8,6" />
-        <Setter Property="MinHeight" Value="30" />
-        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="Cursor" Value="Arrow" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">
@@ -578,7 +585,6 @@
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
-                            <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -590,15 +596,15 @@
 
     <Style TargetType="TabItem">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
-        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Cursor" Value="Arrow" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">
                     <Grid>
                         <Border x:Name="Bd"
                                 Background="Transparent"
-                                Padding="14,10"
+                                Padding="12,6"
                                 Margin="0,0,4,0">
                             <ContentPresenter x:Name="Label"
                                               ContentSource="Header"
@@ -708,6 +714,87 @@
                             <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
                         </Trigger>
                     </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===================== 12. APPLICATION CHROME ===================== -->
+
+    <!-- A titled group with a rule running out to the right: the desktop way of
+         separating sections, in place of the page-sized headings this window
+         used to stack down a full-width column. -->
+    <Style x:Key="SectionGroup" TargetType="HeaderedContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Margin" Value="0,0,0,18" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="HeaderedContentControl">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter ContentSource="Header"
+                                              TextElement.Foreground="{StaticResource SignalWhiteBrush}"
+                                              TextElement.FontWeight="SemiBold"
+                                              TextElement.FontSize="{StaticResource FontSizeTitle}" />
+                            <Border Grid.Column="1"
+                                    Height="1"
+                                    Margin="10,2,0,0"
+                                    VerticalAlignment="Center"
+                                    Background="{StaticResource HairlineBrush}" />
+                        </Grid>
+                        <ContentPresenter Margin="2,0,0,0" />
+                    </StackPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- One label + one field, on the shared grid so every row lines up. -->
+    <Style x:Key="FieldRow" TargetType="Grid">
+        <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+
+    <Style x:Key="StatusBarBorder" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+        <Setter Property="Padding" Value="10,4" />
+    </Style>
+
+    <!-- Status text is one line that ellipsizes, with the full message on hover:
+         a status bar that reflows the window when an error arrives is not one. -->
+    <Style x:Key="StatusBarText" TargetType="TextBlock" BasedOn="{StaticResource SubtleText}">
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+        <Style.Triggers>
+            <Trigger Property="Text" Value="">
+                <Setter Property="ToolTip" Value="{x:Null}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="ToolTip">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeLabel}" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+        <Setter Property="MaxWidth" Value="420" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+                    <Border Background="{StaticResource GlassPanelRaisedBrush}"
+                            BorderBrush="{StaticResource HairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource BorderRadiusBase}"
+                            Padding="8,5">
+                        <ContentPresenter />
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
