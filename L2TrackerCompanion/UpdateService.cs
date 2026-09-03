@@ -20,6 +20,17 @@ public sealed class UpdateService
     }
 
     /// <summary>
+    /// The running app's version. Reads it from Velopack when installed (matching
+    /// what the update feed compares against); falls back to the version compiled
+    /// into the assembly (`&lt;Version&gt;` in the csproj) when not — e.g. `dotnet run`,
+    /// where <see cref="UpdateManager.CurrentVersion"/> is null.
+    /// </summary>
+    public string CurrentVersion
+        => _manager.CurrentVersion?.ToString()
+            ?? System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)
+            ?? "unknown";
+
+    /// <summary>
     /// Checks the GitHub Releases feed and, if a newer version exists, downloads it
     /// in the background. Returns the pending version, or null if already current,
     /// not running as a Velopack install (e.g. `dotnet run`), or the check/download

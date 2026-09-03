@@ -298,6 +298,13 @@
                                         Click="SignOutButton_Click" />
                             </StackPanel>
                         </HeaderedContentControl>
+
+                        <HeaderedContentControl Header="About"
+                                                Style="{StaticResource SectionGroup}">
+                            <TextBlock x:Name="AppVersionLabel"
+                                       Text=""
+                                       Style="{StaticResource SubtleText}" />
+                        </HeaderedContentControl>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

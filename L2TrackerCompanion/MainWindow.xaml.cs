@@ -82,6 +82,7 @@ public partial class MainWindow : Window
         RefreshPollStatus(string.Empty);
         ShowLiveStatus(LiveStatus.Idle());
         ApplyLoadedMode();
+        AppVersionLabel.Text = $"Version {_updates.CurrentVersion}";
     }
 
     private void MainTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
