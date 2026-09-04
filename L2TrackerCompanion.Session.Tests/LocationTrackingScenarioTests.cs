@@ -121,7 +121,7 @@ public class LocationTrackingScenarioTests
     }
 
     [Fact]
-    public void RestartingTheGameForgetsWhereTheOldSessionWasSoTheFirstReadingIsNotAMove()
+    public void RestartingTheGameForgetsWhereTheOldSessionWasSoTheFirstReadIsNotAMove()
     {
         var loop = new PollLoop();
 

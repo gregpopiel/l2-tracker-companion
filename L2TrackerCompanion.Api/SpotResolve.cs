@@ -7,7 +7,7 @@ namespace L2TrackerCompanion.Api;
 /// A manually chosen row always wins. An empty picker may still save when the
 /// location hint is already a stable unique name, or when that name can be
 /// created under World. Location stability itself is decided elsewhere.
-/// Auto-resolve also requires the <em>current</em> reading to name that same
+/// Auto-resolve also requires the <em>current</em> read to name that same
 /// hint, and a loaded spot list — null spots is "not loaded", not "none".
 /// </remarks>
 public static class SpotResolve
@@ -104,10 +104,10 @@ public sealed record SpotResolveDecision(
         SpotResolveKind.MissingWorld =>
             "The World area was not found. Pick a spot, or add spots on the website.",
         SpotResolveKind.Unstable =>
-            $"Pick a spot, or keep reading until Location is stable ({unstableSampleCount}/{windowSize}).",
+            $"Pick a spot, or keep tracking until Location is stable ({unstableSampleCount}/{windowSize}).",
         SpotResolveKind.SpotsNotLoaded => "Spots have not loaded yet.",
         SpotResolveKind.CurrentMismatch =>
-            $"This reading's Location is not \"{Name}\" — pick a spot, or wait for a consistent read.",
+            $"This read's Location is not \"{Name}\" — pick a spot, or wait for a consistent read.",
         _ => string.Empty,
     };
 }

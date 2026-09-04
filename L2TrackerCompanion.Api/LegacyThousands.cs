@@ -4,7 +4,7 @@ namespace L2TrackerCompanion.Api;
 /// TEMPORARY. The website stores — and this API returns — farm amounts in
 /// thousands, so every figure derived from them is a thousandth of what the
 /// game's own panel prints. Anything comparing an API figure against a live
-/// Play Report reading has to undo that first, or the two sides sit three
+/// Play Report read has to undo that first, or the two sides sit three
 /// orders of magnitude apart and the comparison silently reads as a landslide.
 /// </summary>
 /// <remarks>

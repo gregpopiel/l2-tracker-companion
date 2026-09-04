@@ -97,7 +97,7 @@ public class SpotResolveTests
         Assert.Equal(SpotResolveKind.Unstable, decision.Kind);
         Assert.False(decision.CanSave);
         Assert.Equal(
-            "Pick a spot, or keep reading until Location is stable (2/5).",
+            "Pick a spot, or keep tracking until Location is stable (2/5).",
             decision.Hint(2, 5));
     }
 

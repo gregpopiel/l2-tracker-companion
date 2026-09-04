@@ -9,7 +9,7 @@ namespace L2TrackerCompanion.Api;
 /// </summary>
 /// <remarks>
 /// Deliberately a rank and nothing else. The Play Report counts from login and
-/// only resets when the game restarts, so a reading taken after moving spots
+/// only resets when the game restarts, so a read taken after moving spots
 /// blends both of them — which leaves a rank against the whole list honest,
 /// and would make any "vs this spot's average" figure a lie until the player
 /// restarts the report. Averages come straight from <c>GET /api/spots</c>
@@ -89,7 +89,7 @@ public static class SpotBenchmark
 
     /// <summary>
     /// One-based position of <paramref name="live"/> among the stored averages,
-    /// ties resolved in the reading's favour. Null when there is nothing to
+    /// ties resolved in the read's favour. Null when there is nothing to
     /// place, or nothing to place it against.
     /// </summary>
     private static int? Rank(long? live, IEnumerable<long?> averages)
@@ -102,7 +102,7 @@ public static class SpotBenchmark
         var scaled = averages
             .Where(average => average is not null)
             // The one place the ×1000 storage convention is undone. Without it
-            // every reading outranks every spot and the feature still looks
+            // every read outranks every spot and the feature still looks
             // like it works — see LegacyThousands.
             .Select(average => LegacyThousands.ToRaw(average)!.Value)
             .ToList();

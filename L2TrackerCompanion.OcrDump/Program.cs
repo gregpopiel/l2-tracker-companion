@@ -396,7 +396,7 @@ static async Task<int> RunSaveAsync(string[] args)
     var latest = store.Last();
     if (latest is null)
     {
-        Console.WriteLine("No reading stored yet. Parse or track first.");
+        Console.WriteLine("No read stored yet. Parse or track first.");
         return 2;
     }
 

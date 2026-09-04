@@ -29,7 +29,7 @@ public sealed class SessionStore : IDisposable
     /// A real OCR misread is transient — the next tick recovers. Several
     /// rejections in a row all measured against one unchanged row are evidence
     /// that the row is out of date (a reset nobody was watching for), not that
-    /// the readings are bad. Without this the buffer can never advance again.
+    /// the reads are bad. Without this the buffer can never advance again.
     /// </remarks>
     public const int StaleBaselineStrikes = 3;
 
@@ -153,11 +153,11 @@ public sealed class SessionStore : IDisposable
             }
 
             // Nothing has been accepted for several ticks running: the baseline
-            // is what is wrong, not the readings.
+            // is what is wrong, not the reads.
             NewSession();
             return SnapshotAcceptResult.AfterReset(
                 Append(report, capturedAt),
-                $"No reading matched the previous one for {StaleBaselineStrikes} ticks — "
+                $"No read matched the previous one for {StaleBaselineStrikes} ticks — "
                 + "the stored baseline was dropped and counting restarted.");
         }
 
@@ -219,7 +219,7 @@ public sealed class SessionStore : IDisposable
     /// The sqlite_sequence row goes with it: id is declared AUTOINCREMENT,
     /// whose whole job is to never reuse a value, so deleting the rows alone
     /// left the next session counting on from the old one — "Accepted #47"
-    /// on the first reading of a fresh session. Nothing depends on ids being
+    /// on the first read of a fresh session. Nothing depends on ids being
     /// unique across sessions; they only order rows within the current one.
     /// </remarks>
     public void NewSession()

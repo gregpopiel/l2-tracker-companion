@@ -22,7 +22,7 @@ public static class SpotLocationWarning
     /// <param name="stableCanonicalName">
     /// The current settled location's canonical name (from
     /// <c>LocationStability</c>), or null/blank while unsettled — an
-    /// unsettled reading is not evidence of a move.
+    /// unsettled read is not evidence of a move.
     /// </param>
     /// <returns>A warning to show, or null when there is nothing to say.</returns>
     public static string? Evaluate(SpotInfo? selected, string? stableCanonicalName)

@@ -15,7 +15,7 @@ public class SpotBenchmarkTests
     ];
 
     [Fact]
-    public void RanksTheReadingAmongTheStoredAverages()
+    public void RanksTheReadAmongTheStoredAverages()
     {
         var snapshot = SpotBenchmark.Evaluate(13_000_000, 2_000_000, ThreeSpots);
 
@@ -35,14 +35,14 @@ public class SpotBenchmarkTests
     [Fact]
     public void MatchingAnAverageExactlyRanksAboveIt()
     {
-        // > not >=: a tie is not a spot that beat the reading.
+        // > not >=: a tie is not a spot that beat the read.
         Assert.Equal(2, SpotBenchmark.Evaluate(12_000_000, null, ThreeSpots).XpRank);
     }
 
     /// <summary>
     /// The regression this whole feature turns on: API amounts are thousands
-    /// (see <see cref="LegacyThousands"/>), live readings are raw. Drop the
-    /// conversion and every reading outranks everything.
+    /// (see <see cref="LegacyThousands"/>), live reads are raw. Drop the
+    /// conversion and every read outranks everything.
     /// </summary>
     [Fact]
     public void StoredThousandsAreScaledToRawGameUnits()
@@ -52,7 +52,7 @@ public class SpotBenchmarkTests
         var snapshot = SpotBenchmark.Evaluate(12_000_000, null, ThreeSpots);
         Assert.Equal(2, snapshot.XpRank);
 
-        // Without the ×1000 the reading would sit above every average at once.
+        // Without the ×1000 the read would sit above every average at once.
         Assert.NotEqual(1, snapshot.XpRank);
     }
 

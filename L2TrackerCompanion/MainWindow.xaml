@@ -196,7 +196,7 @@
                                            Style="{StaticResource SubtleText}"
                                            Margin="0,0,0,10" />
                                 <Button x:Name="StartStopButton"
-                                        Content="Start reading"
+                                        Content="Start tracking"
                                         Style="{StaticResource PrimaryButton}"
                                         Click="StartStopButton_Click" />
                             </StackPanel>

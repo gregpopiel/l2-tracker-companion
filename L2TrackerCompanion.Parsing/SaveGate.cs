@@ -3,7 +3,7 @@ using System.Globalization;
 namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
-/// The one place that decides whether the current reading may be written to
+/// The one place that decides whether the current read may be written to
 /// the account, and what colour to show for it.
 /// </summary>
 /// <remarks>
@@ -22,7 +22,7 @@ public static class SaveGate
     {
         if (report is null)
         {
-            return SaveGateDecision.Blocked(TrafficLight.Idle, "No reading yet.");
+            return SaveGateDecision.Blocked(TrafficLight.Idle, "No read yet.");
         }
 
         var warnings = new List<string>();
@@ -31,7 +31,7 @@ public static class SaveGate
         {
             return SaveGateDecision.Blocked(
                 TrafficLight.Red,
-                "The last reading contradicted the one before it — waiting for a clean read.");
+                "The last read contradicted the one before it — waiting for a clean read.");
         }
 
         if (report.Confidence.PlayTimeDisagreed)

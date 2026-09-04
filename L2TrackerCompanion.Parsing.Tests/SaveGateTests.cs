@@ -188,7 +188,7 @@ public class SaveGateTests
     }
 
     [Fact]
-    public void NoReadingYetIsIdle()
+    public void NoReadYetIsIdle()
     {
         var decision = SaveGate.Evaluate(null, At);
 

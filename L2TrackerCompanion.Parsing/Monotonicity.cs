@@ -12,7 +12,7 @@ namespace L2TrackerCompanion.Parsing;
 /// Reset signature: the panel's own duration went backwards while neither XP
 /// nor Adena grew. Deliberately no ceiling on how far the new duration may
 /// have advanced — whether the reset is spotted in its first minute or its
-/// fifteenth depends only on when a tick happened to land, and readings stop
+/// fifteenth depends only on when a tick happened to land, and reads stop
 /// landing for entirely ordinary reasons (the panel closed, the client
 /// relogged, tracking paused). Judging a reset by <em>when we looked</em>
 /// rather than <em>what we see</em> wedged the buffer permanently, because a

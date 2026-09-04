@@ -56,7 +56,7 @@ public partial class MainWindow : Window
         Loaded += (_, _) => _ = RestoreAuthAsync();
         Loaded += (_, _) => _ = CheckForUpdatesAsync(autoApply: true);
 
-        // The buffer only exists to compare one reading against the previous
+        // The buffer only exists to compare one read against the previous
         // one within a run, and anything left over from the last run is stale
         // by definition — the panel may have been reset while we were closed.
         _sessionStore.NewSession();
@@ -499,7 +499,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Whether the latest reading may be saved, and what it would post.
+    /// Whether the latest read may be saved, and what it would post.
     /// </summary>
     private SaveGateDecision CurrentGate()
         => SaveGate.Evaluate(
@@ -783,7 +783,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Same reading, narrower field — no re-parse needed.
+        // Same read, narrower field — no re-parse needed.
         ShowLiveStatus(_liveStatus);
     }
 
@@ -918,8 +918,8 @@ public partial class MainWindow : Window
                 + (created ? " (new World spot)" : "")
                 + $" ({totals.XpFarmed}k XP, {totals.Minutes} min). "
                 + (wasTracking
-                    ? "Tracking stopped. Start reading to save another log."
-                    : "Start reading to save another log.");
+                    ? "Tracking stopped. Start tracking to save another log."
+                    : "Start tracking to save another log.");
 
             if (SaveConfirmationHold.ShouldStopTracking(wasTracking, saved: true))
             {
@@ -934,8 +934,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// After a 2xx, drop every companion-side reading. Character, spot and
-    /// bonus stay. Start reading to capture the panel again.
+    /// After a 2xx, drop every companion-side read. Character, spot and
+    /// bonus stay. Start tracking to capture the panel again.
     /// </summary>
     private void ResetLocalSessionAfterSave()
     {
@@ -1263,7 +1263,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Where this reading's pace places among the character's own spots.
+    /// Where this read's pace places among the character's own spots.
     /// </summary>
     /// <remarks>
     /// Silent until the spots are loaded: an empty picker is not proof that the
@@ -1340,7 +1340,7 @@ public partial class MainWindow : Window
 
             CaptureStatusLabel.Text = FormatCaptureSuccess(result);
 
-            // A capture taken just now is a live reading of the panel.
+            // A capture taken just now is a live read of the panel.
             await RunParseAsync(outputPath, fromPoll: false);
         }
         finally
@@ -1406,7 +1406,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Starting a reading run means starting fresh comparisons. The buffer
+        // Starting a tracking run means starting fresh comparisons. The buffer
         // no longer feeds the save (one frame does). This is also the manual
         // way out if the baseline ever goes stale.
         _saveConfirmation.Release();
@@ -1418,7 +1418,7 @@ public partial class MainWindow : Window
         HideLocationChange();
         _polling.Start();
         _pollCts = new CancellationTokenSource();
-        StartStopButton.Content = "Stop reading";
+        StartStopButton.Content = "Stop tracking";
         RefreshPollStatus("Starting…");
         _pollTimer.Start();
         await LoadSettingsAsync(keepExistingOnFailure: true);
@@ -1430,7 +1430,7 @@ public partial class MainWindow : Window
         _polling.Stop();
         _pollTimer.Stop();
         _pollCts.Cancel();
-        StartStopButton.Content = "Start reading";
+        StartStopButton.Content = "Start tracking";
         RefreshPollStatus(message);
     }
 
@@ -1484,7 +1484,7 @@ public partial class MainWindow : Window
     }
 
     /// <param name="inspectOnly">
-    /// The image is a file the user picked, not a reading of the panel as it is
+    /// The image is a file the user picked, not a read of the panel as it is
     /// right now. An old screenshot is indistinguishable from a fresh reset, so
     /// it must never reach the buffer or the save.
     /// </param>

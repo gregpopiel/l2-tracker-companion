@@ -85,7 +85,7 @@ public class SessionStoreTests
         store.Append(OpenRead(3, 3, 3));
 
         // AUTOINCREMENT keeps a highest-ever-used id, so wiping the rows alone
-        // used to leave the next session's first reading numbered #3.
+        // used to leave the next session's first read numbered #3.
         Assert.Equal(1, store.List().Single().Id);
     }
 
