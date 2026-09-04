@@ -593,11 +593,25 @@ public partial class MainWindow : Window
             $"Ready to save {SelectedCharacter!.Name} at {at}: "
             + $"{totals.XpFarmed}k XP, {totals.Adena}k Adena, "
             + $"{totals.Minutes} min from the Play Report.";
+
+        // A spot picked earlier in the session (or auto-picked once) always
+        // wins over a later location change — see SpotLocationWarning. That
+        // is correct for where the save goes, but the player still needs a
+        // nudge that it happened.
+        var warnings = gate.Warnings.ToList();
+        var spotWarning = SpotLocationWarning.Evaluate(
+            SelectedSpot,
+            stability.IsStable ? stability.CanonicalName : null);
+        if (spotWarning is not null)
+        {
+            warnings.Add(spotWarning);
+        }
+
         // Separated, not stacked: this lands in the status bar, and a newline
         // there grows the bar and pushes the content above it up.
-        if (gate.Warnings.Count > 0)
+        if (warnings.Count > 0)
         {
-            text += " · " + string.Join(" · ", gate.Warnings);
+            text += " · " + string.Join(" · ", warnings);
         }
 
         PickerStatusLabel.Text = text;
