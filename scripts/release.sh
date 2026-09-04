@@ -33,4 +33,5 @@ done
 gh release create "$TAG" \
   --repo "$REPO" \
   --title "L2 Tracker Companion $TAG" \
+  --generate-notes \
   "${ASSETS[@]}"
