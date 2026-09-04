@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly SessionStore _sessionStore = new(SessionStore.GetDefaultPath());
     private readonly AuthService _auth = new(TokenStore.GetDefault());
     private readonly AppOptionsStore _options = AppOptionsStore.GetDefault();
+    private readonly LastCharacterStore _lastCharacter = LastCharacterStore.GetDefault();
     private readonly PollingLoop _polling = new();
     private readonly UpdateService _updates = new();
     private readonly DispatcherTimer _refreshTimer;
@@ -43,6 +44,7 @@ public partial class MainWindow : Window
     private IReadOnlyList<AreaInfo>? _areas;
     private readonly LocationChangeWatch _locationWatch = new();
     private bool _isAdmin;
+    private string? _userId;
     private readonly GameProcessWatch _gameWatch = new();
     private UpdateInfo? _pendingUpdate;
     private bool _updateCheckInFlight;
@@ -299,6 +301,7 @@ public partial class MainWindow : Window
         {
             _isAdmin = result.IsAdmin;
             ApplyAdminGating();
+            _userId = result.UserId;
             ShowWorkspace(result.Message);
             BindCharacters(result.Characters);
             _ = LoadSettingsAsync();
@@ -327,6 +330,9 @@ public partial class MainWindow : Window
 
         // Signed out (or never proven admin yet) — Debug mode is admin-only.
         _isAdmin = false;
+        // The stored pick survives on disk; only the account it belongs to is forgotten,
+        // so signing back in as the same user still restores it.
+        _userId = null;
         ApplyAdminGating();
 
         SetAuthStatus(status, isError);
@@ -376,12 +382,17 @@ public partial class MainWindow : Window
 
     private void BindCharacters(IReadOnlyList<CharacterInfo> characters)
     {
+        // The remembered pick, when the account still has that character — otherwise
+        // the first one, which is also what a fresh install and a deleted character get.
+        var remembered = _lastCharacter.TryLoad(_userId);
+        var selected = characters.FirstOrDefault(c => c.Id == remembered) ?? characters.FirstOrDefault();
+
         _suppressPickerEvents = true;
         try
         {
             CharacterCombo.ItemsSource = characters;
             CharacterCombo.IsEnabled = characters.Count > 0;
-            CharacterCombo.SelectedItem = characters.Count > 0 ? characters[0] : null;
+            CharacterCombo.SelectedItem = selected;
             SpotCombo.ItemsSource = null;
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
@@ -443,6 +454,13 @@ public partial class MainWindow : Window
         if (_suppressPickerEvents)
         {
             return;
+        }
+
+        // Guarded above, so only a user's own pick is remembered — never the
+        // programmatic selection BindCharacters and ClearPickers make.
+        if (SelectedCharacter is not null)
+        {
+            _lastCharacter.Save(_userId, SelectedCharacter.Id);
         }
 
         _ = LoadSpotsAsync(SelectedCharacter);

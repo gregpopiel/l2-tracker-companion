@@ -90,7 +90,7 @@ public sealed class AuthService
         var summary = call.Value.Count == 0
             ? "Signed in. No characters on this account yet."
             : $"Signed in. {call.Value.Count} character{(call.Value.Count == 1 ? "" : "s")}: {string.Join(", ", names)}.";
-        return AuthResult.Ok(summary, call.Value, BaseUrl, me.Value.IsAdmin);
+        return AuthResult.Ok(summary, call.Value, BaseUrl, me.Value.IsAdmin, me.Value.Id);
     }
 
     /// <summary>
@@ -118,11 +118,17 @@ public sealed record AuthResult(
     string Message,
     IReadOnlyList<CharacterInfo> Characters,
     string BaseUrl,
-    bool IsAdmin)
+    bool IsAdmin,
+    string UserId)
 {
-    public static AuthResult Ok(string message, IReadOnlyList<CharacterInfo> characters, string baseUrl, bool isAdmin)
-        => new(true, message, characters, baseUrl, isAdmin);
+    public static AuthResult Ok(
+        string message,
+        IReadOnlyList<CharacterInfo> characters,
+        string baseUrl,
+        bool isAdmin,
+        string userId)
+        => new(true, message, characters, baseUrl, isAdmin, userId);
 
     public static AuthResult Fail(string message)
-        => new(false, message, [], TokenStore.DefaultBaseUrl, false);
+        => new(false, message, [], TokenStore.DefaultBaseUrl, false, string.Empty);
 }
