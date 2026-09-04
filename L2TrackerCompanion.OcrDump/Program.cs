@@ -393,16 +393,22 @@ static async Task<int> RunSaveAsync(string[] args)
     }
 
     using var store = new SessionStore(SessionStore.GetDefaultPath());
-    var latest = store.Last();
+    var latest = store.LastSavable();
     if (latest is null)
     {
-        Console.WriteLine("No read stored yet. Parse or track first.");
+        var last = store.Last();
+        if (last is null)
+        {
+            Console.WriteLine("No read stored yet. Parse or track first.");
+            return 2;
+        }
+
+        var blocked = SaveGate.Evaluate(last.Report, last.CapturedAt);
+        Console.WriteLine(blocked.BlockReason ?? "No verified read stored yet.");
         return 2;
     }
 
-    var gate = SaveGate.Evaluate(
-        latest.Report,
-        latest.CapturedAt);
+    var gate = SaveGate.Evaluate(latest.Report, latest.CapturedAt);
     if (!gate.CanSave || gate.Totals is null)
     {
         Console.WriteLine(gate.BlockReason);
@@ -470,7 +476,7 @@ static async Task<(int Id, bool Created)?> ResolveSpotFromLocationAsync(
     var areasCall = await client.GetAreasAsync(token);
     var world = areasCall.Success ? WorldArea.Find(areasCall.Value) : null;
     var stability = LocationStability.Evaluate(store.List().Select(row => row.Report.LocationHint));
-    var latest = store.Last();
+    var latest = store.LastSavable() ?? store.Last();
     var resolve = SpotResolve.Evaluate(
         selected: null,
         stability.IsStable ? stability.CanonicalName : null,

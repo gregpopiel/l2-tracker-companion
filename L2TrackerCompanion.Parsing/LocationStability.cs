@@ -5,7 +5,8 @@ namespace L2TrackerCompanion.Parsing;
 /// a manually chosen spot.
 /// </summary>
 /// <remarks>
-/// Save itself still trusts a single agreeing frame (see <see cref="SaveGate"/>).
+/// Save itself still posts a single agreeing frame (see <see cref="SaveGate"/>),
+/// falling back to the last such frame when the current tick is rejected.
 /// This gate is only for auto-resolving the spot: a one-off OCR of the HUD
 /// header is too thin to create or attach a spot, so we require the last
 /// <see cref="WindowSize"/> non-empty hints to agree at least

@@ -7,8 +7,9 @@ namespace L2TrackerCompanion.Api;
 /// A manually chosen row always wins. An empty picker may still save when the
 /// location hint is already a stable unique name, or when that name can be
 /// created under World. Location stability itself is decided elsewhere.
-/// Auto-resolve also requires the <em>current</em> read to name that same
-/// hint, and a loaded spot list — null spots is "not loaded", not "none".
+/// Auto-resolve also requires the read being saved to name that same
+/// hint (the current tick, or the last verified frame when Save is holding),
+/// and a loaded spot list — null spots is "not loaded", not "none".
 /// </remarks>
 public static class SpotResolve
 {

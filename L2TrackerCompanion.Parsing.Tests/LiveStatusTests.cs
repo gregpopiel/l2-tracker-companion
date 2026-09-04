@@ -114,6 +114,44 @@ public class LiveStatusTests
         Assert.Contains("Dragon Valley (east)", text, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ForDisplayKeepsTheTickVerdictAndShowsTheHeldReport()
+    {
+        var held = PlayReport.From(506_625, 59_493, 4, OpenLamps(260_000, 0, 0, 0, 506_625), "Dragon Valley (east)");
+        var shown = LiveStatus.ForDisplay(LiveStatus.ParseFailed("OCR failed"), held);
+
+        Assert.Equal(TrafficLight.Red, shown.Light);
+        Assert.Equal("OCR failed", shown.Detail);
+        Assert.Equal(held, shown.Report);
+        var text = LiveStatus.Format(shown);
+        Assert.Contains("Light: Red", text, StringComparison.Ordinal);
+        Assert.Contains("OCR failed", text, StringComparison.Ordinal);
+        Assert.Contains("XP: 506,625", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ForDisplayWithNoSaveSourceShowsNoTotals()
+    {
+        var tick = LiveStatus.ParseFailed("OCR failed");
+        var held = PlayReport.From(506_625, 59_493, 4, OpenLamps(260_000, 0, 0, 0, 506_625), null);
+        var withHeld = LiveStatus.ForDisplay(tick, held);
+        Assert.Equal(held, withHeld.Report);
+
+        var empty = LiveStatus.ForDisplay(tick, null);
+        Assert.Equal(TrafficLight.Red, empty.Light);
+        Assert.Null(empty.Report);
+        Assert.Empty(LiveStatus.FormatValues(empty.Report));
+    }
+
+    [Fact]
+    public void TickRejectedIsRedWithoutAReport()
+    {
+        var status = LiveStatus.TickRejected("Discarded: XP dropped from 200 to 100.");
+        Assert.Equal(TrafficLight.Red, status.Light);
+        Assert.Null(status.Report);
+        Assert.Contains("XP dropped", status.Detail, StringComparison.Ordinal);
+    }
+
     private static LampXpDecision OpenLamps(long red, long purple, long blue, long green, long dialogXp)
         => LampXp.Decide(
             new Dictionary<string, long?>

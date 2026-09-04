@@ -33,9 +33,6 @@ public partial class MainWindow : Window
     private bool _suppressModeEvents;
     private bool _ratePerHour = UserSettingsInfo.SchemaDefaults.RatePerHour;
     private LiveStatusSnapshot _liveStatus = LiveStatus.Idle();
-    private PlayReport? _lastReport;
-    private DateTimeOffset _lastReportAt;
-    private MonotonicityOutcome? _lastComparison;
     private bool _saveInFlight;
     private readonly SaveConfirmationHold _saveConfirmation = new();
     private bool _holdEmptySpot;
@@ -275,8 +272,6 @@ public partial class MainWindow : Window
         // token pasted at the gate may be a different one. Confirmed above.
         _sessionStore.NewSession();
         _saveConfirmation.Release();
-        _lastReport = null;
-        _lastComparison = null;
         HideLocationChange();
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
@@ -499,24 +494,33 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Whether the latest read may be saved, and what it would post.
+    /// Whether a verified read may be saved, and what it would post.
+    /// A rejected tick falls back to the last frame that itself passed the gate.
     /// </summary>
     private SaveGateDecision CurrentGate()
-        => SaveGate.Evaluate(
-            _lastReport,
-            _lastReportAt,
-            _lastComparison);
+    {
+        var last = _sessionStore.Last();
+        var held = _sessionStore.LastSavable();
+        return SaveGate.EvaluateWithHold(
+            last?.Report,
+            last?.CapturedAt ?? default,
+            lastComparison: null,
+            held?.Report,
+            held?.CapturedAt ?? default,
+            currentAccepted: last is not null);
+    }
 
     private LocationStabilityDecision CurrentLocationStability()
         => LocationStability.Evaluate(_sessionStore.List().Select(row => row.Report.LocationHint));
 
-    private SpotResolveDecision CurrentSpotResolve()
+    private SpotResolveDecision CurrentSpotResolve(SaveGateDecision? gate = null)
     {
         var stability = CurrentLocationStability();
+        gate ??= CurrentGate();
         return SpotResolve.Evaluate(
             SelectedSpot,
             stability.IsStable ? stability.CanonicalName : null,
-            _lastReport?.LocationHint,
+            (gate.Source ?? _sessionStore.Last()?.Report)?.LocationHint,
             SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
             _spotsLoaded,
             _worldArea);
@@ -543,17 +547,11 @@ public partial class MainWindow : Window
     {
         ClearSpotButton.IsEnabled = SelectedSpot is not null && SpotCombo.IsEnabled;
         var stability = CurrentLocationStability();
-        var resolve = SpotResolve.Evaluate(
-            SelectedSpot,
-            stability.IsStable ? stability.CanonicalName : null,
-            _lastReport?.LocationHint,
-            SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
-            _spotsLoaded,
-            _worldArea);
+        var gate = CurrentGate();
+        var resolve = CurrentSpotResolve(gate);
         ShowSpotResolveHint(resolve, stability);
 
         var pickersReady = SessionPickers.SaveReady(SelectedCharacter, resolve);
-        var gate = CurrentGate();
 
         // A poll tick lands here every 10s, including while a save is awaiting
         // its response — without this the button would re-arm mid-POST and a
@@ -850,8 +848,7 @@ public partial class MainWindow : Window
         }
 
         var gate = CurrentGate();
-        var report = _lastReport;
-        if (!gate.CanSave || gate.Totals is null || report is null)
+        if (!gate.CanSave || gate.Totals is null)
         {
             RefreshSaveEnabled();
             return;
@@ -940,8 +937,6 @@ public partial class MainWindow : Window
     private void ResetLocalSessionAfterSave()
     {
         _sessionStore.NewSession();
-        _lastReport = null;
-        _lastComparison = null;
         HideLocationChange();
         ShowLiveStatus(LiveStatus.Idle());
         SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
@@ -1214,8 +1209,6 @@ public partial class MainWindow : Window
 
         _sessionStore.NewSession();
         _saveConfirmation.Release();
-        _lastReport = null;
-        _lastComparison = null;
         HideLocationChange();
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
@@ -1240,10 +1233,13 @@ public partial class MainWindow : Window
 
     private void ShowLiveStatus(LiveStatusSnapshot status)
     {
+        // Same report Save would post. Nothing savable → no totals.
+        status = LiveStatus.ForDisplay(status, CurrentGate().Source);
+
         _liveStatus = status;
         LiveLight.Fill = LightBrush(status.Light);
         LiveDetailLabel.Text = status.Detail;
-        var showData = status.Light != TrafficLight.Red;
+        var showData = status.Report is not null;
         var rates = showData ? LiveRates.Format(status.Report, DisplayRateUnit) : string.Empty;
         LiveRatesLabel.Text = rates;
         LiveRatesLabel.Visibility = string.IsNullOrEmpty(rates)
@@ -1406,16 +1402,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Starting a tracking run means starting fresh comparisons. The buffer
-        // no longer feeds the save (one frame does). This is also the manual
-        // way out if the baseline ever goes stale.
+        // Starting a tracking run means starting fresh comparisons. Save and
+        // the live totals only hold verified frames from this run.
         _saveConfirmation.Release();
         _sessionStore.NewSession();
-        _lastComparison = null;
         // Where the player is now is a first sighting for this run, not a move
         // from wherever the previous run ended — they may have restarted the
         // Play Report themselves in between.
         HideLocationChange();
+        ShowLiveStatus(LiveStatus.Idle());
         _polling.Start();
         _pollCts = new CancellationTokenSource();
         StartStopButton.Content = "Stop tracking";
@@ -1530,61 +1525,69 @@ public partial class MainWindow : Window
                 return;
             }
 
-            ShowLiveStatus(LiveStatus.FromReport(result.Report));
-            ApplyLocationHint(result.Report.LocationHint);
-            if (!string.IsNullOrWhiteSpace(result.Report.LocationHint))
+            if (inspectOnly)
             {
-                var match = SpotMatch.ExactName(
-                    result.Report.LocationHint,
-                    SpotCombo.ItemsSource as IEnumerable<SpotInfo>);
-                ParseStatusLabel.Text += match is null
-                    ? $"\n\nLocation hint \"{result.Report.LocationHint}\" did not match a spot; picker unchanged."
-                    : $"\n\nPreselected {match.Label}.";
+                ParseStatusLabel.Text += "\n\nInspected only — the live session was not touched.";
+                return;
             }
 
+            var rejected = (string?)null;
+            var appended = false;
             if (fromPoll)
             {
                 var tick = _polling.Tick(_sessionStore, result.Report);
                 // A tick that finished after Stop compared nothing, so the
                 // previous verdict must not carry over onto this frame — and
                 // must not replace StopTracking's poll-status line either.
-                _lastComparison = tick.Tracking ? tick.Outcome : null;
-                if (tick.Tracking)
+                if (!tick.Tracking)
                 {
-                    RefreshPollStatus(tick.Message);
-                    ShowLocationChange();
-
-                    if (tick.Appended && tick.Outcome == MonotonicityOutcome.Reset)
-                    {
-                        ParseStatusLabel.Text += "\n\n" + tick.Message;
-                    }
-                    else if (!tick.Appended)
-                    {
-                        ParseStatusLabel.Text += "\n\n" + tick.Message;
-                    }
+                    return;
                 }
-            }
-            else if (inspectOnly)
-            {
-                ParseStatusLabel.Text += "\n\nInspected only — the live session was not touched.";
-                return;
+
+                RefreshPollStatus(tick.Message);
+                ShowLocationChange();
+                appended = tick.Appended;
+                if (tick.Appended && tick.Outcome == MonotonicityOutcome.Reset)
+                {
+                    ParseStatusLabel.Text += "\n\n" + tick.Message;
+                }
+                else if (!tick.Appended)
+                {
+                    rejected = tick.Message;
+                    ParseStatusLabel.Text += "\n\n" + tick.Message;
+                }
             }
             else
             {
                 var accepted = _sessionStore.TryAccept(result.Report);
-                _lastComparison = accepted.Outcome;
+                appended = accepted.Appended;
                 if (!accepted.Appended)
                 {
-                    ParseStatusLabel.Text += $"\n\nDiscarded: {accepted.Reason}";
+                    rejected = $"Discarded: {accepted.Reason}";
+                    ParseStatusLabel.Text += $"\n\n{rejected}";
                 }
             }
 
-            // The save is built from this frame, not from the buffer, so the
-            // latest parse is kept even when the buffer rejected it — the gate
-            // is what decides whether it may be posted.
-            _lastReport = result.Report;
-            _lastReportAt = DateTimeOffset.UtcNow;
+            if (appended)
+            {
+                ApplyLocationHint(result.Report.LocationHint);
+                if (!string.IsNullOrWhiteSpace(result.Report.LocationHint))
+                {
+                    var match = SpotMatch.ExactName(
+                        result.Report.LocationHint,
+                        SpotCombo.ItemsSource as IEnumerable<SpotInfo>);
+                    ParseStatusLabel.Text += match is null
+                        ? $"\n\nLocation hint \"{result.Report.LocationHint}\" did not match a spot; picker unchanged."
+                        : $"\n\nPreselected {match.Label}.";
+                }
+            }
 
+            // Light/detail describe this tick. XP / Adena / rates are the
+            // last verified frame — the same numbers Save would post.
+            ShowLiveStatus(
+                rejected is null
+                    ? LiveStatus.FromReport(result.Report)
+                    : LiveStatus.TickRejected(rejected));
             RefreshSessionStatus();
         }
         finally

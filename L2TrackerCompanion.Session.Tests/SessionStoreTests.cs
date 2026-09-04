@@ -116,6 +116,7 @@ public class SessionStoreTests
             {
                 Assert.Equal(1, store.Count);
                 Assert.Equal(50, store.List().Single().Report.Xp);
+                Assert.Equal(50, store.LastSavable()!.Report.Xp);
                 store.NewSession();
             }
 
@@ -145,6 +146,35 @@ public class SessionStoreTests
         Assert.Contains("XP dropped", dropped.Reason, StringComparison.Ordinal);
         Assert.Equal(1, store.Count);
         Assert.Equal(200, store.Last()!.Report.Xp);
+        Assert.Equal(200, store.LastSavable()!.Report.Xp);
+    }
+
+    [Fact]
+    public void LastSavableSkipsAClosedLampPanel()
+    {
+        using var store = new SessionStore(":memory:");
+        var openAt = DateTimeOffset.Parse("2026-09-04T18:00:00Z");
+        var closedAt = DateTimeOffset.Parse("2026-09-04T18:00:10Z");
+        store.TryAccept(OpenRead(1_000_000, 250_000, 60), openAt);
+        store.TryAccept(ClosedPanel(1_100_000, 260_000, 62), closedAt);
+
+        Assert.Equal(2, store.Count);
+        Assert.True(store.Last()!.Report.LampPanelClosed);
+        var savable = store.LastSavable();
+        Assert.NotNull(savable);
+        Assert.False(savable!.Report.LampPanelClosed);
+        Assert.Equal(1_000_000, savable.Report.Xp);
+        Assert.True(SaveGate.Evaluate(savable.Report, savable.CapturedAt).CanSave);
+    }
+
+    [Fact]
+    public void LastSavableIsNullWhenNothingWouldPassTheGate()
+    {
+        using var store = new SessionStore(":memory:");
+        store.TryAccept(ClosedPanel(1_000_000, 250_000, 60));
+
+        Assert.Equal(1, store.Count);
+        Assert.Null(store.LastSavable());
     }
 
     [Fact]
@@ -169,12 +199,31 @@ public class SessionStoreTests
         Assert.False(discarded.Appended);
         Assert.Contains("Discarded:", discarded.Message, StringComparison.Ordinal);
         Assert.Equal(1, store.Count);
+        Assert.Equal(200, store.LastSavable()!.Report.Xp);
 
         loop.Stop();
         var afterStop = loop.Tick(store, OpenRead(300, 30, 3));
         Assert.False(afterStop.Tracking);
         Assert.Equal(1, store.Count);
     }
+
+    private static PlayReport ClosedPanel(long xp, long adena, int minutes)
+        => PlayReport.From(
+            xp,
+            adena,
+            minutes,
+            LampXp.Decide(
+                new Dictionary<string, long?>
+                {
+                    ["red"] = null,
+                    ["purple"] = null,
+                    ["blue"] = null,
+                    ["green"] = null,
+                },
+                new Dictionary<string, WordBox>(),
+                xp,
+                adena),
+            null);
 
     private static PlayReport OpenRead(long xp, long adena, int minutes, string? hint = null)
         => PlayReport.From(

@@ -36,6 +36,7 @@ public sealed class SessionStore : IDisposable
     private readonly string _path;
     private SqliteConnection _connection;
     private int _consecutiveRejections;
+    private SnapshotRow? _lastSavable;
 
     public string Path => _path;
 
@@ -53,6 +54,7 @@ public sealed class SessionStore : IDisposable
         }
 
         _connection = OpenAndMigrate(_path);
+        _lastSavable = FindLastSavable();
     }
 
     public static string GetDefaultPath()
@@ -114,7 +116,9 @@ public sealed class SessionStore : IDisposable
         BindLong(command, "$adena_from_crop", report.Confidence.AdenaFromCrop);
 
         var id = (long)command.ExecuteScalar()!;
-        return new SnapshotRow(id, at, report);
+        var row = new SnapshotRow(id, at, report);
+        RememberIfSavable(row);
+        return row;
     }
 
     public SnapshotRow? Last()
@@ -134,6 +138,36 @@ public sealed class SessionStore : IDisposable
             """;
         using var reader = command.ExecuteReader();
         return reader.Read() ? ReadRow(reader) : null;
+    }
+
+    /// <summary>
+    /// Newest snapshot that may itself be posted — not merely the last
+    /// accepted tick. A closed lamp panel is still appended for monotonicity
+    /// and location, but it must not become the save payload.
+    /// </summary>
+    public SnapshotRow? LastSavable() => _lastSavable;
+
+    private SnapshotRow? FindLastSavable()
+    {
+        var rows = List();
+        for (var i = rows.Count - 1; i >= 0; i--)
+        {
+            var row = rows[i];
+            if (SaveGate.Evaluate(row.Report, row.CapturedAt).CanSave)
+            {
+                return row;
+            }
+        }
+
+        return null;
+    }
+
+    private void RememberIfSavable(SnapshotRow row)
+    {
+        if (SaveGate.Evaluate(row.Report, row.CapturedAt).CanSave)
+        {
+            _lastSavable = row;
+        }
     }
 
     /// <summary>
@@ -225,6 +259,7 @@ public sealed class SessionStore : IDisposable
     public void NewSession()
     {
         _consecutiveRejections = 0;
+        _lastSavable = null;
         using var command = _connection.CreateCommand();
         command.CommandText =
             """

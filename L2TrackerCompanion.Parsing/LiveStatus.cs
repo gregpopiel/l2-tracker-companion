@@ -8,6 +8,8 @@ namespace L2TrackerCompanion.Parsing;
 /// Farm unread or a lamp table that is in frame but unreadable is red;
 /// a collapsed Magic Lamp panel is orange, not red; farm+lamps read is green.
 /// Missing minimap hint does not change the colour in v1.
+/// The live card's XP / Adena / rates come from the save payload (last
+/// verified frame), not from a rejected tick — see <see cref="ForDisplay"/>.
 /// </summary>
 public static class LiveStatus
 {
@@ -76,6 +78,16 @@ public static class LiveStatus
 
         return new(TrafficLight.Green, "Farm and lamps read.", report);
     }
+
+    public static LiveStatusSnapshot TickRejected(string detail)
+        => new(TrafficLight.Red, detail, null);
+
+    /// <summary>
+    /// Keep this tick's light and message, but show the numbers Save would
+    /// post — the last verified frame, not a rejected OCR.
+    /// </summary>
+    public static LiveStatusSnapshot ForDisplay(LiveStatusSnapshot tick, PlayReport? saveSource)
+        => tick with { Report = saveSource };
 
     public static string Format(LiveStatusSnapshot status)
     {

@@ -83,7 +83,7 @@ public class SaveGateTests
     }
 
     [Fact]
-    public void ContradictedPreviousTickBlocksUntilACleanRead()
+    public void EvaluateBlocksAContradictedTick()
     {
         var decision = SaveGate.Evaluate(
             TestReports.Open(),
@@ -194,5 +194,105 @@ public class SaveGateTests
 
         Assert.False(decision.CanSave);
         Assert.Equal(TrafficLight.Idle, decision.Light);
+    }
+
+    [Fact]
+    public void AMisreadFallsBackToTheHeldFrame()
+    {
+        var held = TestReports.Open(xp: 1_000_000, minutes: 60);
+        var current = TestReports.Open(xp: 4_390_000, minutes: 139);
+
+        var decision = SaveGate.EvaluateWithHold(
+            current,
+            At,
+            MonotonicityOutcome.Misread,
+            held,
+            At.AddMinutes(-1));
+
+        Assert.True(decision.CanSave);
+        Assert.True(decision.UsedHeldRead);
+        Assert.Equal(held, decision.Source);
+        Assert.Equal(1_000, decision.Totals!.XpFarmed);
+        Assert.Equal(TrafficLight.Red, decision.Light);
+        var warning = Assert.Single(decision.Warnings);
+        Assert.Contains("contradicted", warning, StringComparison.Ordinal);
+        Assert.Contains("last verified read", warning, StringComparison.Ordinal);
+        Assert.Contains("20:59:00 UTC", warning, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AClosedLampPanelFallsBackToTheHeldOpenPanel()
+    {
+        var held = TestReports.Open(xp: 2_000_000, minutes: 90);
+        var current = TestReports.ClosedPanel(xp: 2_100_000, minutes: 95);
+
+        var decision = SaveGate.EvaluateWithHold(current, At, lastComparison: null, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.True(decision.UsedHeldRead);
+        Assert.Equal(2_000, decision.Totals!.XpFarmed);
+        Assert.Equal(TrafficLight.Orange, decision.Light);
+        Assert.Contains("Magic Lamp", decision.Warnings[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnUnacceptedFrameDoesNotBeatTheHoldEvenWhenInFrameItAgrees()
+    {
+        var held = TestReports.Open(xp: 2_000_000, minutes: 90);
+        var dropped = TestReports.Open(xp: 1_000_000, minutes: 90);
+
+        var decision = SaveGate.EvaluateWithHold(
+            dropped,
+            At,
+            lastComparison: null,
+            held,
+            At,
+            currentAccepted: false);
+
+        Assert.True(decision.CanSave);
+        Assert.True(decision.UsedHeldRead);
+        Assert.Equal(held, decision.Source);
+        Assert.Equal(2_000, decision.Totals!.XpFarmed);
+        Assert.Contains("not accepted", decision.Warnings[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ATrustworthyCurrentFrameIsPreferredOverTheHold()
+    {
+        var held = TestReports.Open(xp: 1_000_000, minutes: 60);
+        var current = TestReports.Open(xp: 4_390_000, minutes: 139);
+
+        var decision = SaveGate.EvaluateWithHold(current, At, lastComparison: null, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.False(decision.UsedHeldRead);
+        Assert.Equal(current, decision.Source);
+        Assert.Equal(4_390, decision.Totals!.XpFarmed);
+    }
+
+    [Fact]
+    public void HoldIsIgnoredWhenItWouldNotPassTheGate()
+    {
+        var held = TestReports.ClosedPanel();
+        var current = TestReports.ClosedPanel(xp: 2_000_000);
+
+        var decision = SaveGate.EvaluateWithHold(current, At, lastComparison: null, held, At);
+
+        Assert.False(decision.CanSave);
+        Assert.False(decision.UsedHeldRead);
+        Assert.Equal(TrafficLight.Orange, decision.Light);
+    }
+
+    [Fact]
+    public void NoCurrentReadStillSavesTheHeldFrame()
+    {
+        var held = TestReports.Open();
+
+        var decision = SaveGate.EvaluateWithHold(null, At, lastComparison: null, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.True(decision.UsedHeldRead);
+        Assert.Equal(TrafficLight.Green, decision.Light);
+        Assert.Equal(held, decision.Source);
     }
 }
