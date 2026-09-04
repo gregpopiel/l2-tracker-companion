@@ -54,7 +54,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         Closed += OnClosed;
         Loaded += (_, _) => _ = RestoreAuthAsync();
-        Loaded += (_, _) => _ = CheckForUpdatesAsync();
+        Loaded += (_, _) => _ = CheckForUpdatesAsync(autoApply: true);
 
         // The buffer only exists to compare one reading against the previous
         // one within a run, and anything left over from the last run is stale
@@ -1060,11 +1060,18 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Silent, background check — never surfaces a failure (offline, GitHub hiccup),
-    /// never restarts on its own. Once an update is downloaded, <see cref="UpdateAvailableButton"/>
-    /// appears and the actual apply/restart waits for that explicit click, since the
-    /// app can be mid-poll or holding an unsaved farm-log delta.
+    /// never restarts on its own except for <paramref name="autoApply"/>. Otherwise,
+    /// once an update is downloaded, <see cref="UpdateAvailableButton"/> appears and
+    /// the actual apply/restart waits for an explicit click, since the app can be
+    /// mid-poll or holding an unsaved farm-log delta.
     /// </summary>
-    private async Task CheckForUpdatesAsync()
+    /// <param name="autoApply">
+    /// True only for the launch-time call: at that point the session was just reset
+    /// (see constructor) and nothing can be mid-poll or mid-save yet, so a found
+    /// update is applied and the app restarts immediately with no click needed.
+    /// Every later (periodic) call passes false and falls back to the button.
+    /// </param>
+    private async Task CheckForUpdatesAsync(bool autoApply = false)
     {
         if (_pendingUpdate is not null || _updateCheckInFlight)
         {
@@ -1077,6 +1084,20 @@ public partial class MainWindow : Window
             var updateInfo = await _updates.CheckAndDownloadAsync(_updateCts.Token);
             if (updateInfo is null)
             {
+                return;
+            }
+
+            if (autoApply)
+            {
+                try
+                {
+                    _updates.ApplyAndRestart(updateInfo);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.WriteLine(ex);
+                }
+
                 return;
             }
 
