@@ -33,7 +33,7 @@ public sealed class PollingLoop
         }
 
         return accepted.WasReset
-            ? TickResult.AfterReset(accepted.Row!)
+            ? TickResult.AfterReset(accepted.Row!, accepted.Reason!)
             : TickResult.Accepted(accepted.Row!);
     }
 }
@@ -51,13 +51,8 @@ public sealed record TickResult(
     public static TickResult Accepted(SnapshotRow row)
         => new(true, true, $"Accepted #{row.Id}.", row, MonotonicityOutcome.Accepted);
 
-    public static TickResult AfterReset(SnapshotRow row)
-        => new(
-            true,
-            true,
-            "Play Report was reset in-game — new session started.",
-            row,
-            MonotonicityOutcome.Reset);
+    public static TickResult AfterReset(SnapshotRow row, string reason)
+        => new(true, true, reason, row, MonotonicityOutcome.Reset);
 
     public static TickResult Discarded(string reason)
         => new(true, false, $"Discarded: {reason}.", null, MonotonicityOutcome.Misread);
