@@ -221,10 +221,11 @@
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition x:Name="XpColumn" Width="*" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel HorizontalAlignment="Center">
+                                    <StackPanel x:Name="XpPerHourPanel" HorizontalAlignment="Center">
                                         <Border x:Name="XpRankBadge"
                                                 Style="{StaticResource RankBadge}"
                                                 Margin="0,0,0,8"
@@ -237,11 +238,29 @@
                                                    Text="0"
                                                    Style="{StaticResource BigNumberText}"
                                                    HorizontalAlignment="Center" />
-                                        <TextBlock Text="XP/h"
+                                        <TextBlock Text="XP/H"
                                                    Style="{StaticResource SubtleText}"
                                                    HorizontalAlignment="Center" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1"
+                                                HorizontalAlignment="Center">
+                                        <Border x:Name="RawXpRankBadge"
+                                                Style="{StaticResource RankBadge}"
+                                                Margin="0,0,0,8"
+                                                Visibility="Collapsed">
+                                            <TextBlock x:Name="RawXpRankBadgeLabel"
+                                                       Text=""
+                                                       Style="{StaticResource RankBadgeText}" />
+                                        </Border>
+                                        <TextBlock x:Name="RawXpPerHourValue"
+                                                   Text="0"
+                                                   Style="{StaticResource BigNumberText}"
+                                                   HorizontalAlignment="Center" />
+                                        <TextBlock Text="NET XP/H"
+                                                   Style="{StaticResource SubtleText}"
+                                                   HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2"
                                                 HorizontalAlignment="Center">
                                         <Border x:Name="AdenaRankBadge"
                                                 Style="{StaticResource RankBadge}"
@@ -255,7 +274,7 @@
                                                    Text="0"
                                                    Style="{StaticResource BigNumberText}"
                                                    HorizontalAlignment="Center" />
-                                        <TextBlock Text="Adena/h"
+                                        <TextBlock Text="ADENA/H"
                                                    Style="{StaticResource SubtleText}"
                                                    HorizontalAlignment="Center" />
                                     </StackPanel>

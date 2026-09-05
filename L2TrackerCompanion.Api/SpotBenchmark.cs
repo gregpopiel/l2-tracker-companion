@@ -22,7 +22,8 @@ public static class SpotBenchmark
         long? liveXpPerHour,
         long? liveAdenaPerHour,
         IEnumerable<SpotInfo>? spots,
-        int? areaId = null)
+        int? areaId = null,
+        long? livePureXpPerHour = null)
     {
         // A spot the endpoint returned without averages is one this character
         // has never logged. It is not a zero-rate spot, so it is not last —
@@ -41,8 +42,9 @@ public static class SpotBenchmark
         return new SpotBenchmarkSnapshot(
             RankedSpots: ranked.Count,
             XpRank: Rank(liveXpPerHour, ranked.Select(spot => spot.AverageXpHourly)),
+            PureXpRank: Rank(livePureXpPerHour, ranked.Select(spot => spot.FarmXpHourly)),
             AdenaRank: Rank(liveAdenaPerHour, ranked.Select(spot => spot.AdenaHourly)),
-            HasLiveRate: liveXpPerHour is not null || liveAdenaPerHour is not null,
+            HasLiveRate: liveXpPerHour is not null || liveAdenaPerHour is not null || livePureXpPerHour is not null,
             AreaFiltered: areaId is not null);
     }
 
@@ -68,6 +70,7 @@ public static class SpotBenchmark
         var suffix = perHour ? "h" : "min";
         var builder = new StringBuilder();
         Append(builder, $"XP/{suffix}", snapshot.XpRank, snapshot.RankedSpots);
+        Append(builder, $"Net XP/{suffix}", snapshot.PureXpRank, snapshot.RankedSpots);
         Append(builder, $"Adena/{suffix}", snapshot.AdenaRank, snapshot.RankedSpots);
         return builder.ToString();
     }
@@ -116,7 +119,8 @@ public sealed record SpotBenchmarkSnapshot(
     int? XpRank,
     int? AdenaRank,
     bool HasLiveRate,
-    bool AreaFiltered);
+    bool AreaFiltered,
+    int? PureXpRank = null);
 
 /// <summary>
 /// One entry of the "compare against" picker: every area the account has, plus

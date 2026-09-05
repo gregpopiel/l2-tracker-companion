@@ -47,9 +47,18 @@ public partial class MainWindow : Window
     private UpdateInfo? _pendingUpdate;
     private bool _updateCheckInFlight;
 
+    // Flip to true to bring the raw XP/H column back into the rate card.
+    private const bool ShowXpPerHour = false;
+
     public MainWindow()
     {
         InitializeComponent();
+        if (!ShowXpPerHour)
+        {
+            XpColumn.Width = new GridLength(0);
+            XpPerHourPanel.Visibility = Visibility.Collapsed;
+        }
+
         Closed += OnClosed;
         Loaded += (_, _) => _ = RestoreAuthAsync();
         Loaded += (_, _) => _ = CheckForUpdatesAsync(autoApply: true);
@@ -1176,7 +1185,7 @@ public partial class MainWindow : Window
         {
             GameWindowStatusLabel.Text = _options.DebugMode
                 ? $"Game not running (no {WindowCaptureService.GameProcessName} process with a visible window)."
-                : "Game window not found";
+                : "Lineage II not detected.";
         }
         else
         {
@@ -1270,13 +1279,19 @@ public partial class MainWindow : Window
         var showData = report is not null;
         long? xpPerHour = null;
         long? adenaPerHour = null;
+        long? pureXpPerHour = null;
         if (report is not null)
         {
             xpPerHour = LiveRates.PerHour(report.Xp, report.Minutes);
             adenaPerHour = LiveRates.PerHour(report.Adena, report.Minutes);
+            var pureXp = report.Xp is long xp && report.LampXpRead
+                ? Math.Max(0, xp - report.LampXpTotal)
+                : (long?)null;
+            pureXpPerHour = LiveRates.PerHour(pureXp, report.Minutes);
         }
 
         XpPerHourValue.Text = Amt(xpPerHour);
+        RawXpPerHourValue.Text = Amt(pureXpPerHour);
         AdenaPerHourValue.Text = Amt(adenaPerHour);
 
         var benchmark = showData && _spotsLoaded
@@ -1284,9 +1299,11 @@ public partial class MainWindow : Window
                 xpPerHour,
                 adenaPerHour,
                 SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
-                (AreaFilterCombo.SelectedItem as AreaChoice)?.AreaId)
+                (AreaFilterCombo.SelectedItem as AreaChoice)?.AreaId,
+                pureXpPerHour)
             : null;
         SetRankBadge(XpRankBadge, XpRankBadgeLabel, benchmark?.XpRank, benchmark?.RankedSpots);
+        SetRankBadge(RawXpRankBadge, RawXpRankBadgeLabel, benchmark?.PureXpRank, benchmark?.RankedSpots);
         SetRankBadge(AdenaRankBadge, AdenaRankBadgeLabel, benchmark?.AdenaRank, benchmark?.RankedSpots);
 
         SessionXpValue.Text = Amt(report?.Xp);

@@ -26,6 +26,28 @@ public class SpotBenchmarkTests
     }
 
     [Fact]
+    public void PureXpRanksSeparatelyAgainstFarmXpHourly()
+    {
+        // FarmXpHourly ("pure" XP, lamps excluded) is deliberately set apart
+        // from AverageXpHourly ("raw" XP, lamps included) on Blazing Swamp —
+        // a live pure-XP read must rank against the former, not the latter,
+        // and the pool (gated on AverageXpHourly) must still include it.
+        var spots = new[]
+        {
+            ThreeSpots[0],
+            ThreeSpots[1] with { FarmXpHourly = 3_000 },
+            ThreeSpots[2],
+        };
+
+        var snapshot = SpotBenchmark.Evaluate(null, null, spots, livePureXpPerHour: 10_000_000);
+
+        Assert.Equal(3, snapshot.RankedSpots);
+        Assert.Equal(2, snapshot.PureXpRank);
+        Assert.True(snapshot.HasLiveRate);
+        Assert.Equal("Net XP/h: #2 of 3 spots", Text(snapshot));
+    }
+
+    [Fact]
     public void BeatingEveryAverageIsFirstAndLosingToAllIsLast()
     {
         Assert.Equal(1, SpotBenchmark.Evaluate(99_000_000, null, ThreeSpots).XpRank);
