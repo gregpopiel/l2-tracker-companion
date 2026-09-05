@@ -64,20 +64,15 @@ internal static class StatusDotIcon
                 context.DrawImage(appIcon, new Rect(0, 0, Size, Size));
             }
 
-            // Bottom-right corner at a third of the icon, the shape Windows'
-            // own overlay badges use — still legible at the 16px the title bar
-            // draws, without hiding the mark underneath.
-            var radius = appIcon is null ? Size / 2.0 - 2 : Size / 3.0;
+            // Top-left corner, at half the size of the old bottom-right badge —
+            // still legible at the 16px the title bar draws, without hiding
+            // the mark underneath.
+            var radius = appIcon is null ? Size / 2.0 - 2 : Size / 6.0;
             var centre = appIcon is null
                 ? new Point(Size / 2.0, Size / 2.0)
-                : new Point(Size - radius - 1, Size - radius - 1);
+                : new Point(radius + 1, radius + 1);
 
-            // A dark ring keeps the dot readable against whatever the mark
-            // puts behind it.
-            Pen? ring = appIcon is null
-                ? null
-                : new Pen(new SolidColorBrush(Color.FromArgb(0xCC, 0x0D, 0x11, 0x17)), 2);
-            context.DrawEllipse(new SolidColorBrush(color), ring, centre, radius, radius);
+            context.DrawEllipse(new SolidColorBrush(color), null, centre, radius, radius);
         }
 
         var bitmap = new RenderTargetBitmap(Size, Size, 96, 96, PixelFormats.Pbgra32);
