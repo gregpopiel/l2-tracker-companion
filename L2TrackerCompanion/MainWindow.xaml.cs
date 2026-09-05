@@ -31,7 +31,6 @@ public partial class MainWindow : Window
     private int _pollTickBusy;
     private bool _suppressPickerEvents;
     private bool _suppressModeEvents;
-    private bool _ratePerHour = UserSettingsInfo.SchemaDefaults.RatePerHour;
     private LiveStatusSnapshot _liveStatus = LiveStatus.Idle();
     private bool _saveInFlight;
     private readonly SaveConfirmationHold _saveConfirmation = new();
@@ -43,6 +42,8 @@ public partial class MainWindow : Window
     private bool _isAdmin;
     private string? _userId;
     private readonly GameProcessWatch _gameWatch = new();
+    private readonly Dictionary<string, ImageSource> _statusDotIcons = new();
+    private readonly ImageSource? _appIcon = StatusDotIcon.TryLoadAppIcon();
     private UpdateInfo? _pendingUpdate;
     private bool _updateCheckInFlight;
 
@@ -82,7 +83,7 @@ public partial class MainWindow : Window
         _updateTimer.Start();
 
         RefreshPollStatus(string.Empty);
-        // "All areas" from launch; the real areas arrive with the first sign-in.
+        // "All" from launch; the real areas arrive with the first sign-in.
         FillAreaFilter(null);
         ShowLiveStatus(LiveStatus.Idle());
         ApplyLoadedMode();
@@ -150,8 +151,6 @@ public partial class MainWindow : Window
         _options.SetDebugMode(radio == DebugModeRadio);
         ApplyUiMode();
     }
-
-    private RateUnit DisplayRateUnit => _ratePerHour ? RateUnit.Hour : RateUnit.Minute;
 
     private void ApplyUiMode()
     {
@@ -265,7 +264,7 @@ public partial class MainWindow : Window
 
         _auth.SignOut();
         TokenBox.Clear();
-        ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
+        ShowLiveStatus(_liveStatus);
         ClearPickers(SessionPickers.SignInToLoad);
 
         // Unsaved snapshots belong to the account that produced them — the next
@@ -303,7 +302,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        ApplyRateUnit(UserSettingsInfo.SchemaDefaults);
+        ShowLiveStatus(_liveStatus);
         ClearPickers(SessionPickers.SignInToLoad);
         ShowLogin(result.Message, isError: true);
     }
@@ -354,9 +353,9 @@ public partial class MainWindow : Window
     private void SetAuthStatus(string status, bool isError)
         => SetAuthStatus(status, isError ? "AlarmRedBrush" : "StaticGrayBrush");
 
-    // Resolved from the theme rather than a literal color — same pattern as
-    // LightBrush below — so a palette edit changes this surface too. Collapsed
-    // when empty rather than left as a blank line, same as LiveRatesLabel below.
+    // Resolved from the theme rather than a literal color, so a palette edit
+    // changes this surface too. Collapsed when empty rather than left as a
+    // blank line.
     private void SetAuthStatus(string status, string brushKey)
     {
         var brush = (Brush)FindResource(brushKey);
@@ -393,7 +392,6 @@ public partial class MainWindow : Window
             SpotCombo.IsEnabled = false;
             ClearSpotButton.IsEnabled = false;
             BonusBox.IsEnabled = true;
-            SaveButton.IsEnabled = false;
         }
         finally
         {
@@ -432,7 +430,6 @@ public partial class MainWindow : Window
             BonusBox.Text = string.Empty;
             BonusBox.IsEnabled = false;
             HideBonusHint();
-            SaveButton.IsEnabled = false;
         }
         finally
         {
@@ -528,13 +525,29 @@ public partial class MainWindow : Window
 
     private void ShowSpotResolveHint(SpotResolveDecision resolve, LocationStabilityDecision stability)
     {
+        // A picked spot leaves nothing to resolve, but the redesign's single
+        // hint slot under the field still has a job: confirm what the panel
+        // itself is reading, since a stale/mismatched pick would otherwise be
+        // silent here (the actual save-target warning already lives in
+        // PickerStatusLabel via SpotLocationWarning).
         var text = resolve.Kind == SpotResolveKind.UseSelected
-            ? string.Empty
+            ? DetectedLocationHint()
             : resolve.Hint(stability.SampleCount, LocationStability.WindowSize);
         SpotResolveHintLabel.Text = text;
         SpotResolveHintRow.Visibility = string.IsNullOrEmpty(text)
             ? Visibility.Collapsed
             : Visibility.Visible;
+    }
+
+    private string DetectedLocationHint()
+    {
+        if (!_polling.IsRunning)
+        {
+            return string.Empty;
+        }
+
+        var hint = CurrentGate().Source?.LocationHint;
+        return string.IsNullOrWhiteSpace(hint) ? string.Empty : $"Detected in-game: {hint}";
     }
 
     private void HideSpotResolveHint()
@@ -553,10 +566,24 @@ public partial class MainWindow : Window
 
         var pickersReady = SessionPickers.SaveReady(SelectedCharacter, resolve);
 
+        // Save mode whenever tracking is on (even before the first read) or
+        // there's a held frame from an earlier Stop — otherwise Start.
+        var saveMode = _polling.IsRunning || gate.CanSave;
+        MainActionButton.Content = saveMode ? "Save & send session" : "Start tracking";
         // A poll tick lands here every 10s, including while a save is awaiting
         // its response — without this the button would re-arm mid-POST and a
         // second click would duplicate the log.
-        SaveButton.IsEnabled = pickersReady && gate.CanSave && !_saveInFlight;
+        MainActionButton.IsEnabled = saveMode
+            ? pickersReady && gate.CanSave && !_saveInFlight
+            : true;
+
+        // Save mode can leave the button disabled for reasons the player
+        // cannot clear from here (no character on the account, a location
+        // that never settles), and Stop no longer discards the held frame —
+        // so save mode always keeps a second, always-enabled way out: Stop
+        // while a run is on, and a fresh run once it is not.
+        SecondaryActionLink.Content = _polling.IsRunning ? "Stop tracking" : "Start a new session";
+        SecondaryActionLink.Visibility = saveMode ? Visibility.Visible : Visibility.Collapsed;
 
         // Button enablement always updates. The status line does not: a tick
         // during POST used to replace "Saving session…" with "Ready to save…",
@@ -573,25 +600,22 @@ public partial class MainWindow : Window
 
         if (!gate.CanSave)
         {
-            PickerStatusLabel.Text = gate.BlockReason;
+            PickerStatusLabel.Text = gate.BlockReason ?? string.Empty;
             return;
         }
 
         if (!resolve.CanSave)
         {
-            PickerStatusLabel.Text = resolve.Hint(stability.SampleCount, LocationStability.WindowSize);
+            // Same message ShowSpotResolveHint just put under the Spot field
+            // above — no need to repeat it a second time under Save.
+            PickerStatusLabel.Text = string.Empty;
             return;
         }
 
-        var at = resolve.Kind == SpotResolveKind.UseSelected
-            ? SelectedSpot!.Label
-            : resolve.Name;
-        var totals = gate.Totals!;
-        var text =
-            $"Ready to save {SelectedCharacter!.Name} at {at}: "
-            + $"{totals.XpFarmed}k XP, {totals.Adena}k Adena, "
-            + $"{totals.Minutes} min from the Play Report.";
-
+        // Readiness itself doesn't need a sentence — the Save button already
+        // shows that by unlocking. This line is only for warnings worth a
+        // second look even though Save is enabled.
+        //
         // A spot picked earlier in the session (or auto-picked once) always
         // wins over a later location change — see SpotLocationWarning. That
         // is correct for where the save goes, but the player still needs a
@@ -605,14 +629,7 @@ public partial class MainWindow : Window
             warnings.Add(spotWarning);
         }
 
-        // Separated, not stacked: this lands in the status bar, and a newline
-        // there grows the bar and pushes the content above it up.
-        if (warnings.Count > 0)
-        {
-            text += " · " + string.Join(" · ", warnings);
-        }
-
-        PickerStatusLabel.Text = text;
+        PickerStatusLabel.Text = string.Join(" · ", warnings);
     }
 
     private void ApplyLocationHint(string? hint)
@@ -687,7 +704,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        PickerStatusLabel.Text = $"Loading spots for {character.Name}…";
         var call = await Api.GetSpotsAsync(token, character.Id, cancellationToken);
         if (cancellationToken.IsCancellationRequested)
         {
@@ -732,7 +748,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// Fetches the account's areas once: World is what auto-created spots are
     /// filed under, and the whole list fills the benchmark's area picker.
-    /// A failed fetch leaves the picker at "All areas" — the ranking itself
+    /// A failed fetch leaves the picker at "All" — the ranking itself
     /// needs no areas at all.
     /// </summary>
     private async Task EnsureAreasAsync(string token, CancellationToken cancellationToken)
@@ -804,7 +820,7 @@ public partial class MainWindow : Window
             var fallback = UserSettingsInfo.SchemaDefaults;
             BonusBox.Text = fallback.DefaultBonus.ToString(CultureInfo.InvariantCulture);
             BonusBox.IsEnabled = true;
-            ApplyRateUnit(fallback);
+            ShowLiveStatus(_liveStatus);
             ShowBonusHint(
                 $"Could not load default bonus ({call.Error ?? "empty response"}). Using {fallback.DefaultBonus}.");
             return;
@@ -812,14 +828,8 @@ public partial class MainWindow : Window
 
         BonusBox.Text = call.Value.DefaultBonus.ToString(CultureInfo.InvariantCulture);
         BonusBox.IsEnabled = true;
-        ApplyRateUnit(call.Value);
-        HideBonusHint();
-    }
-
-    private void ApplyRateUnit(UserSettingsInfo settings)
-    {
-        _ratePerHour = settings.RatePerHour;
         ShowLiveStatus(_liveStatus);
+        HideBonusHint();
     }
 
     private void ShowBonusHint(string message)
@@ -834,7 +844,7 @@ public partial class MainWindow : Window
         BonusHintLabelRow.Visibility = Visibility.Collapsed;
     }
 
-    private async void SaveButton_Click(object sender, RoutedEventArgs e)
+    private async Task SaveSessionAsync()
     {
         if (_saveInFlight)
         {
@@ -870,7 +880,7 @@ public partial class MainWindow : Window
 
         _saveInFlight = true;
         _saveConfirmation.BeginSave();
-        SaveButton.IsEnabled = false;
+        MainActionButton.IsEnabled = false;
         PickerStatusLabel.Text = "Saving session…";
         try
         {
@@ -903,8 +913,8 @@ public partial class MainWindow : Window
             }
 
             // The log exists on the server from here on. Nothing below may put
-            // the button back or throw out of this async void handler.
-            SaveButton.IsEnabled = false;
+            // the button back or throw out of this handler.
+            MainActionButton.IsEnabled = false;
 
             var created = ensured.Created;
             var wasTracking = _polling.IsRunning;
@@ -1166,16 +1176,19 @@ public partial class MainWindow : Window
         {
             GameWindowStatusLabel.Text = _options.DebugMode
                 ? $"Game not running (no {WindowCaptureService.GameProcessName} process with a visible window)."
-                : "Game not running.";
+                : "Game window not found";
         }
         else
         {
+            // One line, not four: this label lives in the status bar now, and
+            // a multi-line string there grows the bar and squeezes the tab
+            // above it. StatusBarText's tooltip carries whatever gets trimmed.
             GameWindowStatusLabel.Text = _options.DebugMode
-                ? $"Found HWND 0x{gameWindow.Hwnd.ToInt64():X}\n"
-                  + $"Title: {gameWindow.Title}\n"
-                  + $"Size: {gameWindow.Width} x {gameWindow.Height}\n"
-                  + $"PID: {gameWindow.ProcessId}"
-                : "Game running.";
+                ? $"HWND 0x{gameWindow.Hwnd.ToInt64():X} · "
+                  + $"{gameWindow.Title} · "
+                  + $"{gameWindow.Width} x {gameWindow.Height} · "
+                  + $"PID {gameWindow.ProcessId}"
+                : "Lineage II detected.";
         }
 
         CaptureOnceButton.IsEnabled = gameWindow is not null;
@@ -1224,11 +1237,11 @@ public partial class MainWindow : Window
     private void RefreshPollStatus(string message)
     {
         var prefix = _polling.IsRunning
-            ? $"Tracking every {(int)PollingLoop.Interval.TotalSeconds}s."
+            ? $"Tracking every {(int)PollingLoop.Interval.TotalSeconds}s"
             : "Not tracking.";
         PollStatusLabel.Text = string.IsNullOrWhiteSpace(message)
             ? prefix
-            : prefix + " " + message;
+            : prefix + " · " + message;
     }
 
     private void ShowLiveStatus(LiveStatusSnapshot status)
@@ -1237,50 +1250,110 @@ public partial class MainWindow : Window
         status = LiveStatus.ForDisplay(status, CurrentGate().Source);
 
         _liveStatus = status;
-        LiveLight.Fill = LightBrush(status.Light);
-        LiveDetailLabel.Text = status.Detail;
-        var showData = status.Report is not null;
-        var rates = showData ? LiveRates.Format(status.Report, DisplayRateUnit) : string.Empty;
-        LiveRatesLabel.Text = rates;
-        LiveRatesLabel.Visibility = string.IsNullOrEmpty(rates)
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-        var benchmark = showData ? FormatBenchmark(status.Report) : string.Empty;
-        BenchmarkLabel.Text = benchmark;
-        // The picker rides with the ranking: on an idle card it would be a
-        // control that changes nothing. An area filtered down to nothing still
-        // prints a line, so there is always a way back to "All areas".
-        var benchmarkVisibility = string.IsNullOrEmpty(benchmark)
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-        BenchmarkLabel.Visibility = benchmarkVisibility;
-        AreaFilterRow.Visibility = benchmarkVisibility;
-        LiveValuesLabel.Text = showData ? LiveStatus.FormatValues(status.Report) : string.Empty;
+        UpdateTitleBarStatusIcon(status.Light);
+
+        // Any read/capture problem while tracking gets the banner treatment
+        // — a closed Lamp panel, an unread field, "game not running"
+        // mid-session, a contradicting read, all read the same way to the
+        // player: something needs attention. Nothing else in the card shows
+        // status.Detail, so a Green/Idle tick has nothing further to say.
+        if (_polling.IsRunning && status.Light is TrafficLight.Red or TrafficLight.Orange)
+        {
+            ShowReadProblem(status.Detail);
+        }
+        else
+        {
+            HideReadProblem();
+        }
+
+        var report = status.Report;
+        var showData = report is not null;
+        long? xpPerHour = null;
+        long? adenaPerHour = null;
+        if (report is not null)
+        {
+            xpPerHour = LiveRates.PerHour(report.Xp, report.Minutes);
+            adenaPerHour = LiveRates.PerHour(report.Adena, report.Minutes);
+        }
+
+        XpPerHourValue.Text = Amt(xpPerHour);
+        AdenaPerHourValue.Text = Amt(adenaPerHour);
+
+        var benchmark = showData && _spotsLoaded
+            ? SpotBenchmark.Evaluate(
+                xpPerHour,
+                adenaPerHour,
+                SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
+                (AreaFilterCombo.SelectedItem as AreaChoice)?.AreaId)
+            : null;
+        SetRankBadge(XpRankBadge, XpRankBadgeLabel, benchmark?.XpRank, benchmark?.RankedSpots);
+        SetRankBadge(AdenaRankBadge, AdenaRankBadgeLabel, benchmark?.AdenaRank, benchmark?.RankedSpots);
+
+        SessionXpValue.Text = Amt(report?.Xp);
+        SessionAdenaValue.Text = Amt(report?.Adena);
+        SessionPlayTimeValue.Text = report?.Minutes is int minutes ? $"{minutes} min" : "0 min";
+        RedLampValue.Text = Amt(report?.RedLampXp);
+        PurpleLampValue.Text = Amt(report?.PurpleLampXp);
+        BlueLampValue.Text = Amt(report?.BlueLampXp);
+        GreenLampValue.Text = Amt(report?.GreenLampXp);
+
+        LiveValuesLabel.Text = showData ? LiveStatus.FormatValues(report) : string.Empty;
     }
 
     /// <summary>
-    /// Where this read's pace places among the character's own spots.
+    /// "#N of M spots", hidden entirely rather than showing "#0 of 0" until
+    /// there is something real to place — see the handoff's idle-badge
+    /// decision.
     /// </summary>
-    /// <remarks>
-    /// Silent until the spots are loaded: an empty picker is not proof that the
-    /// character has no history, and claiming so would flash "nothing to
-    /// compare against" on every character switch. Hours regardless of the
-    /// display unit — the stored averages are per hour.
-    /// </remarks>
-    private string FormatBenchmark(PlayReport? report)
+    private static void SetRankBadge(
+        System.Windows.Controls.Border badge,
+        System.Windows.Controls.TextBlock label,
+        int? rank,
+        int? total)
     {
-        if (report is null || !_spotsLoaded)
+        if (rank is null || total is null)
         {
-            return string.Empty;
+            badge.Visibility = Visibility.Collapsed;
+            return;
         }
 
-        var snapshot = SpotBenchmark.Evaluate(
-            LiveRates.PerHour(report.Xp, report.Minutes),
-            LiveRates.PerHour(report.Adena, report.Minutes),
-            SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
-            (AreaFilterCombo.SelectedItem as AreaChoice)?.AreaId);
+        label.Text = $"#{rank} of {total} spot{(total == 1 ? string.Empty : "s")}";
+        badge.Visibility = Visibility.Visible;
+    }
 
-        return SpotBenchmark.Format(snapshot, _ratePerHour);
+    private static string Amt(long? value)
+        => value?.ToString("N0", CultureInfo.InvariantCulture) ?? "0";
+
+    /// <summary>
+    /// The title bar's status dot moved here from the old Live status card —
+    /// a swapped <see cref="Window.Icon"/> rather than custom window chrome,
+    /// so the rest of the title bar (drag, minimize/maximize/close) stays
+    /// entirely native. The dot is badged onto the app's own mark rather than
+    /// replacing it, because this icon is also the taskbar button and the
+    /// Alt+Tab entry. Orange (a non-fatal read warning) reads as the same
+    /// "problem" red as a hard error: the handoff's title-bar dot only has
+    /// three states, and both already mean "look at the card."
+    /// </summary>
+    private void UpdateTitleBarStatusIcon(TrafficLight light)
+    {
+        // Resolved from the theme rather than re-spelled as hex here, so a
+        // palette edit changes this surface too — same pattern as
+        // SetAuthStatus. Cached per brush: reassigning the same frozen source
+        // is a no-op, but rendering a fresh one every tick would not be.
+        var brushKey = light switch
+        {
+            TrafficLight.Green => "ConfirmGreenBrush",
+            TrafficLight.Red or TrafficLight.Orange => "AlarmRedBrush",
+            _ => "IdleGrayBrush",
+        };
+
+        if (!_statusDotIcons.TryGetValue(brushKey, out var icon))
+        {
+            icon = StatusDotIcon.Render(_appIcon, ((SolidColorBrush)FindResource(brushKey)).Color);
+            _statusDotIcons[brushKey] = icon;
+        }
+
+        Icon = icon;
     }
 
     /// <summary>
@@ -1297,26 +1370,33 @@ public partial class MainWindow : Window
         }
 
         LocationChangeLabel.Text = message;
-        LocationChangeLabel.Visibility = Visibility.Visible;
+        LocationChangeBanner.Visibility = Visibility.Visible;
     }
 
     private void HideLocationChange()
     {
         _locationWatch.Reset();
         LocationChangeLabel.Text = string.Empty;
-        LocationChangeLabel.Visibility = Visibility.Collapsed;
+        LocationChangeBanner.Visibility = Visibility.Collapsed;
     }
 
-    // Resolved from the theme rather than rebuilt from literals: these were the
-    // palette's own Confirm Green and Alarm Red spelled a second way, so a
-    // palette edit used to change every surface except this one.
-    private Brush LightBrush(TrafficLight light) => (Brush)FindResource(light switch
+    /// <summary>
+    /// The handoff's second banner: something is wrong with the current read
+    /// while tracking is on — a contradicting read, a closed Lamp panel, an
+    /// unread field, "game not running" mid-session — so the card is holding
+    /// the last verified frame instead. Driven entirely from ShowLiveStatus.
+    /// </summary>
+    private void ShowReadProblem(string message)
     {
-        TrafficLight.Green => "ConfirmGreenBrush",
-        TrafficLight.Orange => "CautionAmberBrush",
-        TrafficLight.Red => "AlarmRedBrush",
-        _ => "IdleGrayBrush",
-    });
+        ReadProblemLabel.Text = message;
+        ReadProblemBanner.Visibility = Visibility.Visible;
+    }
+
+    private void HideReadProblem()
+    {
+        ReadProblemLabel.Text = string.Empty;
+        ReadProblemBanner.Visibility = Visibility.Collapsed;
+    }
 
     private async void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
     {
@@ -1394,7 +1474,29 @@ public partial class MainWindow : Window
         await RunParseAsync(dialog.FileName, fromPoll: false, inspectOnly: true);
     }
 
-    private async void StartStopButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// The merged action button: Save whenever tracking is on or there's a
+    /// held frame worth saving (see RefreshSaveEnabled), Start otherwise —
+    /// same condition the button's own Content/IsEnabled are driven by.
+    /// </summary>
+    private async void MainActionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_polling.IsRunning || CurrentGate().CanSave)
+        {
+            await SaveSessionAsync();
+        }
+        else
+        {
+            await StartTrackingAsync();
+        }
+    }
+
+    /// <summary>
+    /// Stop while a run is on; otherwise start a fresh one, discarding the
+    /// frame the previous run left behind (StartTrackingAsync's NewSession is
+    /// the discard) — confirmed first, since that read is still savable.
+    /// </summary>
+    private async void SecondaryActionLink_Click(object sender, RoutedEventArgs e)
     {
         if (_polling.IsRunning)
         {
@@ -1402,6 +1504,29 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Same rationale as SignOutButton_Click: a fresh run clears the store
+        // the pending save is still working from, and that save then clears it
+        // a second time on its way out — wiping the new run's first reads and
+        // leaving its every later tick discarded (SaveConfirmationHold).
+        if (_saveInFlight)
+        {
+            PickerStatusLabel.Text = "A save is still in progress — try again in a moment.";
+            return;
+        }
+
+        var gate = CurrentGate();
+        if (gate.CanSave
+            && gate.Totals is not null
+            && !ConfirmDiscardSession(gate.Totals, "Starting a new session"))
+        {
+            return;
+        }
+
+        await StartTrackingAsync();
+    }
+
+    private async Task StartTrackingAsync()
+    {
         // Starting a tracking run means starting fresh comparisons. Save and
         // the live totals only hold verified frames from this run.
         _saveConfirmation.Release();
@@ -1413,7 +1538,7 @@ public partial class MainWindow : Window
         ShowLiveStatus(LiveStatus.Idle());
         _polling.Start();
         _pollCts = new CancellationTokenSource();
-        StartStopButton.Content = "Stop tracking";
+        RefreshSaveEnabled();
         RefreshPollStatus("Starting…");
         _pollTimer.Start();
         await LoadSettingsAsync(keepExistingOnFailure: true);
@@ -1425,7 +1550,12 @@ public partial class MainWindow : Window
         _polling.Stop();
         _pollTimer.Stop();
         _pollCts.Cancel();
-        StartStopButton.Content = "Start tracking";
+        // ShowLiveStatus gates the read-problem banner on a running loop, so
+        // it has to be re-run here: a banner raised by the last tick ("Game
+        // not running.", a contradicting read) would otherwise stay up over a
+        // stopped session until the next run started.
+        ShowLiveStatus(_liveStatus);
+        RefreshSaveEnabled();
         RefreshPollStatus(message);
     }
 
@@ -1448,7 +1578,12 @@ public partial class MainWindow : Window
             var capture = _windowCaptureService.TryCaptureOnce(outputPath);
             if (!capture.Success)
             {
-                RefreshPollStatus($"Skipped: {capture.ErrorMessage}");
+                // Drop back to the bare "Tracking every 10s": leaving
+                // "Capturing…" up would claim work is in progress for as long
+                // as capture keeps failing. The reason itself is not the
+                // bottom bar's job — ShowLiveStatus below surfaces it through
+                // ReadProblemBanner in the messages section.
+                RefreshPollStatus(string.Empty);
                 ShowLiveStatus(capture.ErrorMessage is not null
                         && capture.ErrorMessage.Contains("Game not running", StringComparison.Ordinal)
                     ? LiveStatus.GameNotRunning()
@@ -1468,8 +1603,10 @@ public partial class MainWindow : Window
             // The timer discards this Task, so without a catch a throw here
             // (a locked session.db, a capture that failed inside the pipeline)
             // would be swallowed whole and tracking would look healthy while
-            // silently doing nothing every 10s.
-            RefreshPollStatus($"Tick failed: {ex.Message}");
+            // silently doing nothing every 10s. Not the bottom bar — reported
+            // through ReadProblemBanner via ShowLiveStatus below, with the
+            // bar dropped back off "Capturing…" so it stops implying work.
+            RefreshPollStatus(string.Empty);
             ShowLiveStatus(LiveStatus.ParseFailed(ex.Message));
         }
         finally
@@ -1516,12 +1653,15 @@ public partial class MainWindow : Window
 
             if (!result.Success || result.Report is null)
             {
-                ShowLiveStatus(LiveStatus.ParseFailed(result.ErrorMessage ?? "Parse failed"));
+                // Not the bottom bar — ShowLiveStatus already surfaces this
+                // through ReadProblemBanner in the messages section. The bar
+                // only drops back off "Capturing…" so it stops implying work.
                 if (fromPoll)
                 {
-                    RefreshPollStatus($"Skipped: {result.ErrorMessage ?? "parse failed"}");
+                    RefreshPollStatus(string.Empty);
                 }
 
+                ShowLiveStatus(LiveStatus.ParseFailed(result.ErrorMessage ?? "Parse failed"));
                 return;
             }
 
@@ -1544,17 +1684,24 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                RefreshPollStatus(tick.Message);
                 ShowLocationChange();
                 appended = tick.Appended;
-                if (tick.Appended && tick.Outcome == MonotonicityOutcome.Reset)
+                if (!tick.Appended)
                 {
-                    ParseStatusLabel.Text += "\n\n" + tick.Message;
-                }
-                else if (!tick.Appended)
-                {
+                    // Not the bottom bar — a rejected tick already shows the
+                    // same message via ReadProblemBanner (ShowLiveStatus
+                    // below, with LiveStatus.TickRejected). The bar keeps
+                    // showing its last accepted tick instead.
                     rejected = tick.Message;
                     ParseStatusLabel.Text += "\n\n" + tick.Message;
+                }
+                else
+                {
+                    RefreshPollStatus(tick.Message);
+                    if (tick.Outcome == MonotonicityOutcome.Reset)
+                    {
+                        ParseStatusLabel.Text += "\n\n" + tick.Message;
+                    }
                 }
             }
             else

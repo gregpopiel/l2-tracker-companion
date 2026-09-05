@@ -126,7 +126,7 @@ public sealed record SpotBenchmarkSnapshot(
 /// </summary>
 public sealed record AreaChoice(int? AreaId, string Label)
 {
-    public const string AllLabel = "All areas";
+    public const string AllLabel = "All";
 
     public static AreaChoice All { get; } = new(null, AllLabel);
 

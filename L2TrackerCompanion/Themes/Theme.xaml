@@ -6,9 +6,9 @@
       * No backdrop blur exists for a plain Border, so the translucent "glass"
         panels are flattened to the opaque colors they resolve to over the
         Terminal Black page background.
-      * Body copy is Normal weight, not 200. Arial ships no such face and WPF
-        does not synthesize one, so asking for 200 renders identically to
-        Normal while lying about the intent.
+      * Body copy is Normal weight, not 200. The system font ships no such
+        face and WPF does not synthesize one, so asking for 200 renders
+        identically to Normal while lying about the intent.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -52,19 +52,33 @@
     <SolidColorBrush x:Key="AlarmRedBrightBrush" Color="#FFFF7B72" />
     <SolidColorBrush x:Key="ConfirmGreenBrush" Color="#FF3FB950" />
 
+    <!-- Session redesign additions: rank badges and alert banners both read as
+         "amber" in the handoff (oklch H60/H90, low-mid lightness) — close
+         enough to the palette's existing Caution Amber that they share its
+         border/text tone rather than introducing a second amber. Only the
+         translucent fill is new. -->
+    <SolidColorBrush x:Key="AmberBgBrush" Color="#33D29922" />
+    <SolidColorBrush x:Key="AmberTextBrush" Color="#FFE3B341" />
+
     <!-- ===================== 2. TYPOGRAPHY ===================== -->
 
-    <!-- Arial is the only face in the system: no monospace, no display faces. -->
-    <FontFamily x:Key="AppFontFamily">Arial</FontFamily>
+    <!-- Segoe UI is the only face in the system: no monospace, no display
+         faces. Windows' own UI sans, close enough to the web spec's Inter
+         that bundling a font just for this window wasn't worth it. -->
+    <FontFamily x:Key="AppFontFamily">Segoe UI</FontFamily>
 
     <!-- Re-anchored to desktop metrics rather than the web scale's rem values:
          Windows UI sits around 12px, and the 14.5px body the spec implies is
          what made this window read as a page rather than an application. -->
     <sys:Double x:Key="FontSizeLabel">11</sys:Double>
+    <sys:Double x:Key="FontSizeXs">11.5</sys:Double>
     <sys:Double x:Key="FontSizeButton">12</sys:Double>
     <sys:Double x:Key="FontSizeBody">12.5</sys:Double>
     <sys:Double x:Key="FontSizeTitle">13</sys:Double>
+    <sys:Double x:Key="FontSizeField">13.5</sys:Double>
+    <sys:Double x:Key="FontSizeButtonLg">14.5</sys:Double>
     <sys:Double x:Key="FontSizeHeadline">15</sys:Double>
+    <sys:Double x:Key="FontSizeBigNumber">30</sys:Double>
 
     <!-- Control geometry, shared so rows line up: 24px is the standard desktop
          control height, and 78px the classic minimum button width. -->
@@ -72,6 +86,10 @@
     <sys:Double x:Key="ButtonMinWidth">78</sys:Double>
     <sys:Double x:Key="FieldMaxWidth">340</sys:Double>
     <sys:Double x:Key="ContentMaxWidth">560</sys:Double>
+
+    <!-- Session redesign: the handoff's full-width action rows call for taller
+         controls than the form-field geometry above. -->
+    <sys:Double x:Key="PrimaryActionHeight">44</sys:Double>
 
     <CornerRadius x:Key="BorderRadiusBase" TopLeft="4" TopRight="4" BottomRight="4" BottomLeft="4" />
 
@@ -133,8 +151,50 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
-    <Style x:Key="FieldLabelText" TargetType="TextBlock" BasedOn="{StaticResource SubtleText}">
-        <Setter Property="VerticalAlignment" Value="Center" />
+    <!-- The Rate & ranking card's big XP/h and Adena/h figures — the one
+         place text runs bigger than the rest of the window, so it needs its
+         own scale rather than borrowing HeadlineText. -->
+    <Style x:Key="BigNumberText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBigNumber}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+    </Style>
+
+    <!-- Small pill above a big number: "#N of M spots". Hidden entirely
+         (Visibility.Collapsed, set in code-behind) until at least one
+         accepted read exists — an idle "#0 of 0" reads as broken, not empty. -->
+    <Style x:Key="RankBadge" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource AmberBgBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource BorderRadiusBase}" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="RankBadgeText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeButton}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource AmberTextBrush}" />
+    </Style>
+
+    <!-- Location-changed / contradicting-read notices. A styled box, not the
+         plain SubtleText the window used before the redesign — these are
+         warnings the player should notice, not routine status text. -->
+    <Style x:Key="AlertBanner" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource AmberBgBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CautionAmberBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource BorderRadiusBase}" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <Style x:Key="AlertBannerText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground" Value="{StaticResource AmberTextBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
     <!-- ===================== 5. PANELS ===================== -->
@@ -298,6 +358,24 @@
     </Style>
 
     <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}" />
+
+    <!-- "Stop tracking" under the merged Start/Save action button: a small,
+         quiet secondary action, not a second button competing for
+         attention. Stop no longer discards anything (see SaveGate's held
+         frame), so this is deliberately neutral, not a warning color. -->
+    <Style x:Key="LinkButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{StaticResource StaticGrayBrush}" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 
     <!-- ===================== 7. TEXT INPUTS ===================== -->
 
@@ -589,11 +667,34 @@
         </Setter>
     </Style>
 
+    <!-- The general row's Character picker: same ComboBox template and popup
+         (virtualized items, focus ring, arrow) as everywhere else in the
+         window, just with the boxed background/border turned off — the
+         handoff shows this row as plain text with a chevron, not a field. -->
+    <Style x:Key="FlatComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0,0,14,0" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+
+    <!-- The general row's Acquired XP/SP field: same TextBox template as
+         everywhere else, boxed background/border turned off — matches
+         FlatComboBox's treatment rather than the handoff's literal dotted
+         underline (WPF has no border dash pattern, and a plain solid rule
+         read as a stray line rather than a field cue). -->
+    <Style x:Key="UnderlineTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+
     <!-- ===================== 10. TABS ===================== -->
 
     <Style TargetType="TabItem">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeField}" />
         <Setter Property="Cursor" Value="Arrow" />
         <Setter Property="Template">
             <Setter.Value>
@@ -749,11 +850,6 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-    </Style>
-
-    <!-- One label + one field, on the shared grid so every row lines up. -->
-    <Style x:Key="FieldRow" TargetType="Grid">
-        <Setter Property="Margin" Value="0,0,0,6" />
     </Style>
 
     <Style x:Key="StatusBarBorder" TargetType="Border">

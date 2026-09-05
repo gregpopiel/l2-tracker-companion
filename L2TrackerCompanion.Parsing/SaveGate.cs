@@ -26,7 +26,10 @@ public static class SaveGate
     {
         if (report is null)
         {
-            return SaveGateDecision.Blocked(TrafficLight.Idle, "No read yet.");
+            // No message: the idle state is already self-evident (a
+            // disabled Save button, zeroed totals) — nothing here needs
+            // explaining in a status line.
+            return SaveGateDecision.Blocked(TrafficLight.Idle, null);
         }
 
         var warnings = new List<string>();
@@ -164,6 +167,6 @@ public sealed record SaveGateDecision(
     PlayReport? Source = null,
     bool UsedHeldRead = false)
 {
-    public static SaveGateDecision Blocked(TrafficLight light, string reason)
+    public static SaveGateDecision Blocked(TrafficLight light, string? reason)
         => new(false, light, reason, [], null);
 }

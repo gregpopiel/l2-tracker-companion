@@ -15,11 +15,16 @@
          WPF Application is constructed), not App.xaml's StartupUri. -->
     <StartupObject>L2TrackerCompanion.Program</StartupObject>
     <!-- Assets/app.ico is the frontend's favicon.svg (the BrandMark arc) re-cut
-         to icon sizes; Assets/app-icon.svg is kept as its source. The window
-         needs no Icon of its own: with no Icon set, WPF falls back to the
-         executable's icon, which is this one. -->
+         to icon sizes; Assets/app-icon.svg is kept as its source. It is also a
+         Resource below, because the window's Icon is this same mark with the
+         tracking-status dot badged onto it (StatusDotIcon) rather than the
+         plain executable icon WPF would fall back to. -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Drawing.Common" Version="8.0.11" />

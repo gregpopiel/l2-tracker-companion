@@ -2,9 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="L2 Tracker Companion"
-        Width="660"
+        Width="480"
         Height="720"
-        MinWidth="560"
+        MinWidth="480"
+        MaxWidth="480"
         MinHeight="520"
         Background="{StaticResource TerminalBlackBrush}"
         Foreground="{StaticResource SignalWhiteBrush}"
@@ -21,7 +22,7 @@
         <ScrollViewer x:Name="LoginView"
                       Grid.Row="0"
                       Grid.RowSpan="2"
-                      VerticalScrollBarVisibility="Auto">
+                      VerticalScrollBarVisibility="Hidden">
             <ContentControl MaxWidth="380"
                             Margin="24,56,24,24"
                             VerticalAlignment="Top"
@@ -71,190 +72,370 @@
 
         <TabControl x:Name="MainTabs"
                     Grid.Row="0"
-                    Padding="0,14,0,0"
+                    Padding="0,6,0,0"
                     Visibility="Collapsed"
                     SelectionChanged="MainTabs_SelectionChanged">
             <TabItem Header="Session">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel MaxWidth="{StaticResource ContentMaxWidth}"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Top"
-                                Margin="14,4,14,14">
-                        <HeaderedContentControl Header="Session"
-                                                Style="{StaticResource SectionGroup}">
-                            <!-- Every row below shares one label column, so the
-                                 hint and the button stay aligned with the fields
-                                 without repeating a width anywhere. -->
-                            <StackPanel Grid.IsSharedSizeScope="True">
-                                <TextBlock Text="Pick a character. Spot is optional when Location is stable: Save uses a matching spot or creates one in World."
-                                           Style="{StaticResource SubtleText}"
-                                           Margin="0,0,0,10" />
-                                <Grid Style="{StaticResource FieldRow}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Character"
-                                               Margin="0,0,12,0"
-                                               Style="{StaticResource FieldLabelText}" />
-                                    <ComboBox x:Name="CharacterCombo"
-                                              Grid.Column="1"
-                                              MaxWidth="{StaticResource FieldMaxWidth}"
-                                              HorizontalAlignment="Left"
-                                              MinWidth="240"
-                                              DisplayMemberPath="Name"
-                                              IsEnabled="False"
-                                              SelectionChanged="CharacterCombo_SelectionChanged" />
-                                </Grid>
-                                <Grid Style="{StaticResource FieldRow}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Spot"
-                                               Margin="0,0,12,0"
-                                               Style="{StaticResource FieldLabelText}" />
-                                    <StackPanel Grid.Column="1"
-                                                Orientation="Horizontal">
-                                        <ComboBox x:Name="SpotCombo"
-                                                  MaxWidth="{StaticResource FieldMaxWidth}"
-                                                  HorizontalAlignment="Left"
-                                                  MinWidth="240"
-                                                  DisplayMemberPath="Label"
-                                                  IsEnabled="False"
-                                                  IsEditable="False"
-                                                  IsTextSearchEnabled="True"
-                                                  SelectionChanged="SpotCombo_SelectionChanged" />
-                                        <Button x:Name="ClearSpotButton"
-                                                Content="Clear"
-                                                Style="{StaticResource SmallSecondaryButton}"
-                                                Margin="8,0,0,0"
-                                                VerticalAlignment="Center"
-                                                IsEnabled="False"
-                                                Click="ClearSpotButton_Click" />
-                                    </StackPanel>
-                                </Grid>
-                                <Grid Style="{StaticResource FieldRow}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="% Bonus"
-                                               Margin="0,0,12,0"
-                                               Style="{StaticResource FieldLabelText}" />
-                                    <TextBox x:Name="BonusBox"
-                                             Grid.Column="1"
-                                             Width="90"
-                                             HorizontalAlignment="Left"
-                                             IsEnabled="False" />
-                                </Grid>
-                                <Grid x:Name="BonusHintLabelRow"
-                                      Style="{StaticResource FieldRow}"
-                                      Visibility="Collapsed">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="BonusHintLabel"
-                                               Grid.Column="1"
-                                               Text=""
-                                               Style="{StaticResource MutedText}" />
-                                </Grid>
-                                <Grid x:Name="SpotResolveHintRow"
-                                      Style="{StaticResource FieldRow}"
-                                      Visibility="Collapsed">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="SpotResolveHintLabel"
-                                               Grid.Column="1"
-                                               Text=""
-                                               TextWrapping="Wrap"
-                                               Style="{StaticResource SubtleText}" />
-                                </Grid>
-                                <Grid Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLabel" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Button x:Name="SaveButton"
-                                            Grid.Column="1"
-                                            Content="Save"
-                                            Style="{StaticResource PrimaryButton}"
-                                            IsEnabled="False"
-                                            Click="SaveButton_Click" />
-                                </Grid>
-                            </StackPanel>
-                        </HeaderedContentControl>
+                <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                    <StackPanel VerticalAlignment="Top"
+                                Margin="20,6,20,14">
 
-                        <HeaderedContentControl Header="Game window"
-                                                Style="{StaticResource SectionGroup}">
+                        <!-- General row: no card, no borders — a thin strip of
+                             meta fields under the tabs, per the handoff. Three
+                             equal columns, same full-width rhythm as the
+                             totals/lamps rows below, instead of packing left. -->
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <!-- Plain Foreground, not the SubtleText style: that
+                                 style's LineHeight="21" (fine at its usual sizes)
+                                 forces every label here taller than the flat
+                                 ComboBox/TextBox next to it, throwing off the
+                                 row's vertical centering. -->
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Character:"
+                                           FontSize="{StaticResource FontSizeXs}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           Margin="0,0,6,0"
+                                           VerticalAlignment="Center" />
+                                <!-- Capped narrow to keep the row thin, so a
+                                     long name does not fit the closed picker:
+                                     the tooltip is how it stays readable. -->
+                                <ComboBox x:Name="CharacterCombo"
+                                          Style="{StaticResource FlatComboBox}"
+                                          FontSize="{StaticResource FontSizeXs}"
+                                          Foreground="{StaticResource SignalWhiteBrush}"
+                                          MaxWidth="70"
+                                          VerticalAlignment="Center"
+                                          DisplayMemberPath="Name"
+                                          IsEnabled="False"
+                                          ToolTip="{Binding SelectedItem.Name, RelativeSource={RelativeSource Self}}"
+                                          SelectionChanged="CharacterCombo_SelectionChanged" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Center">
+                                <TextBlock Text="Bonus:"
+                                           FontSize="{StaticResource FontSizeXs}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           Margin="0,0,6,0"
+                                           VerticalAlignment="Center" />
+                                <TextBox x:Name="BonusBox"
+                                         Style="{StaticResource UnderlineTextBox}"
+                                         FontSize="{StaticResource FontSizeXs}"
+                                         Foreground="{StaticResource SignalWhiteBrush}"
+                                         Width="34"
+                                         VerticalAlignment="Center"
+                                         VerticalContentAlignment="Center"
+                                         IsEnabled="False" />
+                                <TextBlock Text="%"
+                                           FontSize="{StaticResource FontSizeXs}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           Margin="2,0,0,0"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Right">
+                                <TextBlock Text="Ranking:"
+                                           FontSize="{StaticResource FontSizeXs}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           Margin="0,0,6,0"
+                                           VerticalAlignment="Center" />
+                                <!-- Same fixed-width trade-off as the character
+                                     picker: "Special Zone" does not fit, so the
+                                     tooltip carries the full area name. -->
+                                <ComboBox x:Name="AreaFilterCombo"
+                                          Style="{StaticResource FlatComboBox}"
+                                          FontSize="{StaticResource FontSizeXs}"
+                                          Foreground="{StaticResource SignalWhiteBrush}"
+                                          MinWidth="70"
+                                          MaxWidth="70"
+                                          VerticalAlignment="Center"
+                                          DisplayMemberPath="Label"
+                                          IsEditable="False"
+                                          ToolTip="{Binding SelectedItem.Label, RelativeSource={RelativeSource Self}}"
+                                          SelectionChanged="AreaFilterCombo_SelectionChanged" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid x:Name="BonusHintLabelRow"
+                              Margin="0,-8,0,10"
+                              Visibility="Collapsed">
+                            <TextBlock x:Name="BonusHintLabel"
+                                       Text=""
+                                       Style="{StaticResource MutedText}" />
+                        </Grid>
+
+                        <Border Height="1"
+                                Background="{StaticResource HairlineBrush}"
+                                Margin="0,0,0,8" />
+
+                        <!-- Save readiness / error commentary: not part of the
+                             handoff's fixed layout, kept here (rather than
+                             dropped) so the detailed reasons RefreshSaveEnabled
+                             already produces ("Ready to save…", "Could not
+                             load spots: …") stay visible somewhere. -->
+                        <!-- Plain Foreground, not the SubtleText style: that
+                             style's LineHeight="21" left an oversized gap
+                             before the card below, the same issue fixed
+                             earlier in the general row. -->
+                        <!-- Always rendered, never Visibility-toggled: this
+                             text changes often during startup (character/
+                             spot loads firing in quick succession), and a
+                             collapse-on-empty style here made everything
+                             below it visibly jump/flicker as it happened. A
+                             small constant reserved line is the trade-off. -->
+                        <TextBlock x:Name="PickerStatusLabel"
+                                   Text="Loading characters…"
+                                   FontSize="{StaticResource FontSizeXs}"
+                                   Foreground="{StaticResource StaticGrayBrush}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,4" />
+
+                        <!-- Alerts: at most two, location first — pure
+                             top-of-content banners, so appearing/disappearing
+                             never shifts anything below. -->
+                        <Border x:Name="LocationChangeBanner"
+                                Style="{StaticResource AlertBanner}"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="LocationChangeLabel"
+                                       Text=""
+                                       Style="{StaticResource AlertBannerText}" />
+                        </Border>
+                        <Border x:Name="ReadProblemBanner"
+                                Style="{StaticResource AlertBanner}"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="ReadProblemLabel"
+                                       Text=""
+                                       Style="{StaticResource AlertBannerText}" />
+                        </Border>
+
+                        <!-- Rate & ranking card. -->
+                        <Border x:Name="LiveStatusBorder"
+                                Style="{StaticResource GlassPanel}"
+                                Padding="16,14"
+                                Margin="0,0,0,16">
                             <StackPanel>
-                                <TextBlock x:Name="GameWindowStatusLabel"
-                                           Text="Checking..."
-                                           Style="{StaticResource SubtleText}"
-                                           Margin="0,0,0,10" />
-                                <Button x:Name="StartStopButton"
-                                        Content="Start tracking"
-                                        Style="{StaticResource PrimaryButton}"
-                                        Click="StartStopButton_Click" />
-                            </StackPanel>
-                        </HeaderedContentControl>
-
-                        <HeaderedContentControl Header="Live status"
-                                                Style="{StaticResource SectionGroup}">
-                            <Border x:Name="LiveStatusBorder"
-                                    Style="{StaticResource GlassPanel}">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                        <Ellipse x:Name="LiveLight"
-                                                 Width="10"
-                                                 Height="10"
-                                                 Fill="{StaticResource IdleGrayBrush}"
-                                                 VerticalAlignment="Center" />
-                                        <TextBlock x:Name="LiveDetailLabel"
-                                                   Text="No snapshot yet."
-                                                   Style="{StaticResource TitleText}"
-                                                   Margin="8,0,0,0"
-                                                   VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <TextBlock x:Name="LiveRatesLabel"
-                                               Text=""
-                                               Style="{StaticResource TitleText}"
-                                               Margin="0,0,0,6" />
-                                    <StackPanel x:Name="AreaFilterRow"
-                                                Orientation="Horizontal"
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Border x:Name="XpRankBadge"
+                                                Style="{StaticResource RankBadge}"
                                                 Margin="0,0,0,8"
                                                 Visibility="Collapsed">
-                                        <TextBlock Text="Compare against"
-                                                   Style="{StaticResource FieldLabelText}"
-                                                   Margin="0,0,8,0"
-                                                   VerticalAlignment="Center" />
-                                        <ComboBox x:Name="AreaFilterCombo"
-                                                  MinWidth="160"
-                                                  HorizontalAlignment="Left"
-                                                  DisplayMemberPath="Label"
-                                                  IsEditable="False"
-                                                  SelectionChanged="AreaFilterCombo_SelectionChanged" />
+                                            <TextBlock x:Name="XpRankBadgeLabel"
+                                                       Text=""
+                                                       Style="{StaticResource RankBadgeText}" />
+                                        </Border>
+                                        <TextBlock x:Name="XpPerHourValue"
+                                                   Text="0"
+                                                   Style="{StaticResource BigNumberText}"
+                                                   HorizontalAlignment="Center" />
+                                        <TextBlock Text="XP/h"
+                                                   Style="{StaticResource SubtleText}"
+                                                   HorizontalAlignment="Center" />
                                     </StackPanel>
-                                    <TextBlock x:Name="BenchmarkLabel"
-                                               Text=""
-                                               Style="{StaticResource StatusText}"
-                                               Margin="0,0,0,6"
-                                               Visibility="Collapsed" />
-                                    <TextBlock x:Name="LocationChangeLabel"
-                                               Text=""
-                                               TextWrapping="Wrap"
-                                               Style="{StaticResource SubtleText}"
-                                               Margin="0,0,0,6"
-                                               Visibility="Collapsed" />
-                                    <TextBlock x:Name="LiveValuesLabel"
-                                               Text=""
-                                               Style="{StaticResource StatusText}" />
-                                </StackPanel>
-                            </Border>
-                        </HeaderedContentControl>
+                                    <StackPanel Grid.Column="1"
+                                                HorizontalAlignment="Center">
+                                        <Border x:Name="AdenaRankBadge"
+                                                Style="{StaticResource RankBadge}"
+                                                Margin="0,0,0,8"
+                                                Visibility="Collapsed">
+                                            <TextBlock x:Name="AdenaRankBadgeLabel"
+                                                       Text=""
+                                                       Style="{StaticResource RankBadgeText}" />
+                                        </Border>
+                                        <TextBlock x:Name="AdenaPerHourValue"
+                                                   Text="0"
+                                                   Style="{StaticResource BigNumberText}"
+                                                   HorizontalAlignment="Center" />
+                                        <TextBlock Text="Adena/h"
+                                                   Style="{StaticResource SubtleText}"
+                                                   HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Session totals. -->
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock x:Name="SessionXpValue"
+                                           Text="0"
+                                           FontSize="{StaticResource FontSizeHeadline}"
+                                           FontWeight="Medium"
+                                           Foreground="{StaticResource SignalWhiteBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="XP"
+                                           FontSize="{StaticResource FontSizeXs}"
+                                           Style="{StaticResource SubtleText}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1"
+                                        HorizontalAlignment="Center">
+                                <TextBlock x:Name="SessionAdenaValue"
+                                           Text="0"
+                                           FontSize="{StaticResource FontSizeHeadline}"
+                                           FontWeight="Medium"
+                                           Foreground="{StaticResource SignalWhiteBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="Adena"
+                                           FontSize="{StaticResource FontSizeXs}"
+                                           Style="{StaticResource SubtleText}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2"
+                                        HorizontalAlignment="Center">
+                                <TextBlock x:Name="SessionPlayTimeValue"
+                                           Text="0 min"
+                                           FontSize="{StaticResource FontSizeHeadline}"
+                                           FontWeight="Medium"
+                                           Foreground="{StaticResource SignalWhiteBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="Play time"
+                                           FontSize="{StaticResource FontSizeXs}"
+                                           Style="{StaticResource SubtleText}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Height="1"
+                                Background="{StaticResource HairlineBrush}"
+                                Margin="0,0,0,14" />
+
+                        <!-- Lamps. -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="Red Lantern"
+                                           FontSize="{StaticResource FontSizeLabel}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock x:Name="RedLampValue"
+                                           Text="0"
+                                           FontSize="{StaticResource FontSizeLabel}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1"
+                                        HorizontalAlignment="Center">
+                                <TextBlock Text="Purple Lantern"
+                                           FontSize="{StaticResource FontSizeLabel}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock x:Name="PurpleLampValue"
+                                           Text="0"
+                                           FontSize="{StaticResource FontSizeLabel}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2"
+                                        HorizontalAlignment="Center">
+                                <TextBlock Text="Blue Lantern"
+                                           FontSize="{StaticResource FontSizeLabel}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock x:Name="BlueLampValue"
+                                           Text="0"
+                                           FontSize="{StaticResource FontSizeLabel}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="3"
+                                        HorizontalAlignment="Center">
+                                <TextBlock Text="Green Lantern"
+                                           FontSize="{StaticResource FontSizeLabel}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock x:Name="GreenLampValue"
+                                           Text="0"
+                                           FontSize="{StaticResource FontSizeLabel}"
+                                           Foreground="{StaticResource StaticGrayBrush}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Spot: full width, no label above. -->
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="SpotCombo"
+                                      FontSize="{StaticResource FontSizeField}"
+                                      MinHeight="40"
+                                      HorizontalAlignment="Stretch"
+                                      DisplayMemberPath="Label"
+                                      IsEnabled="False"
+                                      IsEditable="False"
+                                      IsTextSearchEnabled="True"
+                                      SelectionChanged="SpotCombo_SelectionChanged" />
+                            <Button x:Name="ClearSpotButton"
+                                    Grid.Column="1"
+                                    Content="Clear"
+                                    Style="{StaticResource SmallSecondaryButton}"
+                                    FontSize="{StaticResource FontSizeBody}"
+                                    MinHeight="40"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Stretch"
+                                    IsEnabled="False"
+                                    Click="ClearSpotButton_Click" />
+                        </Grid>
+                        <Grid x:Name="SpotResolveHintRow"
+                              Margin="0,0,0,14"
+                              Visibility="Collapsed">
+                            <TextBlock x:Name="SpotResolveHintLabel"
+                                       Text=""
+                                       TextWrapping="Wrap"
+                                       FontSize="{StaticResource FontSizeXs}"
+                                       Style="{StaticResource SubtleText}" />
+                        </Grid>
+
+                        <!-- One action button doing double duty: "Start
+                             tracking" with nothing to save, "Save & send
+                             session" once tracking is on or there's a held
+                             frame from an earlier Stop — see
+                             MainActionButton_Click/RefreshSaveEnabled. -->
+                        <Button x:Name="MainActionButton"
+                                Content="Start tracking"
+                                Style="{StaticResource PrimaryButton}"
+                                FontSize="{StaticResource FontSizeButtonLg}"
+                                FontWeight="Bold"
+                                Height="{StaticResource PrimaryActionHeight}"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Margin="0,0,0,4"
+                                Click="MainActionButton_Click" />
+                        <!-- The escape hatch for the merged button above:
+                             "Stop tracking" while a run is on, and once
+                             stopped with a frame still held, "Start a new
+                             session" — otherwise Save (which an unresolvable
+                             spot can block outright) would be the only way
+                             out and a fresh run unreachable. Content and
+                             visibility are set in RefreshSaveEnabled. -->
+                        <Button x:Name="SecondaryActionLink"
+                                Content="Stop tracking"
+                                Style="{StaticResource LinkButton}"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,8"
+                                Visibility="Collapsed"
+                                Click="SecondaryActionLink_Click" />
 
                         <StackPanel x:Name="DebugToolsPanel"
                                     Visibility="Collapsed">
@@ -289,6 +470,15 @@
                                                Text=""
                                                Style="{StaticResource StatusText}"
                                                Margin="0,10,0,0" />
+                                    <!-- The raw read the redesigned card no
+                                         longer spells out (XP / Adena / play
+                                         time / lamps / location). Lives here so
+                                         DebugToolsPanel's own visibility is
+                                         what shows it. -->
+                                    <TextBlock x:Name="LiveValuesLabel"
+                                               Text=""
+                                               Style="{StaticResource StatusText}"
+                                               Margin="0,10,0,0" />
                                 </StackPanel>
                             </HeaderedContentControl>
                         </StackPanel>
@@ -296,7 +486,7 @@
                 </ScrollViewer>
             </TabItem>
             <TabItem Header="Settings">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <StackPanel MaxWidth="{StaticResource ContentMaxWidth}"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
@@ -363,8 +553,9 @@
                          it down to an ellipsis. -->
                     <ColumnDefinition Width="Auto" MaxWidth="260" />
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="PickerStatusLabel"
-                           Text="Loading characters…"
+                <TextBlock x:Name="GameWindowStatusLabel"
+                           Text="Checking..."
+                           FontSize="{StaticResource FontSizeXs}"
                            Style="{StaticResource StatusBarText}" />
                 <!-- Content is set in code-behind (CheckForUpdatesAsync) with the
                      found version number before Visibility ever flips to Visible. -->
@@ -377,6 +568,7 @@
                 <TextBlock x:Name="PollStatusLabel"
                            Grid.Column="2"
                            Text="Not tracking."
+                           FontSize="{StaticResource FontSizeXs}"
                            Style="{StaticResource StatusBarText}"
                            Margin="16,0,0,0" />
             </Grid>
