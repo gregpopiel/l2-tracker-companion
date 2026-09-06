@@ -122,6 +122,52 @@ public class LampXpTests
         Assert.Null(LampXp.MostSupported(null, null, null, null));
     }
 
+    /// <summary>
+    /// Real rows where two sources lost the same trailing group and would
+    /// out-vote the one source that read it. A truncated figure is the right
+    /// figure with a group zeroed, so it is promoted rather than counted
+    /// against it.
+    /// </summary>
+    [Theory]
+    // The live 2026-09-06 failure: game showed "36M 608K", app stored 36,000,000.
+    [InlineData(36_608_000L, 36_000_000L, 36_000_000L, null, 36_608_000L)]
+    // 100714 green, "2M 400K" — one of the two mismatches left after voting alone.
+    [InlineData(2_400_000L, null, 2_000_000L, null, 2_400_000L)]
+    // 235757 blue, "4M 680K" — the other one.
+    [InlineData(4_680_000L, null, 4_000_000L, null, 4_680_000L)]
+    // 191638 blue: the lost-K-suffix shape (23,000,040) survives untouched,
+    // but promoting its sibling gives the correct figure the majority.
+    [InlineData(23_040_000L, 23_000_040L, 23_000_000L, null, 23_040_000L)]
+    public void MostSupportedPromotesATruncatedReadingToTheFullerOne(
+        long expected,
+        long? tableCrop,
+        long? tableTokens,
+        long? dialogTokens,
+        long? dialogCrop)
+    {
+        Assert.Equal(expected, LampXp.MostSupported(tableCrop, tableTokens, dialogTokens, dialogCrop));
+    }
+
+    [Fact]
+    public void MostSupportedLeavesAMisreadLeadingDigitToTheVote()
+    {
+        // 140305 blue: "7M 776K" read as 9M by the table crop. 9,776,000 is
+        // larger but is not 7,776,000 with a group zeroed, so promotion must
+        // not touch it — "prefer the larger figure" would pick the wrong one.
+        Assert.Equal(7_776_000, LampXp.MostSupported(9_776_000, 7_776_000, null, 7_776_000));
+        Assert.Equal(9_776_000, LampXp.MostSupported(9_776_000, 7_776_000, null, null));
+    }
+
+    [Fact]
+    public void MostSupportedNeverPromotesZero()
+    {
+        // Zero is arithmetically a truncation of every figure below the next
+        // magnitude, so without the guard an empty lamp row plus one stray
+        // reading would be promoted into that reading.
+        Assert.Equal(0, LampXp.MostSupported(0, 0, null, 500_000));
+        Assert.Equal(0, LampXp.MostSupported(0, 0, 0, 36_608_000));
+    }
+
     [Fact]
     public void MostSupportedCountsZeroAsAValue()
     {

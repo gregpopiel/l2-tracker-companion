@@ -6,6 +6,8 @@ namespace L2TrackerCompanion.Parsing;
 /// </summary>
 public static class LampXp
 {
+    private static readonly long[] MagnitudeScales = [1_000, 1_000_000, 1_000_000_000];
+
     public static LampXpDecision Decide(
         IReadOnlyDictionary<string, long?> parsed,
         IReadOnlyDictionary<string, WordBox> dialogRows,
@@ -36,7 +38,8 @@ public static class LampXp
     }
 
     /// <summary>
-    /// The value the most sources agree on, falling back to
+    /// The value the most sources agree on, counting a truncated reading as
+    /// support for the fuller one it came from, and falling back to
     /// <see cref="FirstParsed"/>'s precedence when nothing has more support
     /// than anything else.
     /// </summary>
@@ -45,25 +48,38 @@ public static class LampXp
     /// table cell crop) is the one that most often reads a row wrong, and it
     /// fails in a way nothing downstream can detect — a dropped <c>K</c>
     /// suffix turns <c>14M 400K</c> into a well-formed 14,000,400, so it is
-    /// never null and never triggers a retry. In every such case at least two
-    /// of the four sources still agreed on the right figure, which is what
-    /// this resolves on. A tie keeps the old precedence, so a row where the
-    /// sources merely disagree behaves exactly as before.
+    /// never null and never triggers a retry.
+    /// <para>
+    /// Agreement alone is not enough, because two sources routinely lose the
+    /// same <c>K</c> group and then out-vote the one source that read it —
+    /// live on 2026-09-06 that stored Green as 36,000,000 against the game's
+    /// own <c>36M 608K</c>. A truncated figure is not an arbitrary wrong
+    /// number though (see <see cref="IsTruncationOf"/>), so it is promoted to
+    /// the fuller reading before the vote and reinforces it instead.
+    /// </para>
     /// </remarks>
     public static long? MostSupported(params long?[] candidates)
     {
         ArgumentNullException.ThrowIfNull(candidates);
 
+        // A truncated reading should reinforce the precise one it came from
+        // rather than compete with it.
+        var resolved = candidates
+            .Select(candidate => candidate is { } value
+                ? candidates.Where(other => other is { } precise && IsTruncationOf(value, precise)).Max() ?? value
+                : candidate)
+            .ToArray();
+
         var best = (long?)null;
         var bestVotes = 0;
-        foreach (var candidate in candidates)
+        foreach (var candidate in resolved)
         {
             if (candidate is not { } value)
             {
                 continue;
             }
 
-            var votes = candidates.Count(other => other == value);
+            var votes = resolved.Count(other => other == value);
             if (votes > bestVotes)
             {
                 best = value;
@@ -71,8 +87,26 @@ public static class LampXp
             }
         }
 
-        return bestVotes > 1 ? best : FirstParsed(candidates);
+        return bestVotes > 1 ? best : FirstParsed(resolved);
     }
+
+    /// <summary>
+    /// Is this the same figure with one or more trailing magnitude groups
+    /// lost? WinOCR drops the <c>K</c> group, so <c>36M 608K</c> comes back
+    /// as <c>36M</c> — 36,000,000 is 36,608,000 with its thousands zeroed.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately narrower than "prefer the larger figure": a misread
+    /// leading digit (<c>7M 776K</c> read as <c>9M 776K</c>) is also larger,
+    /// but 9,776,000 is not 7,776,000 with a group zeroed, so it is left to
+    /// the vote. Zero is excluded because it is arithmetically a truncation
+    /// of every figure below the next magnitude, and an empty lamp row is a
+    /// real reading rather than a degraded one.
+    /// </remarks>
+    private static bool IsTruncationOf(long value, long precise)
+        => value > 0
+            && value < precise
+            && MagnitudeScales.Any(scale => precise / scale * scale == value);
 
     /// <summary>
     /// First parseable source wins, in the order the browser tries: table
