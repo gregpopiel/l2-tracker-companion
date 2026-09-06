@@ -52,7 +52,7 @@ public class SpotResolveTests
 
         Assert.Equal(SpotResolveKind.UseExisting, decision.Kind);
         Assert.Same(Dragon, decision.Spot);
-        Assert.Equal("Save will use existing spot: Dragon Valley (east).", decision.Hint(0, 0, 5));
+        Assert.Equal("Save will use existing spot: Dragon Valley (east).", decision.Hint(0, 0, 5, tracking: true));
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public class SpotResolveTests
         Assert.Equal(SpotResolveKind.CreateWorld, decision.Kind);
         Assert.Equal("Brand New Camp", decision.Name);
         Assert.Same(World, decision.WorldArea);
-        Assert.Equal("Save will create a new World spot: Brand New Camp.", decision.Hint(0, 0, 5));
+        Assert.Equal("Save will create a new World spot: Brand New Camp.", decision.Hint(0, 0, 5, tracking: true));
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class SpotResolveTests
 
         Assert.Equal(SpotResolveKind.SpotsNotLoaded, decision.Kind);
         Assert.False(decision.CanSave);
-        Assert.Equal("Spots have not loaded yet.", decision.Hint(5, 4, 5));
+        Assert.Equal("Spots have not loaded yet.", decision.Hint(5, 4, 5, tracking: true));
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class SpotResolveTests
         Assert.False(decision.CanSave);
         Assert.Equal(
             "Pick a spot, or keep tracking until Location is stable (2/5).",
-            decision.Hint(2, 0, 5));
+            decision.Hint(2, 0, 5, tracking: true));
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class SpotResolveTests
 
         Assert.Equal(SpotResolveKind.CurrentMismatch, decision.Kind);
         Assert.False(decision.CanSave);
-        Assert.Contains("Dragon Valley (east)", decision.Hint(5, 4, 5), StringComparison.Ordinal);
+        Assert.Contains("Dragon Valley (east)", decision.Hint(5, 4, 5, tracking: true), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public class SpotResolveTests
 
         Assert.Equal(SpotResolveKind.Ambiguous, decision.Kind);
         Assert.False(decision.CanSave);
-        Assert.Contains("Multiple spots match", decision.Hint(5, 4, 5), StringComparison.Ordinal);
+        Assert.Contains("Multiple spots match", decision.Hint(5, 4, 5, tracking: true), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -271,12 +271,72 @@ public class SpotResolveTests
 
         // A full window that never agrees is not progress — "(5/5)" alone reads
         // as a finished counter and leaves the player waiting for nothing.
-        var disagreeing = decision.Hint(5, 2, 5);
+        var disagreeing = decision.Hint(5, 2, 5, tracking: true);
         Assert.Contains("keeps reading differently", disagreeing, StringComparison.Ordinal);
         Assert.Contains("best 2 of 5", disagreeing, StringComparison.Ordinal);
 
         Assert.Equal(
             "Pick a spot, or keep tracking until Location is stable (2/5).",
-            decision.Hint(2, 0, 5));
+            decision.Hint(2, 0, 5, tracking: true));
+    }
+
+    [Fact]
+    public void AStoppedRunNeverAsksForReadsThatAreNotComing()
+    {
+        var decision = Resolve(null, null);
+
+        // Every blocked kind still says something with the loop off — the
+        // caller decides when to stay silent, because the line under Save
+        // blanks itself assuming this slot spoke.
+        foreach (var sampleCount in new[] { 0, 1, 4, 5 })
+        {
+            var stopped = decision.Hint(sampleCount, 0, 5, tracking: false);
+            Assert.NotEqual(string.Empty, stopped);
+            Assert.DoesNotContain("keep tracking", stopped, StringComparison.Ordinal);
+            Assert.Contains("Pick a spot", stopped, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void APartialWindowQuotesNoMajorityBecauseNoneWasComputed()
+    {
+        var decision = Resolve(null, null);
+
+        // LocationStability only computes a majority once the window is full
+        // and leaves MajorityCount at 0 below that, so quoting it for three
+        // reads would claim "best 0 of 3 agree" — impossible of even one read.
+        var partial = decision.Hint(3, 0, 5, tracking: false);
+        Assert.DoesNotContain("best", partial, StringComparison.Ordinal);
+        Assert.Contains("3 of 5", partial, StringComparison.Ordinal);
+
+        // Nothing readable at all is its own sentence: "0 of 5 reads" would
+        // describe a count where the real fact is that Location never appeared.
+        Assert.Equal(
+            "Pick a spot — Location was never readable this session.",
+            decision.Hint(0, 0, 5, tracking: false));
+
+        // A full window is the one case with a real majority to report.
+        var full = decision.Hint(5, 2, 5, tracking: false);
+        Assert.Contains("best 2 of 5 agree", full, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AStoppedMismatchDoesNotPromiseAnotherRead()
+    {
+        var decision = Resolve(
+            null,
+            "Dragon Valley (east)",
+            currentHint: "Somewhere Else",
+            useStableAsCurrent: false);
+
+        Assert.Equal(SpotResolveKind.CurrentMismatch, decision.Kind);
+        Assert.DoesNotContain(
+            "wait for a consistent read",
+            decision.Hint(5, 4, 5, tracking: false),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "wait for a consistent read",
+            decision.Hint(5, 4, 5, tracking: true),
+            StringComparison.Ordinal);
     }
 }

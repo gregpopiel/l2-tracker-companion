@@ -494,10 +494,18 @@ static async Task<(int Id, bool Created)?> ResolveSpotFromLocationAsync(
         world);
     if (!resolve.CanSave)
     {
-        Console.WriteLine(resolve.Hint(
+        // A dump is one shot over an existing store: no poll loop is running,
+        // so advice to keep tracking would never come true here. That path can
+        // return an empty hint (the WPF picker says it by staying blank), which
+        // on a console would be a bare newline instead of a reason.
+        var hint = resolve.Hint(
             stability.SampleCount,
             stability.MajorityCount,
-            LocationStability.WindowSize));
+            LocationStability.WindowSize,
+            tracking: false);
+        Console.WriteLine(string.IsNullOrEmpty(hint)
+            ? "No spot: Location was never read."
+            : hint);
         return null;
     }
 

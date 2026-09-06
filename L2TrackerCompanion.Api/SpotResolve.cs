@@ -136,8 +136,22 @@ public sealed record SpotResolveDecision(
     /// disagree, which needs saying, because an unexplained "(5/5)" reads as a
     /// finished progress bar and leaves the player waiting for nothing.
     /// </param>
-    /// <param name="majorityCount">How many of that window agree.</param>
-    public string Hint(int sampleCount, int majorityCount, int windowSize) => Kind switch
+    /// <param name="majorityCount">
+    /// How many of that window agree — only ever quoted at a full window.
+    /// <see cref="LocationStability"/> does not compute a majority below
+    /// <paramref name="windowSize"/> and leaves this at 0 there, so printing
+    /// it for a partial window would claim that none of the reads agree, which
+    /// cannot be true of even a single read.
+    /// </param>
+    /// <param name="tracking">
+    /// Whether the poll loop is still running, i.e. whether more reads are on
+    /// their way. Advice to keep waiting is only true while it is. This never
+    /// returns an empty string for a blocked kind: the caller owns the decision
+    /// to stay silent (see MainWindow's ShowSpotResolveHint, which does that
+    /// only before a session exists at all), because the line under Save blanks
+    /// itself on the assumption that this slot carried the reason.
+    /// </param>
+    public string Hint(int sampleCount, int majorityCount, int windowSize, bool tracking) => Kind switch
     {
         SpotResolveKind.UseExisting => $"Save will use existing spot: {Name}.",
         SpotResolveKind.CreateWorld => $"Save will create a new World spot: {Name}.",
@@ -145,13 +159,24 @@ public sealed record SpotResolveDecision(
             $"Multiple spots match \"{Name}\" — pick one.",
         SpotResolveKind.MissingWorld =>
             "The World area was not found. Pick a spot, or add spots on the website.",
-        SpotResolveKind.Unstable => sampleCount < windowSize
-            ? $"Pick a spot, or keep tracking until Location is stable ({sampleCount}/{windowSize})."
-            : "Pick a spot — Location keeps reading differently, so it never settles "
-                + $"(best {majorityCount} of {windowSize} agree).",
+        SpotResolveKind.Unstable => tracking
+            ? sampleCount < windowSize
+                ? $"Pick a spot, or keep tracking until Location is stable ({sampleCount}/{windowSize})."
+                : "Pick a spot — Location keeps reading differently, so it never settles "
+                    + $"(best {majorityCount} of {windowSize} agree)."
+            : sampleCount == 0
+                ? "Pick a spot — Location was never readable this session."
+                : sampleCount < windowSize
+                    // No majority to quote here: the window never filled, so
+                    // none was computed. Say how short it fell instead.
+                    ? $"Pick a spot — tracking stopped with {sampleCount} of {windowSize} "
+                        + "Location reads, so it never settled."
+                    : "Pick a spot — Location kept reading differently, so it never settled "
+                        + $"(best {majorityCount} of {windowSize} agree).",
         SpotResolveKind.SpotsNotLoaded => "Spots have not loaded yet.",
-        SpotResolveKind.CurrentMismatch =>
-            $"This read's Location is not \"{Name}\" — pick a spot, or wait for a consistent read.",
+        SpotResolveKind.CurrentMismatch => tracking
+            ? $"This read's Location is not \"{Name}\" — pick a spot, or wait for a consistent read."
+            : $"This read's Location is not \"{Name}\" — pick a spot.",
         _ => string.Empty,
     };
 }

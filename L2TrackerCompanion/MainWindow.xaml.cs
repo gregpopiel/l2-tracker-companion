@@ -558,14 +558,24 @@ public partial class MainWindow : Window
         // A correction that replaced a pick has to say so — it moved the save
         // target without being asked, and the player's answer to it is what
         // pins the session.
+        // Staying silent is this method's call, not Hint's, and it is only
+        // ever right before a session exists: nothing has been read and
+        // nothing is running, so every sentence Hint could produce would be
+        // about a window nobody is filling. Once there are reads the slot must
+        // speak, because RefreshSaveEnabled blanks the line under Save on the
+        // strength of this one having carried the reason.
+        var noSessionYet = !_polling.IsRunning && _sessionStore.Count == 0;
         var text = _autoCorrect.NoticePending
             ? $"Spot switched to \"{SelectedSpot?.Name}\"."
             : resolve.Kind == SpotResolveKind.UseSelected
                 ? DetectedLocationHint()
-                : resolve.Hint(
-                    stability.SampleCount,
-                    stability.MajorityCount,
-                    LocationStability.WindowSize);
+                : noSessionYet
+                    ? string.Empty
+                    : resolve.Hint(
+                        stability.SampleCount,
+                        stability.MajorityCount,
+                        LocationStability.WindowSize,
+                        _polling.IsRunning);
         SpotResolveHintLabel.Text = text;
         SpotResolveHintRow.Visibility = string.IsNullOrEmpty(text)
             ? Visibility.Collapsed
