@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly SessionStore _sessionStore = new(SessionStore.GetDefaultPath());
     private readonly AuthService _auth = new(TokenStore.GetDefault());
     private readonly AppOptionsStore _options = AppOptionsStore.GetDefault();
+    private readonly MisreadStore _misreads = MisreadStore.GetDefault();
     private readonly LastCharacterStore _lastCharacter = LastCharacterStore.GetDefault();
     private readonly PollingLoop _polling = new();
     private readonly UpdateService _updates = new();
@@ -1467,6 +1468,25 @@ public partial class MainWindow : Window
         await RunParseAsync(capturePath, fromPoll: false, inspectOnly: true);
     }
 
+    private void OpenMisreadsButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // Created on the first save, so it need not exist yet.
+            Directory.CreateDirectory(_misreads.DirectoryPath);
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(_misreads.DirectoryPath) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException
+            or UnauthorizedAccessException
+            or System.ComponentModel.Win32Exception)
+        {
+            // Same swallow as MisreadStore.Save: a debug convenience must not
+            // take the app — and the tracking session with it — down.
+            CaptureStatusLabel.Text = $"Could not open {_misreads.DirectoryPath}: {ex.Message}";
+        }
+    }
+
     private async void ParsePngButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
@@ -1632,6 +1652,21 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Debug mode only: keep the frame behind a failed read plus what was
+    /// parsed from it, as material for improving the OCR passes. Nothing is
+    /// sent anywhere — see <see cref="MisreadStore"/>.
+    /// </summary>
+    private void SaveMisread(string imagePath, string reason, string details)
+    {
+        if (!_options.DebugMode)
+        {
+            return;
+        }
+
+        _misreads.Save(imagePath, reason, details);
+    }
+
     /// <param name="inspectOnly">
     /// The image is a file the user picked, not a read of the panel as it is
     /// right now. An old screenshot is indistinguishable from a fresh reset, so
@@ -1678,7 +1713,9 @@ public partial class MainWindow : Window
                     RefreshPollStatus(string.Empty);
                 }
 
-                ShowLiveStatus(LiveStatus.ParseFailed(result.ErrorMessage ?? "Parse failed"));
+                var failure = result.ErrorMessage ?? "Parse failed";
+                SaveMisread(imagePath, "Parse failed", failure);
+                ShowLiveStatus(LiveStatus.ParseFailed(failure));
                 return;
             }
 
@@ -1730,6 +1767,23 @@ public partial class MainWindow : Window
                     rejected = $"Discarded: {accepted.Reason}";
                     ParseStatusLabel.Text += $"\n\n{rejected}";
                 }
+            }
+
+            if (rejected is not null)
+            {
+                SaveMisread(imagePath, rejected, PlayReportPipeline.FormatWindow(result));
+            }
+            else if (!result.Report.LampXpRead
+                && !result.Report.LampPanelClosed
+                && (result.Report.Xp is not null || result.Report.Adena is not null))
+            {
+                // Only frames that did show a Play Report. A closed lamp panel
+                // is the user's choice, not a bad read; and with no dialog on
+                // screen at all DialogCropPass keeps the whole frame instead of
+                // failing, which leaves LampPanelClosed false too — without the
+                // farm-field check that archives every tick the dialog is shut
+                // and rotates the interesting frames out within minutes.
+                SaveMisread(imagePath, "Lamp XP not read", PlayReportPipeline.FormatWindow(result));
             }
 
             if (appended)

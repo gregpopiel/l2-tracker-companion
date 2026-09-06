@@ -476,6 +476,11 @@
                                                 Style="{StaticResource SmallSecondaryButton}"
                                                 Margin="6,0,0,0"
                                                 Click="ParsePngButton_Click" />
+                                        <Button x:Name="OpenMisreadsButton"
+                                                Content="Open misreads"
+                                                Style="{StaticResource SmallSecondaryButton}"
+                                                Margin="6,0,0,0"
+                                                Click="OpenMisreadsButton_Click" />
                                     </StackPanel>
                                     <TextBlock x:Name="CaptureStatusLabel"
                                                Text=""
