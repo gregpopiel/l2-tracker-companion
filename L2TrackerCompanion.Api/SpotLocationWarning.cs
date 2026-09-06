@@ -6,23 +6,27 @@ namespace L2TrackerCompanion.Api;
 /// </summary>
 /// <remarks>
 /// <see cref="SpotResolve"/> only auto-resolves a spot when the picker is
-/// empty — once a spot is selected (manually, or auto-picked earlier in the
-/// session) it always wins, by design, and nothing downstream re-checks it
-/// against a later location change. That is correct for <em>which spot to
-/// save to</em>, but it means a session that quietly walked from one spot to
-/// another produces no signal at all. This is that signal: purely a warning
-/// text for the status line, same spirit as <see cref="LocationChangeWatch"/>
-/// in <c>L2TrackerCompanion.Session</c> — it never blocks a save, since the
-/// Play Report spans the whole session and attributing it to one spot or the
-/// other is the player's call.
+/// empty, and a selected spot wins there. <see cref="SpotAutoCorrect"/> does
+/// re-check the picker once against a hint that exactly names an owned spot,
+/// but after the player answers that correction their pick is pinned and
+/// nothing re-checks it again. That is correct for <em>which spot to save
+/// to</em>, but it means a session that quietly walked from one spot to another
+/// produces no signal at all. This is that signal: purely a warning text for
+/// the status line, same spirit as <see cref="LocationChangeWatch"/> in
+/// <c>L2TrackerCompanion.Session</c> — it never blocks a save, since the Play
+/// Report spans the whole session and attributing it to one spot or the other
+/// is the player's call.
 /// </remarks>
 public static class SpotLocationWarning
 {
     /// <param name="selected">The spot the save would attach to, or null.</param>
     /// <param name="stableCanonicalName">
-    /// The current settled location's canonical name (from
-    /// <c>LocationStability</c>), or null/blank while unsettled — an
-    /// unsettled read is not evidence of a move.
+    /// The location this read is evidence for — see
+    /// <see cref="SpotResolve.DetectedName"/>: a hint that exactly names an
+    /// owned spot, else the settled canonical name, else null. Callers must not
+    /// pass the settled name alone: where minimap OCR never repeats a spelling
+    /// nothing ever settles, and this would then stay silent exactly when a
+    /// pinned pick has drifted from where the player is standing.
     /// </param>
     /// <returns>A warning to show, or null when there is nothing to say.</returns>
     public static string? Evaluate(SpotInfo? selected, string? stableCanonicalName)

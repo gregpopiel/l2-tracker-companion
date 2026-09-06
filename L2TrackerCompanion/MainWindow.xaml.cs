@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private bool _saveInFlight;
     private readonly SaveConfirmationHold _saveConfirmation = new();
     private bool _holdEmptySpot;
+    private readonly SpotAutoCorrect _autoCorrect = new();
     private bool _spotsLoaded;
     private AreaInfo? _worldArea;
     private IReadOnlyList<AreaInfo>? _areas;
@@ -423,6 +424,7 @@ public partial class MainWindow : Window
     {
         _spotsCts.Cancel();
         _holdEmptySpot = false;
+        _autoCorrect.Reset();
         _spotsLoaded = false;
         _worldArea = null;
         _areas = null;
@@ -481,12 +483,20 @@ public partial class MainWindow : Window
             _holdEmptySpot = false;
         }
 
+        // Answering a correction pins the session where the player put it —
+        // otherwise the next matching read would undo this choice in seconds.
+        _autoCorrect.NoteUserPick();
         RefreshSaveEnabled();
     }
 
     private void ClearSpotButton_Click(object sender, RoutedEventArgs e)
     {
         _holdEmptySpot = true;
+        // Only the notice goes. Emptying the picker must not revoke protection
+        // the player already earned by answering a correction — otherwise
+        // re-picking the same spot afterwards would not pin, and the next
+        // matching read would overwrite it all over again.
+        _autoCorrect.DismissNotice();
         _suppressPickerEvents = true;
         try
         {
@@ -540,9 +550,17 @@ public partial class MainWindow : Window
         // itself is reading, since a stale/mismatched pick would otherwise be
         // silent here (the actual save-target warning already lives in
         // PickerStatusLabel via SpotLocationWarning).
-        var text = resolve.Kind == SpotResolveKind.UseSelected
-            ? DetectedLocationHint()
-            : resolve.Hint(stability.SampleCount, LocationStability.WindowSize);
+        // A correction that replaced a pick has to say so — it moved the save
+        // target without being asked, and the player's answer to it is what
+        // pins the session.
+        var text = _autoCorrect.NoticePending
+            ? $"Spot switched to \"{SelectedSpot?.Name}\"."
+            : resolve.Kind == SpotResolveKind.UseSelected
+                ? DetectedLocationHint()
+                : resolve.Hint(
+                    stability.SampleCount,
+                    stability.MajorityCount,
+                    LocationStability.WindowSize);
         SpotResolveHintLabel.Text = text;
         SpotResolveHintRow.Visibility = string.IsNullOrEmpty(text)
             ? Visibility.Collapsed
@@ -633,7 +651,10 @@ public partial class MainWindow : Window
         var warnings = gate.Warnings.ToList();
         var spotWarning = SpotLocationWarning.Evaluate(
             SelectedSpot,
-            stability.IsStable ? stability.CanonicalName : null);
+            SpotResolve.DetectedName(
+                (gate.Source ?? _sessionStore.Last()?.Report)?.LocationHint,
+                stability.IsStable ? stability.CanonicalName : null,
+                SpotCombo.ItemsSource as IEnumerable<SpotInfo>));
         if (spotWarning is not null)
         {
             warnings.Add(spotWarning);
@@ -642,26 +663,41 @@ public partial class MainWindow : Window
         PickerStatusLabel.Text = string.Join(" · ", warnings);
     }
 
-    private void ApplyLocationHint(string? hint)
+    /// <summary>
+    /// Move the picker onto the spot this hint names, if it may. Returns the
+    /// spot actually applied, or null when nothing moved — callers must report
+    /// from the return value rather than re-deriving the match, since a match
+    /// alone says nothing about whether the picker followed it.
+    /// </summary>
+    private SpotInfo? ApplyLocationHint(string? hint)
     {
-        if (_holdEmptySpot || SelectedSpot is not null)
+        if (_holdEmptySpot || !_autoCorrect.MayOverwrite)
         {
-            return;
+            return null;
         }
 
-        var stability = CurrentLocationStability();
-        if (!stability.IsStable || !SpotMatch.SameName(hint, stability.CanonicalName))
-        {
-            return;
-        }
-
-        var spots = SpotCombo.ItemsSource as IEnumerable<SpotInfo>;
-        var match = SpotMatch.ExactName(stability.CanonicalName, spots);
+        // The same shortcut SpotResolve takes, for the same reason: a hint that
+        // exactly names one owned spot needs no window behind it. The stability
+        // check this used to run was redundant even before that — it only fired
+        // when the hint already equalled the canonical name, so it went on to
+        // match the very same spot.
+        var match = SpotMatch.ExactName(hint, SpotCombo.ItemsSource as IEnumerable<SpotInfo>);
         if (match is null)
         {
-            return;
+            return null;
         }
 
+        if (SelectedSpot is not null && SelectedSpot.Id == match.Id)
+        {
+            // A later read agreeing with the picker retires the switch notice,
+            // so the hint slot goes back to reporting the live location instead
+            // of announcing a switch for the rest of the run. The right to pin
+            // is untouched and outlives this.
+            _autoCorrect.NoteConfirmed();
+            return null;
+        }
+
+        var replaced = SelectedSpot;
         _suppressPickerEvents = true;
         try
         {
@@ -671,6 +707,9 @@ public partial class MainWindow : Window
         {
             _suppressPickerEvents = false;
         }
+
+        _autoCorrect.NoteApplied(replaced is not null);
+        return match;
     }
 
     private async Task LoadSpotsAsync(CharacterInfo? character)
@@ -679,6 +718,9 @@ public partial class MainWindow : Window
         _spotsCts = new CancellationTokenSource();
         var cancellationToken = _spotsCts.Token;
         _holdEmptySpot = false;
+        // A different character's list is a different vocabulary, so whatever
+        // the player pinned against the old one no longer applies.
+        _autoCorrect.Reset();
         _spotsLoaded = false;
 
         _suppressPickerEvents = true;
@@ -1843,15 +1885,17 @@ public partial class MainWindow : Window
 
             if (appended)
             {
-                ApplyLocationHint(result.Report.LocationHint);
+                var applied = ApplyLocationHint(result.Report.LocationHint);
                 if (!string.IsNullOrWhiteSpace(result.Report.LocationHint))
                 {
-                    var match = SpotMatch.ExactName(
-                        result.Report.LocationHint,
-                        SpotCombo.ItemsSource as IEnumerable<SpotInfo>);
-                    ParseStatusLabel.Text += match is null
-                        ? $"\n\nLocation hint \"{result.Report.LocationHint}\" did not match a spot; picker unchanged."
-                        : $"\n\nPreselected {match.Label}.";
+                    // Reported from what the call did, not from re-matching the
+                    // hint: a hint can name a spot the picker did not follow
+                    // (the run is pinned, Clear is holding it empty, or it is
+                    // already there), and claiming a preselect then would lie
+                    // in exactly the readout used to check this behaviour.
+                    ParseStatusLabel.Text += applied is null
+                        ? $"\n\nLocation hint \"{result.Report.LocationHint}\" did not move the picker."
+                        : $"\n\nPreselected {applied.Label}.";
                 }
             }
 

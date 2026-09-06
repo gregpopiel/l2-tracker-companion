@@ -4,12 +4,19 @@ namespace L2TrackerCompanion.Api;
 /// Which spot a Save should attach to when the picker may be empty.
 /// </summary>
 /// <remarks>
-/// A manually chosen row always wins. An empty picker may still save when the
-/// location hint is already a stable unique name, or when that name can be
-/// created under World. Location stability itself is decided elsewhere.
-/// Auto-resolve also requires the read being saved to name that same
-/// hint (the current tick, or the last verified frame when Save is holding),
-/// and a loaded spot list — null spots is "not loaded", not "none".
+/// A manually chosen row always wins. An empty picker may still save when this
+/// read's hint exactly names a spot the user owns, when the location hint is
+/// already a stable unique name, or when that name can be created under World.
+/// Location stability itself is decided elsewhere.
+///
+/// The exact-name shortcut deliberately outranks every stability rule: matching
+/// a closed vocabulary is a stronger signal than reads agreeing with each other,
+/// and it is the only path that works at all when minimap OCR never repeats a
+/// spelling. It can only match, never create — see <see cref="Evaluate"/>.
+/// Creating still requires the window, and so does the current-hint agreement
+/// check (the current tick, or the last verified frame when Save is holding).
+/// A loaded spot list is required throughout — null spots is "not loaded",
+/// not "none".
 /// </remarks>
 public static class SpotResolve
 {
@@ -29,6 +36,20 @@ public static class SpotResolve
         if (!spotsLoaded)
         {
             return SpotResolveDecision.Blocked(SpotResolveKind.SpotsNotLoaded);
+        }
+
+        // A single read that exactly names one spot the user already owns is
+        // stronger evidence than five reads agreeing with each other: the spot
+        // list is a closed vocabulary, and OCR noise garbles a name rather than
+        // turning it into a different valid one. Minimap OCR of a zone label is
+        // erratic enough that the window can otherwise never settle at all.
+        //
+        // Deliberately only ever *matches*. A name that is not already a spot
+        // still has to earn the window below, because creating one from a
+        // single read would put an OCR misreading into the account permanently.
+        if (SpotMatch.ExactName(currentHint, spots) is { } owned)
+        {
+            return SpotResolveDecision.UseExisting(owned);
         }
 
         if (string.IsNullOrWhiteSpace(stableHint))
@@ -60,6 +81,19 @@ public static class SpotResolve
 
         return SpotResolveDecision.CreateWorld(name, worldArea);
     }
+
+    /// <summary>
+    /// The location name a read is evidence for: a hint that exactly names one
+    /// spot the user owns (good on its own), otherwise the settled window's
+    /// name. Null when neither holds — a garbled hint that matches nothing is
+    /// evidence of nothing, and must not raise a warning.
+    /// </summary>
+    public static string? DetectedName(
+        string? currentHint,
+        string? stableHint,
+        IEnumerable<SpotInfo>? spots)
+        => SpotMatch.ExactName(currentHint, spots)?.Name
+            ?? (string.IsNullOrWhiteSpace(stableHint) ? null : stableHint.Trim());
 }
 
 public enum SpotResolveKind
@@ -96,7 +130,14 @@ public sealed record SpotResolveDecision(
     public static SpotResolveDecision Blocked(SpotResolveKind kind, string? name = null)
         => new(kind, null, name, null);
 
-    public string Hint(int unstableSampleCount, int windowSize) => Kind switch
+    /// <param name="sampleCount">
+    /// Non-empty hints gathered. Reaching <paramref name="windowSize"/> while
+    /// still unstable is not "collecting" — it is a full window whose reads
+    /// disagree, which needs saying, because an unexplained "(5/5)" reads as a
+    /// finished progress bar and leaves the player waiting for nothing.
+    /// </param>
+    /// <param name="majorityCount">How many of that window agree.</param>
+    public string Hint(int sampleCount, int majorityCount, int windowSize) => Kind switch
     {
         SpotResolveKind.UseExisting => $"Save will use existing spot: {Name}.",
         SpotResolveKind.CreateWorld => $"Save will create a new World spot: {Name}.",
@@ -104,8 +145,10 @@ public sealed record SpotResolveDecision(
             $"Multiple spots match \"{Name}\" — pick one.",
         SpotResolveKind.MissingWorld =>
             "The World area was not found. Pick a spot, or add spots on the website.",
-        SpotResolveKind.Unstable =>
-            $"Pick a spot, or keep tracking until Location is stable ({unstableSampleCount}/{windowSize}).",
+        SpotResolveKind.Unstable => sampleCount < windowSize
+            ? $"Pick a spot, or keep tracking until Location is stable ({sampleCount}/{windowSize})."
+            : "Pick a spot — Location keeps reading differently, so it never settles "
+                + $"(best {majorityCount} of {windowSize} agree).",
         SpotResolveKind.SpotsNotLoaded => "Spots have not loaded yet.",
         SpotResolveKind.CurrentMismatch =>
             $"This read's Location is not \"{Name}\" — pick a spot, or wait for a consistent read.",

@@ -486,7 +486,10 @@ static async Task<(int Id, bool Created)?> ResolveSpotFromLocationAsync(
         world);
     if (!resolve.CanSave)
     {
-        Console.WriteLine(resolve.Hint(stability.SampleCount, LocationStability.WindowSize));
+        Console.WriteLine(resolve.Hint(
+            stability.SampleCount,
+            stability.MajorityCount,
+            LocationStability.WindowSize));
         return null;
     }
 
