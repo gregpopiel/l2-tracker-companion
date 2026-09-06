@@ -559,12 +559,14 @@ public partial class MainWindow : Window
         // target without being asked, and the player's answer to it is what
         // pins the session.
         // Staying silent is this method's call, not Hint's, and it is only
-        // ever right before a session exists: nothing has been read and
-        // nothing is running, so every sentence Hint could produce would be
-        // about a window nobody is filling. Once there are reads the slot must
-        // speak, because RefreshSaveEnabled blanks the line under Save on the
-        // strength of this one having carried the reason.
-        var noSessionYet = !_polling.IsRunning && _sessionStore.Count == 0;
+        // ever right before the session has a single read: every sentence Hint
+        // could produce would be about a window nobody has put anything in.
+        // That covers the seconds between Start and the first read too — "(0/5)"
+        // there is not just noise, it is wrong, since picking a spot would not
+        // unlock Save either until something has actually been read. Once there
+        // are reads the slot must speak, because RefreshSaveEnabled blanks the
+        // line under Save on the strength of this one having carried the reason.
+        var noSessionYet = _sessionStore.Count == 0;
         var text = _autoCorrect.NoticePending
             ? $"Spot switched to \"{SelectedSpot?.Name}\"."
             : resolve.Kind == SpotResolveKind.UseSelected
