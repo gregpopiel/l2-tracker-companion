@@ -36,6 +36,45 @@ public static class LampXp
     }
 
     /// <summary>
+    /// The value the most sources agree on, falling back to
+    /// <see cref="FirstParsed"/>'s precedence when nothing has more support
+    /// than anything else.
+    /// </summary>
+    /// <remarks>
+    /// Measured on the POC set: the first source in precedence order (the
+    /// table cell crop) is the one that most often reads a row wrong, and it
+    /// fails in a way nothing downstream can detect — a dropped <c>K</c>
+    /// suffix turns <c>14M 400K</c> into a well-formed 14,000,400, so it is
+    /// never null and never triggers a retry. In every such case at least two
+    /// of the four sources still agreed on the right figure, which is what
+    /// this resolves on. A tie keeps the old precedence, so a row where the
+    /// sources merely disagree behaves exactly as before.
+    /// </remarks>
+    public static long? MostSupported(params long?[] candidates)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        var best = (long?)null;
+        var bestVotes = 0;
+        foreach (var candidate in candidates)
+        {
+            if (candidate is not { } value)
+            {
+                continue;
+            }
+
+            var votes = candidates.Count(other => other == value);
+            if (votes > bestVotes)
+            {
+                best = value;
+                bestVotes = votes;
+            }
+        }
+
+        return bestVotes > 1 ? best : FirstParsed(candidates);
+    }
+
+    /// <summary>
     /// First parseable source wins, in the order the browser tries: table
     /// cell crop, table tokens, dialog tokens, dialog cell crop.
     /// </summary>

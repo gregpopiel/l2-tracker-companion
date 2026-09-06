@@ -130,9 +130,10 @@ public static class LampXpPass
             }
 
             var parsed = new Dictionary<string, long?>(StringComparer.Ordinal);
+            var traces = new Dictionary<string, RowTrace>(StringComparer.Ordinal);
             foreach (var color in LampGeometry.Colors)
             {
-                parsed[color] = await ReadRowXpAsync(
+                (parsed[color], traces[color]) = await ReadRowXpAsync(
                         color,
                         dialogSource,
                         dialog.Engine,
@@ -180,7 +181,7 @@ public static class LampXpPass
                 TableColors = tableRows.Keys.ToArray(),
             };
 
-            await File.WriteAllTextAsync(dumpPath, FormatDump(result, parsed), Encoding.UTF8, cancellationToken)
+            await File.WriteAllTextAsync(dumpPath, FormatDump(result, parsed, traces), Encoding.UTF8, cancellationToken)
                 .ConfigureAwait(false);
             return result;
         }
@@ -367,7 +368,24 @@ public static class LampXpPass
         return map;
     }
 
-    private static async Task<long?> ReadRowXpAsync(
+    /// <summary>
+    /// What each of the four sources made of one row, kept for the dump.
+    /// A row can be read wrong without any source failing — the sources
+    /// disagreeing is the only visible sign, so the resolved value alone
+    /// cannot say which one to fix.
+    /// </summary>
+    internal sealed record RowTrace(
+        long? TableCrop,
+        long? TableTokens,
+        long? DialogTokens,
+        long? DialogCrop,
+        string? TableTokenText,
+        string? DialogTokenText)
+    {
+        public static RowTrace Empty { get; } = new(null, null, null, null, null, null);
+    }
+
+    private static async Task<(long? Value, RowTrace Trace)> ReadRowXpAsync(
         string color,
         ImageEnhance.Source dialogBitmap,
         OcrEngine engine,
@@ -388,6 +406,8 @@ public static class LampXpPass
         long? tableTokens = null;
         long? dialogTokens = null;
         long? dialogCrop = null;
+        string? tableTokenText = null;
+        string? dialogTokenText = null;
 
         if (tableBitmap is not null && tableRows.TryGetValue(color, out var tableAnchor) && tablePitch is > 0)
         {
@@ -409,7 +429,8 @@ public static class LampXpPass
             var tokens = LampGeometry.RowXpTokens(tableBoxes, tableAnchor, tablePitch.Value, LampGeometry.TableScale);
             if (tokens.Count > 0)
             {
-                tableTokens = GameNumber.ParseLine(string.Concat(tokens.Select(w => w.Text)));
+                tableTokenText = string.Concat(tokens.Select(w => w.Text));
+                tableTokens = GameNumber.ParseLine(tableTokenText);
             }
         }
 
@@ -419,7 +440,8 @@ public static class LampXpPass
             var tokens = LampGeometry.RowXpTokens(dialogBoxes, dialogAnchor, pitch);
             if (tokens.Count > 0)
             {
-                dialogTokens = GameNumber.ParseLine(string.Concat(tokens.Select(w => w.Text)));
+                dialogTokenText = string.Concat(tokens.Select(w => w.Text));
+                dialogTokens = GameNumber.ParseLine(dialogTokenText);
             }
 
             var cell = LampGeometry.RowXpCellCrop(dialogAnchor, pitch, 1, dialogWidth, dialogHeight);
@@ -436,8 +458,11 @@ public static class LampXpPass
         // Located row + nothing parseable: the x0 cell. WinOCR has no
         // PSM 10 and returns empty for a lone 0 on black (the crop shows
         // the glyph; the engine does not emit it).
-        return LampXp.FirstParsed(tableCrop, tableTokens, dialogTokens, dialogCrop)
+        var value = LampXp.MostSupported(tableCrop, tableTokens, dialogTokens, dialogCrop)
             ?? (tableRows.ContainsKey(color) || dialogRows.ContainsKey(color) ? 0L : null);
+        return (
+            value,
+            new RowTrace(tableCrop, tableTokens, dialogTokens, dialogCrop, tableTokenText, dialogTokenText));
     }
 
     /// <summary>
@@ -601,7 +626,10 @@ public static class LampXpPass
         return OcrRecognize.JoinRecognizedText(recognized);
     }
 
-    private static string FormatDump(LampXpResult result, IReadOnlyDictionary<string, long?> parsed)
+    private static string FormatDump(
+        LampXpResult result,
+        IReadOnlyDictionary<string, long?> parsed,
+        IReadOnlyDictionary<string, RowTrace> traces)
     {
         var builder = new StringBuilder();
         builder.AppendLine("# Windows.Media.Ocr lamp table XP");
@@ -625,6 +653,24 @@ public static class LampXpPass
         if (result.TablePngPath is not null)
         {
             builder.AppendLine($"# table png: {result.TablePngPath}");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("# per-source candidates. The parsed value above is the one the most sources");
+        builder.AppendLine("# agree on; with no majority the first non-null wins, in column order.");
+        builder.AppendLine("colour\ttableCrop\ttableTokens\tdialogTokens\tdialogCrop\ttableTokenText\tdialogTokenText");
+        foreach (var color in LampGeometry.Colors)
+        {
+            var trace = traces.GetValueOrDefault(color) ?? RowTrace.Empty;
+            builder.AppendLine(string.Join(
+                '\t',
+                color,
+                FormatAmount(trace.TableCrop),
+                FormatAmount(trace.TableTokens),
+                FormatAmount(trace.DialogTokens),
+                FormatAmount(trace.DialogCrop),
+                Sanitize(trace.TableTokenText ?? "-"),
+                Sanitize(trace.DialogTokenText ?? "-")));
         }
 
         return builder.ToString();
