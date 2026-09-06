@@ -207,6 +207,140 @@ public class SessionStoreTests
         Assert.Equal(1, store.Count);
     }
 
+    /// <summary>
+    /// The warm-up exists to fill the location window, so its length is that
+    /// window's. Letting the two drift apart would either leave the spot
+    /// unresolved at the steady cadence or poll fast for no reason.
+    /// </summary>
+    [Fact]
+    public void WarmUpCoversTheWholeLocationWindow()
+    {
+        Assert.Equal(LocationStability.WindowSize, PollingLoop.WarmUpReads);
+        Assert.True(PollingLoop.WarmUpInterval < PollingLoop.Interval);
+    }
+
+    [Fact]
+    public void WarmUpShortensTheFirstReadsThenSettles()
+    {
+        var loop = new PollingLoop();
+
+        // Nothing is warming up before Start — the idle window is the steady one.
+        Assert.False(loop.IsWarmingUp);
+        Assert.Equal(PollingLoop.Interval, loop.NextInterval);
+
+        loop.Start();
+        for (var read = 0; read < PollingLoop.WarmUpReads; read++)
+        {
+            Assert.True(loop.IsWarmingUp);
+            Assert.Equal(PollingLoop.WarmUpInterval, loop.NextInterval);
+            loop.NoteAttempt();
+            loop.NoteRead();
+        }
+
+        Assert.False(loop.IsWarmingUp);
+        Assert.Equal(PollingLoop.Interval, loop.NextInterval);
+    }
+
+    /// <summary>
+    /// The whole point of the warm-up is to fill the location window, and only a
+    /// read that reached that window fills it. Attempts that captured nothing —
+    /// Start pressed before the game was launched — must not spend the budget.
+    /// </summary>
+    [Fact]
+    public void AttemptsThatReachedNoHintDoNotSpendTheWarmUp()
+    {
+        var loop = new PollingLoop();
+        loop.Start();
+
+        for (var attempt = 0; attempt < PollingLoop.WarmUpReads; attempt++)
+        {
+            loop.NoteAttempt();
+        }
+
+        Assert.True(loop.IsWarmingUp);
+        Assert.Equal(PollingLoop.WarmUpInterval, loop.NextInterval);
+    }
+
+    /// <summary>
+    /// But the fast cadence still has to stop on its own: with the game closed
+    /// no attempt ever becomes a read, so the attempt ceiling is the only thing
+    /// left to end the warm-up.
+    /// </summary>
+    [Fact]
+    public void TheAttemptCeilingEndsAWarmUpThatNeverReadsAnything()
+    {
+        var loop = new PollingLoop();
+        loop.Start();
+
+        for (var attempt = 0; attempt < PollingLoop.MaxWarmUpAttempts; attempt++)
+        {
+            Assert.True(loop.IsWarmingUp);
+            loop.NoteAttempt();
+        }
+
+        Assert.False(loop.IsWarmingUp);
+        Assert.Equal(PollingLoop.Interval, loop.NextInterval);
+
+        // And neither counter runs away once the warm-up is over.
+        for (var extra = 0; extra < 100; extra++)
+        {
+            loop.NoteAttempt();
+            loop.NoteRead();
+        }
+
+        Assert.False(loop.IsWarmingUp);
+    }
+
+    /// <summary>
+    /// A dropped buffer (in-game reset, stale baseline, restarted client) deletes
+    /// the hints gathered so far, so the reads counted towards the window have to
+    /// go with them — otherwise the warm-up ends with the window nearly empty.
+    /// The attempt ceiling deliberately survives, since it bounds the whole run.
+    /// </summary>
+    [Fact]
+    public void WipingTheWindowGivesBackTheReadsCountedTowardsIt()
+    {
+        var loop = new PollingLoop();
+        loop.Start();
+        for (var read = 0; read < PollingLoop.WarmUpReads - 1; read++)
+        {
+            loop.NoteAttempt();
+            loop.NoteRead();
+        }
+
+        loop.RestartWarmUpProgress();
+
+        // One more read would have settled the cadence before the wipe.
+        loop.NoteAttempt();
+        loop.NoteRead();
+        Assert.True(loop.IsWarmingUp);
+        Assert.Equal(PollingLoop.WarmUpInterval, loop.NextInterval);
+    }
+
+    [Fact]
+    public void RestartingTrackingWarmsUpAgain()
+    {
+        var loop = new PollingLoop();
+        loop.Start();
+        for (var read = 0; read < PollingLoop.WarmUpReads; read++)
+        {
+            loop.NoteAttempt();
+            loop.NoteRead();
+        }
+
+        Assert.False(loop.IsWarmingUp);
+
+        // A stopped loop reports the steady gap: there is no read to arm.
+        loop.Stop();
+        Assert.False(loop.IsWarmingUp);
+        Assert.Equal(PollingLoop.Interval, loop.NextInterval);
+
+        // A new run starts a new location window, so it warms up from scratch.
+        loop.Start();
+        Assert.True(loop.IsWarmingUp);
+        Assert.Equal(PollingLoop.WarmUpInterval, loop.NextInterval);
+    }
+
     private static PlayReport ClosedPanel(long xp, long adena, int minutes)
         => PlayReport.From(
             xp,

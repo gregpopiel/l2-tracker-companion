@@ -580,7 +580,7 @@ public partial class MainWindow : Window
         // there's a held frame from an earlier Stop — otherwise Start.
         var saveMode = _polling.IsRunning || gate.CanSave;
         MainActionButton.Content = saveMode ? "Save & send session" : "Start tracking";
-        // A poll tick lands here every 10s, including while a save is awaiting
+        // A poll tick lands here on every poll interval, including while a save is awaiting
         // its response — without this the button would re-arm mid-POST and a
         // second click would duplicate the log.
         MainActionButton.IsEnabled = saveMode
@@ -1231,6 +1231,9 @@ public partial class MainWindow : Window
         }
 
         _sessionStore.NewSession();
+        // The wipe took the gathered location hints with it, so the warm-up
+        // owes the window those reads again.
+        _polling.RestartWarmUpProgress();
         _saveConfirmation.Release();
         HideLocationChange();
         ShowLiveStatus(LiveStatus.Idle());
@@ -1246,8 +1249,13 @@ public partial class MainWindow : Window
 
     private void RefreshPollStatus(string message)
     {
+        // The gap before the next read, not the steady constant: a run opens on
+        // the faster warm-up cadence and a label claiming 10s through it would
+        // simply be wrong. Read from _polling rather than _pollTimer because
+        // this can be reached from ApplyUiMode before the constructor has built
+        // the timer, and _polling is initialised at its declaration.
         var prefix = _polling.IsRunning
-            ? $"Tracking every {(int)PollingLoop.Interval.TotalSeconds}s"
+            ? $"Tracking every {(int)_polling.NextInterval.TotalSeconds}s"
             : "Not tracking.";
         PollStatusLabel.Text = string.IsNullOrWhiteSpace(message)
             ? prefix
@@ -1576,6 +1584,10 @@ public partial class MainWindow : Window
         _polling.Start();
         _pollCts = new CancellationTokenSource();
         RefreshSaveEnabled();
+        // _polling.Start() above already reset the warm-up; arm the timer to
+        // match before it runs, so a run does not inherit the steady cadence
+        // the previous one ended on.
+        _pollTimer.Interval = _polling.NextInterval;
         RefreshPollStatus("Starting…");
         _pollTimer.Start();
         await LoadSettingsAsync(keepExistingOnFailure: true);
@@ -1610,12 +1622,15 @@ public partial class MainWindow : Window
                 return;
             }
 
+            // Counted before the capture, not after a successful read: the
+            // warm-up has to be bounded even when every attempt fails.
+            _polling.NoteAttempt();
             RefreshPollStatus("Capturing…");
             var outputPath = WindowCaptureService.GetDefaultCapturePath();
             var capture = _windowCaptureService.TryCaptureOnce(outputPath);
             if (!capture.Success)
             {
-                // Drop back to the bare "Tracking every 10s": leaving
+                // Drop back to the bare "Tracking every Ns": leaving
                 // "Capturing…" up would claim work is in progress for as long
                 // as capture keeps failing. The reason itself is not the
                 // bottom bar's job — ShowLiveStatus below surfaces it through
@@ -1640,7 +1655,7 @@ public partial class MainWindow : Window
             // The timer discards this Task, so without a catch a throw here
             // (a locked session.db, a capture that failed inside the pipeline)
             // would be swallowed whole and tracking would look healthy while
-            // silently doing nothing every 10s. Not the bottom bar — reported
+            // silently doing nothing every tick. Not the bottom bar — reported
             // through ReadProblemBanner via ShowLiveStatus below, with the
             // bar dropped back off "Capturing…" so it stops implying work.
             RefreshPollStatus(string.Empty);
@@ -1649,6 +1664,33 @@ public partial class MainWindow : Window
         finally
         {
             Interlocked.Exchange(ref _pollTickBusy, 0);
+            ApplyPollCadence();
+        }
+    }
+
+    /// <summary>
+    /// Re-arm the poll timer from the end of the tick rather than from its start.
+    /// </summary>
+    /// <remarks>
+    /// A warm-up gap is shorter than a tick can take (the capture alone blocks
+    /// on the game window, then OCR runs), and <c>DispatcherTimer</c>
+    /// counts from the previous fire — so left alone, the reentrancy guard in
+    /// <see cref="RunPollTickAsync"/> would silently drop warm-up ticks instead
+    /// of spacing them, and a run would never actually get its faster reads.
+    /// Assigning <c>Interval</c> restarts a running timer, which is exactly the
+    /// re-arm wanted here, and makes the effective cadence degrade to
+    /// "the gap, or the tick's own duration, whichever is longer".
+    ///
+    /// Only the warm-up is re-armed every tick. The steady cadence is written
+    /// once, on the way out of the warm-up, and then left alone — restarting it
+    /// each tick would stretch its period to the interval plus the tick.
+    /// </remarks>
+    private void ApplyPollCadence()
+    {
+        var next = _polling.NextInterval;
+        if (_polling.IsWarmingUp || _pollTimer.Interval != next)
+        {
+            _pollTimer.Interval = next;
         }
     }
 
@@ -1754,7 +1796,20 @@ public partial class MainWindow : Window
                     RefreshPollStatus(tick.Message);
                     if (tick.Outcome == MonotonicityOutcome.Reset)
                     {
+                        // The buffer was dropped, so the location window
+                        // restarted with this frame as its only entry — the
+                        // warm-up has to gather them again rather than keep
+                        // credit for hints that were just deleted.
+                        _polling.RestartWarmUpProgress();
                         ParseStatusLabel.Text += "\n\n" + tick.Message;
+                    }
+
+                    // Only a frame that actually landed in the window counts;
+                    // LocationStability skips blank hints, so one here would
+                    // spend the budget without moving the counter it feeds.
+                    if (!string.IsNullOrWhiteSpace(result.Report.LocationHint))
+                    {
+                        _polling.NoteRead();
                     }
                 }
             }
