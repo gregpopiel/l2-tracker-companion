@@ -159,6 +159,20 @@ public class LampXpTests
     }
 
     [Fact]
+    public void MostSupportedDoesNotPromoteIntoAUnitsRemainderMisread()
+    {
+        // 191706 red: true figure 17,888,000, and one source reads
+        // "17M 888K" with the K lost into the units as 17,000,888. Promoting
+        // on a 1,000 scale would make the two round readings truncations of
+        // that garbage and hand it a 3-0 win; lamp rows only ever print M and
+        // K groups, so nothing legitimately loses just a units group.
+        Assert.Equal(17_000_000, LampXp.MostSupported(17_000_888, 17_000_000, 17_000_000, null));
+
+        // The real figure still wins when a source actually read it.
+        Assert.Equal(17_888_000, LampXp.MostSupported(17_000_888, 17_000_000, 17_000_000, 17_888_000));
+    }
+
+    [Fact]
     public void MostSupportedNeverPromotesZero()
     {
         // Zero is arithmetically a truncation of every figure below the next

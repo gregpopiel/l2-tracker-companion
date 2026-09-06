@@ -6,7 +6,13 @@ namespace L2TrackerCompanion.Parsing;
 /// </summary>
 public static class LampXp
 {
-    private static readonly long[] MagnitudeScales = [1_000, 1_000_000, 1_000_000_000];
+    /// <summary>
+    /// Deliberately no 1,000: lamp rows are printed as M and K groups only,
+    /// so a figure never loses just a units group. Including it would instead
+    /// let a lost-K misread that spilled its digits into the units (17M 888K
+    /// read as 17,000,888) swallow the round readings it sits beside.
+    /// </summary>
+    private static readonly long[] MagnitudeScales = [1_000_000, 1_000_000_000];
 
     public static LampXpDecision Decide(
         IReadOnlyDictionary<string, long?> parsed,
@@ -102,10 +108,19 @@ public static class LampXp
     /// the vote. Zero is excluded because it is arithmetically a truncation
     /// of every figure below the next magnitude, and an empty lamp row is a
     /// real reading rather than a degraded one.
+    /// <para>
+    /// The target has to be a whole number of thousands. Lamp rows are
+    /// printed as M and K groups, so a real figure always is — while the
+    /// same lost-<c>K</c> failure can spill digits into the units instead
+    /// (<c>17M 888K</c> read as 17,000,888). Without this, the round
+    /// readings beside such a misread count as truncations of it and hand
+    /// it the vote.
+    /// </para>
     /// </remarks>
     private static bool IsTruncationOf(long value, long precise)
         => value > 0
             && value < precise
+            && precise % 1_000 == 0
             && MagnitudeScales.Any(scale => precise / scale * scale == value);
 
     /// <summary>
