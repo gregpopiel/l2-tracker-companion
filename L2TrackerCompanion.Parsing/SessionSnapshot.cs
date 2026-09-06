@@ -13,6 +13,13 @@ namespace L2TrackerCompanion.Parsing;
 /// rounded both ends before subtracting, and could drift by a thousand).
 /// Lamp XP stays all-or-none: a collapsed Magic Lamp panel blocks the save
 /// rather than writing silent zeros.
+/// <para>
+/// The failure strings here are a backstop, not a UI channel: <see cref="SaveGate"/>
+/// rejects every one of these conditions through <see cref="ReadIssues"/> first,
+/// so what the player reads comes from there. They stay because this class has
+/// to be correct on its own, and because a describer that ever fell out of step
+/// with it should say so rather than blank the status line.
+/// </para>
 /// </remarks>
 public static class SessionSnapshot
 {

@@ -415,6 +415,14 @@ static async Task<int> RunSaveAsync(string[] args)
         return 2;
     }
 
+    // A non-blocking read defect no longer travels as a warning string — it is
+    // the same ReadIssue the app shows in its alert banner — so print it here
+    // too, or the headless path loses the reason a figure is not to be trusted.
+    if (gate.Issue is { BlocksSave: false } issue)
+    {
+        Console.WriteLine($"Warning: {issue.Message}");
+    }
+
     foreach (var warning in gate.Warnings)
     {
         Console.WriteLine($"Warning: {warning}");

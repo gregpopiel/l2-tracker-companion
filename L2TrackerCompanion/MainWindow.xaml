@@ -197,7 +197,13 @@
 
                         <!-- Alerts: at most two, location first — pure
                              top-of-content banners, so appearing/disappearing
-                             never shifts anything below. -->
+                             never shifts anything below. Exactly two, because
+                             each owns one question outright: "are you where
+                             this save thinks you are" and "is the current read
+                             any good". A third slot is how the same defect
+                             ended up phrased two ways in two places; add a
+                             message to whichever banner already owns its
+                             question instead. -->
                         <Border x:Name="LocationChangeBanner"
                                 Style="{StaticResource AlertBanner}"
                                 Visibility="Collapsed">

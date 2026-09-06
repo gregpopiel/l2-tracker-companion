@@ -41,6 +41,12 @@ public partial class MainWindow : Window
     private AreaInfo? _worldArea;
     private IReadOnlyList<AreaInfo>? _areas;
     private readonly LocationChangeWatch _locationWatch = new();
+
+    // LocationChangeWatch.Notice() reports a move exactly once, so it can only
+    // be consumed on the accepted-tick path. The banner, though, also has to
+    // re-render when the spot pick changes with no new read behind it — hence
+    // the notice is kept here rather than written straight to the banner.
+    private string? _locationMoveNotice;
     private bool _isAdmin;
     private string? _userId;
     private readonly GameProcessWatch _gameWatch = new();
@@ -263,7 +269,7 @@ public partial class MainWindow : Window
     {
         if (_saveInFlight)
         {
-            PickerStatusLabel.Text = "A save is still in progress — try again in a moment.";
+            PickerStatusLabel.Text = SessionPickers.SaveInProgress;
             return;
         }
 
@@ -413,7 +419,7 @@ public partial class MainWindow : Window
         {
             PickerStatusLabel.Text = characters.Count == 0
                 ? "Signed in, but this account has no characters yet."
-                : "Pick a character.";
+                : SessionPickers.PickCharacter;
             return;
         }
 
@@ -521,7 +527,6 @@ public partial class MainWindow : Window
         return SaveGate.EvaluateWithHold(
             last?.Report,
             last?.CapturedAt ?? default,
-            lastComparison: null,
             held?.Report,
             held?.CapturedAt ?? default,
             currentAccepted: last is not null);
@@ -591,6 +596,7 @@ public partial class MainWindow : Window
         var gate = CurrentGate();
         var resolve = CurrentSpotResolve(gate);
         ShowSpotResolveHint(resolve, stability);
+        RefreshLocationBanner(gate, stability);
 
         var pickersReady = SessionPickers.SaveReady(SelectedCharacter, resolve);
 
@@ -628,7 +634,12 @@ public partial class MainWindow : Window
 
         if (!gate.CanSave)
         {
-            PickerStatusLabel.Text = gate.BlockReason ?? string.Empty;
+            // One fact, one slot: when the banner is already showing this
+            // very sentence, repeating it here put the same defect on screen
+            // twice, two lines apart. Anything else it might be showing is a
+            // different fact, and tracking off means no banner at all — either
+            // way this line is the only channel left and has to carry it.
+            PickerStatusLabel.Text = AlreadyOnBanner(gate.BlockReason) ? string.Empty : gate.BlockReason ?? string.Empty;
             return;
         }
 
@@ -643,21 +654,26 @@ public partial class MainWindow : Window
         // Readiness itself doesn't need a sentence — the Save button already
         // shows that by unlocking. This line is only for warnings worth a
         // second look even though Save is enabled.
-        //
-        // A spot picked earlier in the session (or auto-picked once) always
-        // wins over a later location change — see SpotLocationWarning. That
-        // is correct for where the save goes, but the player still needs a
-        // nudge that it happened.
-        var warnings = gate.Warnings.ToList();
-        var spotWarning = SpotLocationWarning.Evaluate(
-            SelectedSpot,
-            SpotResolve.DetectedName(
-                (gate.Source ?? _sessionStore.Last()?.Report)?.LocationHint,
-                stability.IsStable ? stability.CanonicalName : null,
-                SpotCombo.ItemsSource as IEnumerable<SpotInfo>));
-        if (spotWarning is not null)
+        var warnings = new List<string>();
+
+        // Why the current frame was passed over is the banner's fact, not
+        // this line's; what is being posted instead ("Saving last verified
+        // read…") is only ever said here.
+        if (gate.HoldReason is not null && !AlreadyOnBanner(gate.HoldReason))
         {
-            warnings.Add(spotWarning);
+            warnings.Add(gate.HoldReason);
+        }
+
+        warnings.AddRange(gate.Warnings);
+
+        // A non-blocking read defect (spliced XP) belongs to the banner too,
+        // but only while the banner is actually showing it: on the hold path it
+        // describes the current frame and this one describes the older frame
+        // being saved, and a capture error displaces it entirely.
+        if (gate.Issue is { BlocksSave: false } issue
+            && !AlreadyOnBanner(issue.Message))
+        {
+            warnings.Add(issue.Message);
         }
 
         PickerStatusLabel.Text = string.Join(" · ", warnings);
@@ -744,7 +760,7 @@ public partial class MainWindow : Window
 
         if (character is null)
         {
-            PickerStatusLabel.Text = "Pick a character.";
+            PickerStatusLabel.Text = SessionPickers.PickCharacter;
             return;
         }
 
@@ -752,7 +768,7 @@ public partial class MainWindow : Window
         if (token is null)
         {
             ClearPickers(SessionPickers.SignInToLoad);
-            ShowLogin("Session expired. Paste a token to continue.", isError: true);
+            ShowLogin(SessionPickers.SessionExpired, isError: true);
             return;
         }
 
@@ -926,7 +942,7 @@ public partial class MainWindow : Window
         if (token is null)
         {
             ClearPickers(SessionPickers.SignInToSave);
-            ShowLogin("Session expired. Paste a token to continue.", isError: true);
+            ShowLogin(SessionPickers.SessionExpired, isError: true);
             return;
         }
 
@@ -1197,7 +1213,7 @@ public partial class MainWindow : Window
             // Same rationale as SignOutButton_Click: the pending save still writes
             // its lock row when it returns, and restarting out from under it would
             // leave the client unsure whether the log ever reached the server.
-            PickerStatusLabel.Text = "A save is still in progress — try again in a moment.";
+            PickerStatusLabel.Text = SessionPickers.SaveInProgress;
             return;
         }
 
@@ -1425,28 +1441,72 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// A settled move to another location, shown once. Only a reminder to
-    /// restart the in-game Play Report — nothing is blocked or hidden.
+    /// Note a settled move to another location. Only a reminder to restart the
+    /// in-game Play Report — nothing is blocked or hidden.
     /// </summary>
-    private void ShowLocationChange()
+    /// <remarks>
+    /// Must be called once per accepted tick and nowhere else: the notice is
+    /// reported a single time per move, so a second caller would swallow it.
+    /// </remarks>
+    private void NoteLocationChange()
     {
         var stability = CurrentLocationStability();
-        var message = _locationWatch.Notice(stability.IsStable ? stability.CanonicalName : null);
-        if (message is null)
-        {
-            return;
-        }
+        _locationMoveNotice = _locationWatch.Notice(stability.IsStable ? stability.CanonicalName : null)
+            ?? _locationMoveNotice;
+    }
 
-        LocationChangeLabel.Text = message;
-        LocationChangeBanner.Visibility = Visibility.Visible;
+    /// <summary>
+    /// The one slot for "you are not where this save thinks you are".
+    /// </summary>
+    /// <remarks>
+    /// The move reminder and the save-target mismatch fire off the same settled
+    /// name and used to appear together in two different places — an amber
+    /// banner here and a grey line under it. They answer one question, so one
+    /// banner carries whichever applies, and the mismatch wins: it names the
+    /// spot the log would actually be attached to, which is the more useful of
+    /// the two. "Spot switched to …" stays under the Spot field, where it
+    /// answers a different question (why the picker moved on its own).
+    /// </remarks>
+    private void RefreshLocationBanner(SaveGateDecision gate, LocationStabilityDecision stability)
+    {
+        var mismatch = SpotLocationWarning.Evaluate(
+            SelectedSpot,
+            SpotResolve.DetectedName(
+                (gate.Source ?? _sessionStore.Last()?.Report)?.LocationHint,
+                stability.IsStable ? stability.CanonicalName : null,
+                SpotCombo.ItemsSource as IEnumerable<SpotInfo>));
+
+        var message = mismatch ?? _locationMoveNotice;
+        LocationChangeLabel.Text = message ?? string.Empty;
+        LocationChangeBanner.Visibility = message is null
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 
     private void HideLocationChange()
     {
         _locationWatch.Reset();
+        _locationMoveNotice = null;
         LocationChangeLabel.Text = string.Empty;
         LocationChangeBanner.Visibility = Visibility.Collapsed;
     }
+
+    /// <summary>
+    /// Whether the alert banner is already carrying this exact sentence, in
+    /// which case the quiet save line must not restate it — see
+    /// <see cref="RefreshSaveEnabled"/>.
+    /// </summary>
+    /// <remarks>
+    /// Matched on the text, not merely on the banner being up: the banner also
+    /// carries capture- and game-level problems ("Game not running.") that say
+    /// nothing about the stored read, and treating those as cover for a save
+    /// warning dropped a second, unrelated fact — a spliced-XP figure could
+    /// then be posted with nothing on screen questioning it.
+    /// </remarks>
+    private bool AlreadyOnBanner(string? message)
+        => ReadProblemBanner.Visibility == Visibility.Visible
+            && !string.IsNullOrEmpty(message)
+            && string.Equals(ReadProblemLabel.Text, message, StringComparison.Ordinal);
 
     /// <summary>
     /// The handoff's second banner: something is wrong with the current read
@@ -1597,7 +1657,7 @@ public partial class MainWindow : Window
         // leaving its every later tick discarded (SaveConfirmationHold).
         if (_saveInFlight)
         {
-            PickerStatusLabel.Text = "A save is still in progress — try again in a moment.";
+            PickerStatusLabel.Text = SessionPickers.SaveInProgress;
             return;
         }
 
@@ -1822,7 +1882,7 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                ShowLocationChange();
+                NoteLocationChange();
                 appended = tick.Appended;
                 if (!tick.Appended)
                 {
@@ -1901,6 +1961,9 @@ public partial class MainWindow : Window
 
             // Light/detail describe this tick. XP / Adena / rates are the
             // last verified frame — the same numbers Save would post.
+            // Order matters: this settles the alert banner, and the refresh
+            // below reads ReadProblemVisible to decide what the quiet save
+            // line is still allowed to say.
             ShowLiveStatus(
                 rejected is null
                     ? LiveStatus.FromReport(result.Report)

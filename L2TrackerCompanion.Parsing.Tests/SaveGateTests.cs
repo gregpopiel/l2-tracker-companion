@@ -24,7 +24,7 @@ public class SaveGateTests
         // A player who stopped farming produces identical frames, so waiting
         // for repeated reads would only re-confirm a misread. One frame whose
         // own reads agree is the strongest evidence available.
-        var decision = SaveGate.Evaluate(TestReports.Open(), At, lastComparison: null);
+        var decision = SaveGate.Evaluate(TestReports.Open(), At);
 
         Assert.True(decision.CanSave);
     }
@@ -79,30 +79,7 @@ public class SaveGateTests
 
         Assert.True(decision.CanSave);
         Assert.Equal(TrafficLight.Orange, decision.Light);
-        Assert.Single(decision.Warnings);
-    }
-
-    [Fact]
-    public void EvaluateBlocksAContradictedTick()
-    {
-        var decision = SaveGate.Evaluate(
-            TestReports.Open(),
-            At,
-            lastComparison: MonotonicityOutcome.Misread);
-
-        Assert.False(decision.CanSave);
-        Assert.Equal(TrafficLight.Red, decision.Light);
-    }
-
-    [Fact]
-    public void ResetIsNotTreatedAsAContradiction()
-    {
-        var decision = SaveGate.Evaluate(
-            TestReports.Open(),
-            At,
-            lastComparison: MonotonicityOutcome.Reset);
-
-        Assert.True(decision.CanSave);
+        Assert.False(decision.Issue!.BlocksSave);
     }
 
     [Fact]
@@ -144,10 +121,10 @@ public class SaveGateTests
         var decision = SaveGate.Evaluate(report, At);
 
         Assert.True(decision.CanSave);
-        var warning = Assert.Single(decision.Warnings);
-        Assert.Contains("4,210,400", warning, StringComparison.Ordinal);
-        Assert.Contains("9,210,400", warning, StringComparison.Ordinal);
-        Assert.Contains("spliced", warning, StringComparison.Ordinal);
+        var message = decision.Issue!.Message;
+        Assert.Contains("4,210,400", message, StringComparison.Ordinal);
+        Assert.Contains("9,210,400", message, StringComparison.Ordinal);
+        Assert.Contains("spliced", message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -197,25 +174,29 @@ public class SaveGateTests
     }
 
     [Fact]
-    public void AMisreadFallsBackToTheHeldFrame()
+    public void AHeldFallbackSeparatesTheReasonFromWhatItIsSaving()
     {
+        // Two facts, two fields: the reason is shown in the alert banner and
+        // the substitution under Save, so composing them into one sentence
+        // left the UI with no way to drop the half it was already showing.
         var held = TestReports.Open(xp: 1_000_000, minutes: 60);
         var current = TestReports.Open(xp: 4_390_000, minutes: 139);
 
         var decision = SaveGate.EvaluateWithHold(
             current,
             At,
-            MonotonicityOutcome.Misread,
             held,
-            At.AddMinutes(-1));
+            At.AddMinutes(-1),
+            currentAccepted: false);
 
         Assert.True(decision.CanSave);
         Assert.True(decision.UsedHeldRead);
         Assert.Equal(held, decision.Source);
         Assert.Equal(1_000, decision.Totals!.XpFarmed);
         Assert.Equal(TrafficLight.Red, decision.Light);
+        Assert.Contains("not accepted", decision.HoldReason, StringComparison.Ordinal);
         var warning = Assert.Single(decision.Warnings);
-        Assert.Contains("contradicted", warning, StringComparison.Ordinal);
+        Assert.DoesNotContain("not accepted", warning, StringComparison.Ordinal);
         Assert.Contains("last verified read", warning, StringComparison.Ordinal);
         Assert.Contains("20:59:00 UTC", warning, StringComparison.Ordinal);
     }
@@ -226,13 +207,13 @@ public class SaveGateTests
         var held = TestReports.Open(xp: 2_000_000, minutes: 90);
         var current = TestReports.ClosedPanel(xp: 2_100_000, minutes: 95);
 
-        var decision = SaveGate.EvaluateWithHold(current, At, lastComparison: null, held, At);
+        var decision = SaveGate.EvaluateWithHold(current, At, held, At);
 
         Assert.True(decision.CanSave);
         Assert.True(decision.UsedHeldRead);
         Assert.Equal(2_000, decision.Totals!.XpFarmed);
         Assert.Equal(TrafficLight.Orange, decision.Light);
-        Assert.Contains("Magic Lamp", decision.Warnings[0], StringComparison.Ordinal);
+        Assert.Contains("Magic Lamp", decision.HoldReason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -244,7 +225,6 @@ public class SaveGateTests
         var decision = SaveGate.EvaluateWithHold(
             dropped,
             At,
-            lastComparison: null,
             held,
             At,
             currentAccepted: false);
@@ -253,7 +233,7 @@ public class SaveGateTests
         Assert.True(decision.UsedHeldRead);
         Assert.Equal(held, decision.Source);
         Assert.Equal(2_000, decision.Totals!.XpFarmed);
-        Assert.Contains("not accepted", decision.Warnings[0], StringComparison.Ordinal);
+        Assert.Contains("not accepted", decision.HoldReason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -262,7 +242,7 @@ public class SaveGateTests
         var held = TestReports.Open(xp: 1_000_000, minutes: 60);
         var current = TestReports.Open(xp: 4_390_000, minutes: 139);
 
-        var decision = SaveGate.EvaluateWithHold(current, At, lastComparison: null, held, At);
+        var decision = SaveGate.EvaluateWithHold(current, At, held, At);
 
         Assert.True(decision.CanSave);
         Assert.False(decision.UsedHeldRead);
@@ -276,7 +256,7 @@ public class SaveGateTests
         var held = TestReports.ClosedPanel();
         var current = TestReports.ClosedPanel(xp: 2_000_000);
 
-        var decision = SaveGate.EvaluateWithHold(current, At, lastComparison: null, held, At);
+        var decision = SaveGate.EvaluateWithHold(current, At, held, At);
 
         Assert.False(decision.CanSave);
         Assert.False(decision.UsedHeldRead);
@@ -288,7 +268,7 @@ public class SaveGateTests
     {
         var held = TestReports.Open();
 
-        var decision = SaveGate.EvaluateWithHold(null, At, lastComparison: null, held, At);
+        var decision = SaveGate.EvaluateWithHold(null, At, held, At);
 
         Assert.True(decision.CanSave);
         Assert.True(decision.UsedHeldRead);

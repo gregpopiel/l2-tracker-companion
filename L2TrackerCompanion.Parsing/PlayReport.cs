@@ -5,6 +5,13 @@ namespace L2TrackerCompanion.Parsing;
 /// nothing is derived from counts or settings. Matching <see cref="LocationHint"/>
 /// against a spot list is the caller's job.
 /// </summary>
+/// <remarks>
+/// <see cref="Warnings"/> is diagnostic-only — it is archived with the snapshot
+/// and printed by the OCR pipeline and OcrDump, and no UI ever shows it. What
+/// the player reads about a bad frame comes from <see cref="ReadIssues"/>, so
+/// do not add a UI surface for these strings: that is exactly the split that
+/// let two vocabularies for one defect drift apart.
+/// </remarks>
 public sealed record PlayReport(
     long? Xp,
     long? Adena,

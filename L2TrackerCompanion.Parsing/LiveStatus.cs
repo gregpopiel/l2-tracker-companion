@@ -29,54 +29,13 @@ public static class LiveStatus
     {
         ArgumentNullException.ThrowIfNull(report);
 
-        // A field whose two independent reads disagree is worse than an unread
-        // one: it has a plausible-looking value that must not be trusted.
-        if (report.Confidence.AdenaDisagreed)
-        {
-            var dispute = report.Confidence.DescribeAdenaDispute();
-            return new(
-                TrafficLight.Red,
-                dispute is null
-                    ? "Adena's two reads disagreed."
-                    : $"Adena's two reads disagreed — {dispute}.",
-                report);
-        }
-
-        if (report.Confidence.XpMagnitudeMismatch)
-        {
-            var dispute = report.Confidence.DescribeXpDispute();
-            return new(
-                TrafficLight.Red,
-                dispute is null
-                    ? "XP's two reads disagreed on the digit count."
-                    : $"XP's two reads disagreed on the digit count — {dispute}.",
-                report);
-        }
-
-        if (report.UnreadFields.Count > 0)
-        {
-            return new(TrafficLight.Red, DescribeFarmUnread(report.UnreadFields), report);
-        }
-
-        if (report.LampPanelClosed)
-        {
-            return new(TrafficLight.Orange, "Magic Lamp panel closed.", report);
-        }
-
-        if (!report.LampXpRead)
-        {
-            var detail = report.LampXpExceedsDialog
-                ? "Lamp XP discarded (sum exceeds dialog XP)."
-                : "Lamp table XP column couldn't be read.";
-            return new(TrafficLight.Red, detail, report);
-        }
-
-        if (report.Confidence.XpSpliced)
-        {
-            return new(TrafficLight.Orange, "XP was assembled from two disagreeing reads.", report);
-        }
-
-        return new(TrafficLight.Green, "Farm and lamps read.", report);
+        // Every defect and its wording come from ReadIssues, the same describer
+        // SaveGate blocks on — the light and the reason can no longer disagree
+        // about a frame, and a clean read is the only thing left to say here.
+        var issue = ReadIssues.Describe(report);
+        return issue is null
+            ? new(TrafficLight.Green, "Farm and lamps read.", report)
+            : new(issue.Light, issue.Message, report);
     }
 
     public static LiveStatusSnapshot TickRejected(string detail)
@@ -144,21 +103,6 @@ public static class LiveStatus
 
         builder.Append($"Location: {report.LocationHint ?? "(not visible)"}");
         return builder.ToString();
-    }
-
-    private static string DescribeFarmUnread(IReadOnlyList<string> unread)
-    {
-        if (unread.Count >= 3)
-        {
-            return "Couldn't read farm data.";
-        }
-
-        if (unread.Count == 1)
-        {
-            return $"Couldn't read {unread[0]}.";
-        }
-
-        return $"Couldn't read {unread[0]} and {unread[1]}.";
     }
 
     private static string Amt(long? value, CultureInfo inv)

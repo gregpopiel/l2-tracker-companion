@@ -13,16 +13,17 @@ namespace L2TrackerCompanion.Parsing;
 /// stopped farming produces identical frames, and identical frames reproduce
 /// an identical misread, so repetition alone can never unlock a save.
 ///
+/// What is wrong with a frame is not decided here: <see cref="ReadIssues"/>
+/// answers that for this class and for <see cref="LiveStatus"/> alike, so the
+/// gate and the traffic light can never phrase the same defect two ways.
+///
 /// A rejected tick must not lock the player out of Save. <see cref="EvaluateWithHold"/>
 /// posts the last frame that itself passed this gate, and only blocks when
 /// no such frame exists yet.
 /// </remarks>
 public static class SaveGate
 {
-    public static SaveGateDecision Evaluate(
-        PlayReport? report,
-        DateTimeOffset capturedAt,
-        MonotonicityOutcome? lastComparison = null)
+    public static SaveGateDecision Evaluate(PlayReport? report, DateTimeOffset capturedAt)
     {
         if (report is null)
         {
@@ -32,64 +33,32 @@ public static class SaveGate
             return SaveGateDecision.Blocked(TrafficLight.Idle, null);
         }
 
-        var warnings = new List<string>();
-
-        if (lastComparison == MonotonicityOutcome.Misread)
+        var issue = ReadIssues.Describe(report);
+        if (issue is { BlocksSave: true })
         {
-            return SaveGateDecision.Blocked(
-                TrafficLight.Red,
-                "The last read contradicted the one before it.");
-        }
-
-        if (report.Confidence.PlayTimeDisagreed)
-        {
-            return SaveGateDecision.Blocked(
-                TrafficLight.Red,
-                "The play-time line was read twice and the two reads disagreed.");
-        }
-
-        if (report.Confidence.AdenaDisagreed)
-        {
-            return SaveGateDecision.Blocked(
-                TrafficLight.Red,
-                Detail("Adena's two reads disagreed", report.Confidence.DescribeAdenaDispute()));
-        }
-
-        if (report.Confidence.XpMagnitudeMismatch)
-        {
-            return SaveGateDecision.Blocked(
-                TrafficLight.Red,
-                Detail(
-                    "The two XP reads disagreed on the number of digits — one of them dropped a digit",
-                    report.Confidence.DescribeXpDispute()));
+            return SaveGateDecision.Blocked(issue.Light, issue.Message, issue);
         }
 
         var snapshot = SessionSnapshot.TryCreate(report, capturedAt);
         if (!snapshot.Ok)
         {
+            // Defensive only: ReadIssues covers everything TryCreate rejects,
+            // so reaching this means the two fell out of step — surface the
+            // snapshot's own reason rather than an empty status line.
             var light = report.LampPanelClosed ? TrafficLight.Orange : TrafficLight.Red;
             return SaveGateDecision.Blocked(light, snapshot.Error!);
         }
 
-        if (report.Confidence.XpSpliced || report.Confidence.XpDisagreed)
-        {
-            var inv = CultureInfo.InvariantCulture;
-            var saving = report.Xp?.ToString("N0", inv) ?? "(unread)";
-            var how = report.Confidence.XpSpliced ? "spliced" : "picked";
-            warnings.Add(
-                Detail("XP disputed", report.Confidence.DescribeXpDispute())
-                + $" Saving {saving} ({how}) — check it against the panel.");
-        }
-
-        var colour = warnings.Count > 0 ? TrafficLight.Orange : TrafficLight.Green;
+        var colour = issue?.Light ?? TrafficLight.Green;
         return new SaveGateDecision(
             CanSave: true,
             Light: colour,
             BlockReason: null,
-            Warnings: warnings,
+            Warnings: [],
             Totals: snapshot.Totals,
             Source: report,
-            UsedHeldRead: false);
+            UsedHeldRead: false,
+            Issue: issue);
     }
 
     /// <summary>
@@ -105,12 +74,11 @@ public static class SaveGate
     public static SaveGateDecision EvaluateWithHold(
         PlayReport? current,
         DateTimeOffset currentAt,
-        MonotonicityOutcome? lastComparison,
         PlayReport? held,
         DateTimeOffset heldAt,
         bool currentAccepted = true)
     {
-        var live = Evaluate(current, currentAt, lastComparison);
+        var live = Evaluate(current, currentAt);
         if (currentAccepted && live.CanSave)
         {
             return live;
@@ -120,7 +88,8 @@ public static class SaveGate
         {
             live = SaveGateDecision.Blocked(
                 live.Light == TrafficLight.Green ? TrafficLight.Red : live.Light,
-                "The last read was not accepted.");
+                "The last read was not accepted.",
+                live.Issue);
         }
 
         if (held is null)
@@ -134,10 +103,15 @@ public static class SaveGate
             return live;
         }
 
-        var warnings = heldDecision.Warnings.ToList();
-        var why = live.BlockReason ?? "The current read is not trustworthy.";
+        // Why the current frame was passed over and what is being posted
+        // instead are two separate facts, kept apart because they are shown in
+        // different places: the reason is already in the alert banner whenever
+        // tracking is on, and repeating it under Save said the same thing twice.
         var when = heldAt.ToUniversalTime().UtcDateTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-        warnings.Insert(0, $"{why} Saving last verified read ({when} UTC).");
+        // Only the substitution itself: Evaluate returns no warnings of its
+        // own any more, so there is nothing of heldDecision's to carry over —
+        // its non-blocking defect travels as Issue below.
+        var warnings = new List<string> { $"Saving last verified read ({when} UTC)." };
 
         var light = live.Light == TrafficLight.Idle ? heldDecision.Light : live.Light;
         return new SaveGateDecision(
@@ -147,15 +121,10 @@ public static class SaveGate
             Warnings: warnings,
             Totals: heldDecision.Totals,
             Source: held,
-            UsedHeldRead: true);
+            UsedHeldRead: true,
+            Issue: heldDecision.Issue,
+            HoldReason: live.BlockReason ?? "The current read is not trustworthy.");
     }
-
-    /// <summary>
-    /// Append the two competing figures when both are known, so the message
-    /// says what to look at rather than only that something is wrong.
-    /// </summary>
-    private static string Detail(string headline, string? dispute)
-        => dispute is null ? headline + "." : $"{headline} — {dispute}.";
 }
 
 public sealed record SaveGateDecision(
@@ -165,8 +134,10 @@ public sealed record SaveGateDecision(
     IReadOnlyList<string> Warnings,
     SessionTotals? Totals,
     PlayReport? Source = null,
-    bool UsedHeldRead = false)
+    bool UsedHeldRead = false,
+    ReadIssue? Issue = null,
+    string? HoldReason = null)
 {
-    public static SaveGateDecision Blocked(TrafficLight light, string? reason)
-        => new(false, light, reason, [], null);
+    public static SaveGateDecision Blocked(TrafficLight light, string? reason, ReadIssue? issue = null)
+        => new(false, light, reason, [], null, Issue: issue);
 }
