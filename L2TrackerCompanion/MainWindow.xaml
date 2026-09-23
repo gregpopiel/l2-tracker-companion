@@ -563,16 +563,10 @@
 
                         <HeaderedContentControl Header="Account"
                                                 Style="{StaticResource SectionGroup}">
-                            <StackPanel>
-                                <TextBlock x:Name="AccountStatusLabel"
-                                           Text=""
-                                           Style="{StaticResource StatusText}"
-                                           Margin="0,0,0,10" />
-                                <Button x:Name="SignOutButton"
-                                        Content="Sign out"
-                                        Style="{StaticResource DangerButton}"
-                                        Click="SignOutButton_Click" />
-                            </StackPanel>
+                            <Button x:Name="SignOutButton"
+                                    Content="Sign out"
+                                    Style="{StaticResource DangerButton}"
+                                    Click="SignOutButton_Click" />
                         </HeaderedContentControl>
 
                         <HeaderedContentControl Header="About"
@@ -616,7 +610,7 @@
                         Click="UpdateAvailableButton_Click" />
                 <TextBlock x:Name="PollStatusLabel"
                            Grid.Column="2"
-                           Text="Not tracking."
+                           Text="Not tracking"
                            FontSize="{StaticResource FontSizeXs}"
                            Style="{StaticResource StatusBarText}"
                            Margin="16,0,0,0" />

@@ -390,9 +390,6 @@ public partial class MainWindow : Window
         AuthStatusLabel.Text = status;
         AuthStatusLabel.Foreground = brush;
         AuthStatusLabel.Visibility = visibility;
-        AccountStatusLabel.Text = status;
-        AccountStatusLabel.Foreground = brush;
-        AccountStatusLabel.Visibility = visibility;
     }
 
     // The pick itself — independent of the combo, which is collapsed when
@@ -1322,7 +1319,7 @@ public partial class MainWindow : Window
         // the timer, and _polling is initialised at its declaration.
         var prefix = _polling.IsRunning
             ? $"Tracking every {(int)_polling.NextInterval.TotalSeconds}s"
-            : "Not tracking.";
+            : "Not tracking";
         PollStatusLabel.Text = string.IsNullOrWhiteSpace(message)
             ? prefix
             : prefix + " · " + message;

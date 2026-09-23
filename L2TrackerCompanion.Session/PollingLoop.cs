@@ -124,7 +124,7 @@ public sealed record TickResult(
     MonotonicityOutcome? Outcome = null)
 {
     public static TickResult NotTracking()
-        => new(false, false, "Not tracking.", null);
+        => new(false, false, "Not tracking", null);
 
     public static TickResult Accepted(SnapshotRow row)
         => new(true, true, $"Accepted #{row.Id}.", row, MonotonicityOutcome.Accepted);
