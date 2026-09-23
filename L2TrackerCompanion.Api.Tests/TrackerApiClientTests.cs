@@ -279,8 +279,6 @@ public class TrackerApiClientTests
                 spots: null,
                 spotsLoaded: false,
                 new AreaInfo(1, "World"))));
-        Assert.Contains("Sign in", SessionPickers.SignInToLoad, StringComparison.Ordinal);
-        Assert.Contains("Sign in", SessionPickers.SignInToSave, StringComparison.Ordinal);
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string json)

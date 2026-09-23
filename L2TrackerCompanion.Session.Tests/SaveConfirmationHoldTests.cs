@@ -14,28 +14,18 @@ public class SaveConfirmationHoldTests
     }
 
     [Fact]
-    public void AnInFlightSaveFreezesPickerStatusEvenWithoutAHold()
-    {
-        var hold = new SaveConfirmationHold();
-        Assert.True(hold.FreezePickerStatus(saveInFlight: true));
-        Assert.False(hold.FreezePickerStatus(saveInFlight: false));
-    }
-
-    [Fact]
-    public void ASuccessfulSaveHoldsPickerStatusUntilReleased()
+    public void ASuccessfulSaveIgnoresIncomingReadsUntilReleased()
     {
         var hold = new SaveConfirmationHold();
         hold.BeginSave();
         hold.Saved();
 
         Assert.True(hold.Active);
-        Assert.True(hold.FreezePickerStatus(saveInFlight: false));
         Assert.True(hold.IgnoreIncomingReads);
 
         hold.Release();
 
         Assert.False(hold.Active);
-        Assert.False(hold.FreezePickerStatus(saveInFlight: false));
         Assert.False(hold.IgnoreIncomingReads);
     }
 
@@ -47,7 +37,6 @@ public class SaveConfirmationHoldTests
         hold.BeginSave();
 
         Assert.False(hold.Active);
-        Assert.True(hold.FreezePickerStatus(saveInFlight: true));
-        Assert.False(hold.FreezePickerStatus(saveInFlight: false));
+        Assert.False(hold.IgnoreIncomingReads);
     }
 }

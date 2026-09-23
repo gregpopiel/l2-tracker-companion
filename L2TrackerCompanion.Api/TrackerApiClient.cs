@@ -419,14 +419,6 @@ public sealed record ApiCallResult<T>(
 
 public static class SessionPickers
 {
-    public const string SignInToLoad = "Sign in to load characters.";
-
-    public const string SignInToSave = "Sign in to save.";
-
-    public const string PickCharacter = "Pick a character.";
-
-    public const string SaveInProgress = "A save is still in progress — try again in a moment.";
-
     public const string SessionExpired = "Session expired. Paste a token to continue.";
 
     public static bool CharacterChosen(CharacterInfo? character)

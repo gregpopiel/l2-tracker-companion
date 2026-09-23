@@ -1,3 +1,5 @@
+using L2TrackerCompanion.Parsing;
+
 namespace L2TrackerCompanion.Api;
 
 /// <summary>
@@ -11,11 +13,13 @@ namespace L2TrackerCompanion.Api;
 /// but after the player answers that correction their pick is pinned and
 /// nothing re-checks it again. That is correct for <em>which spot to save
 /// to</em>, but it means a session that quietly walked from one spot to another
-/// produces no signal at all. This is that signal: purely a warning text for
-/// the status line, same spirit as <see cref="LocationChangeWatch"/> in
+/// produces no signal at all. This is that signal: purely a warning for
+/// the location banner, same spirit as <see cref="LocationChangeWatch"/> in
 /// <c>L2TrackerCompanion.Session</c> — it never blocks a save, since the Play
 /// Report spans the whole session and attributing it to one spot or the other
-/// is the player's call.
+/// is the player's call. Matching is fuzzy (<see cref="LocationName.SamePlace"/>),
+/// the same rule the move reminder uses, so OCR garble of the pinned spot
+/// is not reported as a walk to somewhere else.
 /// </remarks>
 public static class SpotLocationWarning
 {
@@ -41,7 +45,10 @@ public static class SpotLocationWarning
             return null;
         }
 
-        if (SpotMatch.SameName(selected.Name, stableCanonicalName))
+        // Same fuzzy rule LocationChangeWatch uses for a move: exact equality
+        // treated OCR garble (SelM@hum / prägon Villey) as a different spot
+        // and raised this warning for a player who had not moved.
+        if (LocationName.SamePlace(selected.Name, stableCanonicalName))
         {
             return null;
         }

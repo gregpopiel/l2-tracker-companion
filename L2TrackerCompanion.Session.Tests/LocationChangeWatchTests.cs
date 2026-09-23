@@ -74,4 +74,70 @@ public class LocationChangeWatchTests
         Assert.Null(watch.Current);
         Assert.Null(watch.Notice("Blazing Swamp"));
     }
+
+    [Fact]
+    public void AnOcrGarbleOfTheSettledZoneIsNotReportedAsAMove()
+    {
+        var watch = new LocationChangeWatch();
+        watch.Notice("Dragon Valley (east)");
+
+        Assert.Null(watch.Notice("prägon Villey (east)"));
+    }
+
+    [Fact]
+    public void AGarbleDoesNotBecomeTheNameFutureReadsAreComparedAgainst()
+    {
+        var watch = new LocationChangeWatch();
+        watch.Notice("Dragon Valley (east)");
+        watch.Notice("prägon Villey (east)");
+
+        Assert.Equal("Dragon Valley (east)", watch.Current);
+        Assert.Null(watch.Notice("Dragon Valley (east)"));
+
+        var message = watch.Notice("Cruma Tower");
+        Assert.NotNull(message);
+        Assert.Contains("Cruma Tower", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheMoveNoticeStopsShowingOnceItHasHadTimeToBeRead()
+    {
+        var watch = new LocationChangeWatch();
+        var start = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
+        watch.Notice("Cruma Tower", start);
+
+        var message = watch.Notice("Blazing Swamp", start);
+        Assert.NotNull(message);
+        Assert.Equal(message, watch.PendingNotice(start.Add(LocationChangeWatch.NoticeLifetime).AddTicks(-1)));
+        Assert.Null(watch.PendingNotice(start.Add(LocationChangeWatch.NoticeLifetime)));
+    }
+
+    [Fact]
+    public void ASecondMoveReplacesThePendingNoticeAndRestartsItsClock()
+    {
+        var watch = new LocationChangeWatch();
+        var start = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
+        watch.Notice("Cruma Tower", start);
+        watch.Notice("Blazing Swamp", start);
+
+        var second = start.AddMinutes(1);
+        var message = watch.Notice("Dragon Valley", second);
+        Assert.Contains("Dragon Valley", message, StringComparison.Ordinal);
+        Assert.Equal(message, watch.PendingNotice(second.Add(LocationChangeWatch.NoticeLifetime).AddTicks(-1)));
+        Assert.Null(watch.PendingNotice(second.Add(LocationChangeWatch.NoticeLifetime)));
+    }
+
+    [Fact]
+    public void ResetClearsAPendingNoticeAsWellAsTheCurrentLocation()
+    {
+        var watch = new LocationChangeWatch();
+        var start = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
+        watch.Notice("Cruma Tower", start);
+        watch.Notice("Blazing Swamp", start);
+
+        watch.Reset();
+
+        Assert.Null(watch.Current);
+        Assert.Null(watch.PendingNotice(start));
+    }
 }

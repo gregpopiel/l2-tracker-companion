@@ -1,3 +1,5 @@
+using L2TrackerCompanion.Parsing;
+
 namespace L2TrackerCompanion.Session;
 
 /// <summary>
@@ -19,6 +21,16 @@ namespace L2TrackerCompanion.Session;
 /// </remarks>
 public sealed class LocationChangeWatch
 {
+    /// <summary>
+    /// About twelve ticks at the 10s cadence: long enough for a player
+    /// alt-tabbed through the walk to come back and read it, short enough
+    /// that it cannot outlive the walk it describes.
+    /// </summary>
+    public static readonly TimeSpan NoticeLifetime = TimeSpan.FromMinutes(2);
+
+    private string? _pendingNotice;
+    private DateTimeOffset _pendingNoticeAt;
+
     /// <summary>The last settled location, or null before the first one.</summary>
     public string? Current { get; private set; }
 
@@ -27,7 +39,10 @@ public sealed class LocationChangeWatch
     /// window is unsettled.
     /// </param>
     /// <returns>A message to show, exactly once per observed move; else null.</returns>
-    public string? Notice(string? stableName)
+    public string? Notice(string? stableName) => Notice(stableName, DateTimeOffset.UtcNow);
+
+    /// <inheritdoc cref="Notice(string?)"/>
+    public string? Notice(string? stableName, DateTimeOffset now)
     {
         if (string.IsNullOrWhiteSpace(stableName))
         {
@@ -43,18 +58,51 @@ public sealed class LocationChangeWatch
             return null;
         }
 
-        if (string.Equals(Current, name, StringComparison.OrdinalIgnoreCase))
+        // Fuzzy only here. LocationStability still feeds spot creation, where
+        // a name has to match exactly — a sentence has no data consequence
+        // and a created spot does. The price is that a genuine move between
+        // two names one glyph apart goes unannounced; the spot-mismatch
+        // warning already outranks this notice.
+        // A garble must not become Current, or the next clean read would
+        // look like a move back.
+        if (LocationName.SamePlace(Current, name))
         {
             return null;
         }
 
         Current = name;
-        return $"Location changed to {name} — restart the in-game Play Report if you moved spots.";
+        _pendingNotice = $"Location changed to {name} — restart the in-game Play Report if you moved spots.";
+        _pendingNoticeAt = now;
+        return _pendingNotice;
+    }
+
+    /// <summary>
+    /// The move reminder, while it is still inside <see cref="NoticeLifetime"/>.
+    /// Past that it is cleared, so a notice cannot stay up for the rest of the run.
+    /// </summary>
+    public string? PendingNotice(DateTimeOffset now)
+    {
+        if (_pendingNotice is null)
+        {
+            return null;
+        }
+
+        if (now - _pendingNoticeAt >= NoticeLifetime)
+        {
+            _pendingNotice = null;
+            return null;
+        }
+
+        return _pendingNotice;
     }
 
     /// <summary>
     /// Forget where the player was. For a restarted game client, where the next
     /// location is a first sighting again rather than a move.
     /// </summary>
-    public void Reset() => Current = null;
+    public void Reset()
+    {
+        Current = null;
+        _pendingNotice = null;
+    }
 }

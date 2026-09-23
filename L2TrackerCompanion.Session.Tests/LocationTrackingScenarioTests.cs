@@ -1,4 +1,5 @@
 using L2TrackerCompanion.Parsing;
+using L2TrackerCompanion.Session;
 using Xunit;
 
 namespace L2TrackerCompanion.Session.Tests;
@@ -7,14 +8,14 @@ namespace L2TrackerCompanion.Session.Tests;
 /// End-to-end reproductions of the live poll loop
 /// (<c>LocationStability.Evaluate</c> over the whole session's raw minimap
 /// hints, feeding the settled name into <c>LocationChangeWatch.Notice</c>) —
-/// the pipeline MainWindow runs on every 10s tick. These pin down exactly
-/// when a spot change gets noticed, so a regression in either piece (or in
-/// how they're wired together) shows up here instead of only in manual play.
+/// the pipeline MainWindow's <c>NoteLocationChange</c> runs on every accepted
+/// tick. The banner itself re-reads <c>PendingNotice</c> (including on
+/// capture-fail ticks that produce no new Notice).
 /// </summary>
 public class LocationTrackingScenarioTests
 {
     /// <summary>
-    /// Mirrors MainWindow's <c>ShowLocationChange</c>: re-evaluate stability
+    /// Mirrors MainWindow's <c>NoteLocationChange</c>: re-evaluate stability
     /// over the *entire* raw hint history so far, then notice against the
     /// settled name (or null while unsettled).
     /// </summary>
@@ -23,12 +24,20 @@ public class LocationTrackingScenarioTests
         private readonly List<string?> _rawHints = [];
         private readonly LocationChangeWatch _watch = new();
 
-        public string? Tick(string? rawHint)
+        public string? Tick(string? rawHint) => Tick(rawHint, DateTimeOffset.UtcNow);
+
+        public string? Tick(string? rawHint, DateTimeOffset now)
         {
             _rawHints.Add(rawHint);
             var stability = LocationStability.Evaluate(_rawHints);
-            return _watch.Notice(stability.IsStable ? stability.CanonicalName : null);
+            return _watch.Notice(stability.IsStable ? stability.CanonicalName : null, now);
         }
+
+        /// <summary>
+        /// What <c>RefreshLocationBanner</c> shows without a new read —
+        /// a capture-fail / game-not-running tick.
+        /// </summary>
+        public string? BannerAt(DateTimeOffset now) => _watch.PendingNotice(now);
     }
 
     [Fact]
@@ -139,5 +148,64 @@ public class LocationTrackingScenarioTests
         }
 
         Assert.Null(freshLoop.Tick("Training Zone"));
+    }
+
+    [Fact]
+    public void ARunOfGarbledReadsThatSettlesIntoTheWindowNeverAnnouncesAMove()
+    {
+        var loop = new PollLoop();
+
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.Null(loop.Tick("Dragon Valley (east)"));
+        }
+
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.Null(loop.Tick("prägon Villey (east)"));
+        }
+    }
+
+    [Fact]
+    public void TheWindowFlippingBackToTheCleanSpellingAlsoStaysQuiet()
+    {
+        var loop = new PollLoop();
+
+        for (var i = 0; i < 5; i++)
+        {
+            loop.Tick("Dragon Valley (east)");
+        }
+
+        for (var i = 0; i < 5; i++)
+        {
+            loop.Tick("prägon Villey (east)");
+        }
+
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.Null(loop.Tick("Dragon Valley (east)"));
+        }
+    }
+
+    [Fact]
+    public void CaptureFailTicksStillExpireTheMoveNoticeWithoutANewRead()
+    {
+        var loop = new PollLoop();
+        var start = new DateTimeOffset(2026, 9, 24, 0, 0, 0, TimeSpan.Zero);
+
+        for (var i = 0; i < 5; i++)
+        {
+            loop.Tick("Dragon Valley", start);
+        }
+
+        string? warning = null;
+        for (var i = 0; i < 4; i++)
+        {
+            warning = loop.Tick("Training Zone", start);
+        }
+
+        Assert.NotNull(warning);
+        Assert.Equal(warning, loop.BannerAt(start.AddMinutes(1)));
+        Assert.Null(loop.BannerAt(start.Add(LocationChangeWatch.NoticeLifetime)));
     }
 }

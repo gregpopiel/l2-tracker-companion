@@ -148,8 +148,8 @@ public sealed record SpotResolveDecision(
     /// their way. Advice to keep waiting is only true while it is. This never
     /// returns an empty string for a blocked kind: the caller owns the decision
     /// to stay silent (see MainWindow's ShowSpotResolveHint, which does that
-    /// only before a session exists at all), because the line under Save blanks
-    /// itself on the assumption that this slot carried the reason.
+    /// only before a session exists at all). Spot-resolve reasons stay in this
+    /// slot; the save-result banner is not a second copy of them.
     /// </param>
     public string Hint(int sampleCount, int majorityCount, int windowSize, bool tracking) => Kind switch
     {

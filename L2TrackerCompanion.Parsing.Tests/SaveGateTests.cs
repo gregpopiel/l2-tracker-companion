@@ -14,7 +14,6 @@ public class SaveGateTests
 
         Assert.True(decision.CanSave);
         Assert.Equal(TrafficLight.Green, decision.Light);
-        Assert.Empty(decision.Warnings);
         Assert.NotNull(decision.Totals);
     }
 
@@ -174,11 +173,10 @@ public class SaveGateTests
     }
 
     [Fact]
-    public void AHeldFallbackSeparatesTheReasonFromWhatItIsSaving()
+    public void AHeldFallbackSaysWhyItPassedOverTheCurrentFrameAndNothingElse()
     {
-        // Two facts, two fields: the reason is shown in the alert banner and
-        // the substitution under Save, so composing them into one sentence
-        // left the UI with no way to drop the half it was already showing.
+        // The live card already shows the held frame's figures, so the gate
+        // only says why the current frame was passed over.
         var held = TestReports.Open(xp: 1_000_000, minutes: 60);
         var current = TestReports.Open(xp: 4_390_000, minutes: 139);
 
@@ -195,10 +193,6 @@ public class SaveGateTests
         Assert.Equal(1_000, decision.Totals!.XpFarmed);
         Assert.Equal(TrafficLight.Red, decision.Light);
         Assert.Contains("not accepted", decision.HoldReason, StringComparison.Ordinal);
-        var warning = Assert.Single(decision.Warnings);
-        Assert.DoesNotContain("not accepted", warning, StringComparison.Ordinal);
-        Assert.Contains("last verified read", warning, StringComparison.Ordinal);
-        Assert.Contains("20:59:00 UTC", warning, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -274,5 +268,8 @@ public class SaveGateTests
         Assert.True(decision.UsedHeldRead);
         Assert.Equal(TrafficLight.Green, decision.Light);
         Assert.Equal(held, decision.Source);
+        // No current frame is already the live-status line ("Game not running.").
+        // A filler HoldReason here composed into a second, invented defect.
+        Assert.Null(decision.HoldReason);
     }
 }

@@ -39,6 +39,15 @@ public class SpotLocationWarningTests
     }
 
     [Fact]
+    public void AGarbledMinimapSpellingOfTheSelectedSpotIsNotAMove()
+    {
+        // LocationChangeWatch already treats these as the same place; this
+        // warning used exact equality and fired for a player who had not moved.
+        Assert.Null(SpotLocationWarning.Evaluate(DragonValley, "prägon Villey"));
+        Assert.Null(SpotLocationWarning.Evaluate(DragonValley, "Drägön Valley"));
+    }
+
+    [Fact]
     public void WarnsWhenTheSettledLocationDiffersFromTheSelectedSpot()
     {
         // This is the reported bug: tracking started at Dragon Valley (spot

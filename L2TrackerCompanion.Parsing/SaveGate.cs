@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
@@ -54,7 +52,6 @@ public static class SaveGate
             CanSave: true,
             Light: colour,
             BlockReason: null,
-            Warnings: [],
             Totals: snapshot.Totals,
             Source: report,
             UsedHeldRead: false,
@@ -103,27 +100,23 @@ public static class SaveGate
             return live;
         }
 
-        // Why the current frame was passed over and what is being posted
-        // instead are two separate facts, kept apart because they are shown in
-        // different places: the reason is already in the alert banner whenever
-        // tracking is on, and repeating it under Save said the same thing twice.
-        var when = heldAt.ToUniversalTime().UtcDateTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-        // Only the substitution itself: Evaluate returns no warnings of its
-        // own any more, so there is nothing of heldDecision's to carry over —
-        // its non-blocking defect travels as Issue below.
-        var warnings = new List<string> { $"Saving last verified read ({when} UTC)." };
-
+        // The live card is already painted from this held frame, so a sentence
+        // saying which read is being saved restated a fact nobody acts on.
+        // HoldReason is why the current frame was passed over — only when
+        // Evaluate actually named a defect. A missing current frame (game not
+        // running, empty store) has BlockReason null on purpose; inventing
+        // "not trustworthy" there duplicated the live-status line
+        // ("Game not running. · The current read is not trustworthy.").
         var light = live.Light == TrafficLight.Idle ? heldDecision.Light : live.Light;
         return new SaveGateDecision(
             CanSave: true,
             Light: light,
             BlockReason: null,
-            Warnings: warnings,
             Totals: heldDecision.Totals,
             Source: held,
             UsedHeldRead: true,
             Issue: heldDecision.Issue,
-            HoldReason: live.BlockReason ?? "The current read is not trustworthy.");
+            HoldReason: live.BlockReason);
     }
 }
 
@@ -131,7 +124,6 @@ public sealed record SaveGateDecision(
     bool CanSave,
     TrafficLight Light,
     string? BlockReason,
-    IReadOnlyList<string> Warnings,
     SessionTotals? Totals,
     PlayReport? Source = null,
     bool UsedHeldRead = false,
@@ -139,5 +131,5 @@ public sealed record SaveGateDecision(
     string? HoldReason = null)
 {
     public static SaveGateDecision Blocked(TrafficLight light, string? reason, ReadIssue? issue = null)
-        => new(false, light, reason, [], null, Issue: issue);
+        => new(false, light, reason, null, Issue: issue);
 }

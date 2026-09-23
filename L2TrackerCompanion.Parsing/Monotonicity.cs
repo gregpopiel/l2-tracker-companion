@@ -67,7 +67,12 @@ public static class Monotonicity
     /// Every field must be readable — an unread field is a failed OCR pass,
     /// never evidence of a reset.
     /// </summary>
-    private static bool LooksLikeReset(PlayReport previous, PlayReport candidate)
+    /// <remarks>
+    /// Shared with <see cref="LampContinuity"/> so the two cannot disagree
+    /// about what a reset looks like. A restarted panel legitimately zeroes
+    /// every lamp; anything else that falls is a bad read.
+    /// </remarks>
+    public static bool LooksLikeReset(PlayReport previous, PlayReport candidate)
     {
         if (previous.Minutes is null || candidate.Minutes is null
             || previous.Xp is null || candidate.Xp is null

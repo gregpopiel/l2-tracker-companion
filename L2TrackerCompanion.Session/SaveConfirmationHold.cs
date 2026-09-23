@@ -1,20 +1,14 @@
 namespace L2TrackerCompanion.Session;
 
 /// <summary>
-/// Keeps the post-save confirmation (and the in-flight "Saving…" line) from
-/// being replaced by the next <c>RefreshSaveEnabled</c> pass — a poll tick,
-/// picker change, or game-window refresh would otherwise swap it for the
-/// save-lock reason.
+/// After a 2xx, ignore incoming Play Report reads until the player starts
+/// a new run. Confirmation and errors live on the save-result banner, and
+/// in-flight copy lives on the Save button — this hold does not freeze
+/// either of those surfaces.
 /// </summary>
 public sealed class SaveConfirmationHold
 {
     public bool Active { get; private set; }
-
-    /// <summary>
-    /// True while a POST is in flight or a successful save's copy should stay
-    /// on screen. Button enablement is a separate concern.
-    /// </summary>
-    public bool FreezePickerStatus(bool saveInFlight) => saveInFlight || Active;
 
     /// <summary>
     /// Poll ticks, Capture once, and Parse last must not refill Live status

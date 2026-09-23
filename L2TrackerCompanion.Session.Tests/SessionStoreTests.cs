@@ -341,6 +341,44 @@ public class SessionStoreTests
         Assert.Equal(PollingLoop.WarmUpInterval, loop.NextInterval);
     }
 
+    [Fact]
+    public void AFailedLampCellNoLongerDiscardsTheTickOrBurnsAStaleBaselineStrike()
+    {
+        using var store = new SessionStore(":memory:");
+        var good = store.TryAccept(OpenRead(xp: 6_412_172, adena: 1_000_000, minutes: 30, green: 256_000));
+        Assert.True(good.Appended);
+
+        for (var i = 0; i < SessionStore.StaleBaselineStrikes; i++)
+        {
+            var failed = store.TryAccept(OpenRead(
+                xp: 6_500_000 + i,
+                adena: 1_100_000 + i,
+                minutes: 31 + i,
+                green: 0));
+            Assert.True(failed.Appended);
+        }
+
+        Assert.Equal(1 + SessionStore.StaleBaselineStrikes, store.Count);
+        Assert.Equal(256_000, store.List()[0].Report.GreenLampXp);
+
+        var latest = store.Last()!.Report;
+        Assert.False(latest.LampXpRead);
+        var gate = SaveGate.Evaluate(latest, DateTimeOffset.UnixEpoch);
+        Assert.False(gate.CanSave);
+        Assert.Contains("Magic Lamp XP column could not be read", gate.BlockReason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LastLampReadSkipsFramesWhoseLampColumnWasWithdrawn()
+    {
+        using var store = new SessionStore(":memory:");
+        store.TryAccept(OpenRead(xp: 1_000_000, adena: 1, minutes: 10, green: 256_000));
+        store.TryAccept(OpenRead(xp: 1_100_000, adena: 2, minutes: 11, green: 0));
+
+        Assert.Equal(256_000, store.LastLampRead()!.Report.GreenLampXp);
+        Assert.False(store.Last()!.Report.LampXpRead);
+    }
+
     private static PlayReport ClosedPanel(long xp, long adena, int minutes)
         => PlayReport.From(
             xp,
@@ -359,7 +397,7 @@ public class SessionStoreTests
                 adena),
             null);
 
-    private static PlayReport OpenRead(long xp, long adena, int minutes, string? hint = null)
+    private static PlayReport OpenRead(long xp, long adena, int minutes, string? hint = null, long green = 0)
         => PlayReport.From(
             xp,
             adena,
@@ -370,7 +408,7 @@ public class SessionStoreTests
                     ["red"] = 0,
                     ["purple"] = 0,
                     ["blue"] = 0,
-                    ["green"] = 0,
+                    ["green"] = green,
                 },
                 new Dictionary<string, WordBox>
                 {

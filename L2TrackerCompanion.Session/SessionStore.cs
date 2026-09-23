@@ -121,11 +121,32 @@ public sealed class SessionStore : IDisposable
         return row;
     }
 
-    public SnapshotRow? Last()
+    public SnapshotRow? Last() => Latest(lampXpRead: null);
+
+    /// <summary>
+    /// Newest snapshot whose lamp column was actually read. A withdrawn cell
+    /// stays in the table for its farm figures, but it must not become the
+    /// baseline the next cell is compared against.
+    /// </summary>
+    public SnapshotRow? LastLampRead() => Latest(lampXpRead: true);
+
+    /// <summary>
+    /// Drop a lamp figure that fell within the session before the frame is
+    /// judged. One funnel so the UI and <see cref="TryAccept"/> compare
+    /// against the same last-good lamp read.
+    /// </summary>
+    public PlayReport Reconcile(PlayReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        return LampContinuity.Withdraw(Last()?.Report, LastLampRead()?.Report, report);
+    }
+
+    private SnapshotRow? Latest(bool? lampXpRead)
     {
         using var command = _connection.CreateCommand();
+        var where = lampXpRead is null ? "" : "WHERE lamp_xp_read = $lamp_read";
         command.CommandText =
-            """
+            $"""
             SELECT id, captured_at, xp, adena, minutes,
                    red_lamp_xp, purple_lamp_xp, blue_lamp_xp, green_lamp_xp,
                    lamp_xp_read, lamp_panel_closed, lamp_xp_exceeds_dialog, lamp_xp_total,
@@ -133,9 +154,15 @@ public sealed class SessionStore : IDisposable
                    xp_disagreed, xp_spliced, xp_magnitude_mismatch, adena_disagreed, play_time_disagreed,
                    xp_from_tokens, xp_from_crop, adena_from_tokens, adena_from_crop
             FROM snapshots
+            {where}
             ORDER BY id DESC
             LIMIT 1;
             """;
+        if (lampXpRead is not null)
+        {
+            command.Parameters.AddWithValue("$lamp_read", lampXpRead.Value ? 1 : 0);
+        }
+
         using var reader = command.ExecuteReader();
         return reader.Read() ? ReadRow(reader) : null;
     }
@@ -177,6 +204,7 @@ public sealed class SessionStore : IDisposable
     public SnapshotAcceptResult TryAccept(PlayReport report, DateTimeOffset? capturedAt = null)
     {
         ArgumentNullException.ThrowIfNull(report);
+        report = Reconcile(report);
         var decision = Monotonicity.Evaluate(Last()?.Report, report);
         if (decision.Outcome == MonotonicityOutcome.Misread)
         {

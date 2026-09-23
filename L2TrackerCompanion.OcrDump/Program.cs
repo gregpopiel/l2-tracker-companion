@@ -423,11 +423,6 @@ static async Task<int> RunSaveAsync(string[] args)
         Console.WriteLine($"Warning: {issue.Message}");
     }
 
-    foreach (var warning in gate.Warnings)
-    {
-        Console.WriteLine($"Warning: {warning}");
-    }
-
     var bonus = ReadBonusFlag(args);
     var client = TrackerApiClient.Create(auth.BaseUrl);
     var createdSpotId = (int?)null;
@@ -463,7 +458,7 @@ static async Task<int> RunSaveAsync(string[] args)
     }
 
     Console.WriteLine(
-        $"Saved farm log #{call.Value!.Id} ({gate.Totals.XpFarmed}k XP, {gate.Totals.Adena}k Adena, "
+        $"Saved Farm Session #{call.Value!.Id} ({gate.Totals.XpFarmed}k XP, {gate.Totals.Adena}k Adena, "
         + $"{gate.Totals.Minutes} min from the Play Report).");
     return 0;
 }

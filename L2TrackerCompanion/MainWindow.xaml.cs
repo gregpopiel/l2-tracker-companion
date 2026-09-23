@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using L2TrackerCompanion.Api;
@@ -42,11 +43,14 @@ public partial class MainWindow : Window
     private IReadOnlyList<AreaInfo>? _areas;
     private readonly LocationChangeWatch _locationWatch = new();
 
-    // LocationChangeWatch.Notice() reports a move exactly once, so it can only
-    // be consumed on the accepted-tick path. The banner, though, also has to
-    // re-render when the spot pick changes with no new read behind it — hence
-    // the notice is kept here rather than written straight to the banner.
-    private string? _locationMoveNotice;
+    // Composed into ReadProblemBanner by RefreshReadProblemBanner. The frame
+    // problem is this tick's light detail while tracking; the hold reason is
+    // why Save passed that frame over; the save warning is the extra fact
+    // about the frame that would be posted (a non-blocking issue, or the
+    // block reason when nothing is savable). Compose drops exact repeats.
+    private string? _currentFrameProblem;
+    private string? _holdReason;
+    private string? _saveWarning;
     private bool _isAdmin;
     private string? _userId;
     private readonly GameProcessWatch _gameWatch = new();
@@ -54,6 +58,9 @@ public partial class MainWindow : Window
     private readonly ImageSource? _appIcon = StatusDotIcon.TryLoadAppIcon();
     private UpdateInfo? _pendingUpdate;
     private bool _updateCheckInFlight;
+    // True between the update button click and ApplyAndRestart returning so
+    // RefreshSaveEnabled cannot re-enable the button mid-apply.
+    private bool _applyingUpdate;
 
     // Flip to true to bring the raw XP/H column back into the rate card.
     private const bool ShowXpPerHour = false;
@@ -230,7 +237,7 @@ public partial class MainWindow : Window
 
     private void WebsiteLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
     {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        OpenWebsite();
         e.Handled = true;
     }
 
@@ -267,9 +274,10 @@ public partial class MainWindow : Window
 
     private void SignOutButton_Click(object sender, RoutedEventArgs e)
     {
+        // Disabled during a save (RefreshSaveEnabled); this is the queued-click
+        // race the disable cannot cancel.
         if (_saveInFlight)
         {
-            PickerStatusLabel.Text = SessionPickers.SaveInProgress;
             return;
         }
 
@@ -282,13 +290,15 @@ public partial class MainWindow : Window
         _auth.SignOut();
         TokenBox.Clear();
         ShowLiveStatus(_liveStatus);
-        ClearPickers(SessionPickers.SignInToLoad);
+        ClearPickers();
 
         // Unsaved snapshots belong to the account that produced them — the next
         // token pasted at the gate may be a different one. Confirmed above.
         _sessionStore.NewSession();
         _saveConfirmation.Release();
         HideLocationChange();
+        ClearReadProblem();
+        HideSaveResult();
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
         // Sign Out is a deliberate click on a button labeled "Sign out" — the gate
@@ -320,7 +330,7 @@ public partial class MainWindow : Window
         }
 
         ShowLiveStatus(_liveStatus);
-        ClearPickers(SessionPickers.SignInToLoad);
+        ClearPickers();
         ShowLogin(result.Message, isError: true);
     }
 
@@ -385,7 +395,24 @@ public partial class MainWindow : Window
         AccountStatusLabel.Visibility = visibility;
     }
 
-    private CharacterInfo? SelectedCharacter => CharacterCombo.SelectedItem as CharacterInfo;
+    // The pick itself — independent of the combo, which is collapsed when
+    // the account has only one character.
+    private CharacterInfo? _selectedCharacter;
+
+    private CharacterInfo? SelectedCharacter => _selectedCharacter;
+
+    /// <summary>
+    /// One character is just its name — a dropdown for a list of one is noise.
+    /// Zero or several keep the picker (disabled when empty).
+    /// </summary>
+    private void ApplyCharacterPicker(IReadOnlyList<CharacterInfo>? characters)
+    {
+        var layout = CharacterPickerLayout.For(characters, _selectedCharacter);
+        CharacterCombo.Visibility = layout.ShowCombo ? Visibility.Visible : Visibility.Collapsed;
+        CharacterCombo.IsEnabled = layout.ComboEnabled;
+        CharacterLabel.Visibility = layout.ShowCombo ? Visibility.Collapsed : Visibility.Visible;
+        CharacterLabel.Text = layout.LabelText;
+    }
 
     private SpotInfo? SelectedSpot => SpotCombo.SelectedItem as SpotInfo;
 
@@ -401,9 +428,10 @@ public partial class MainWindow : Window
         _suppressPickerEvents = true;
         try
         {
+            _selectedCharacter = selected;
             CharacterCombo.ItemsSource = characters;
-            CharacterCombo.IsEnabled = characters.Count > 0;
             CharacterCombo.SelectedItem = selected;
+            ApplyCharacterPicker(characters);
             SpotCombo.ItemsSource = null;
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
@@ -417,16 +445,14 @@ public partial class MainWindow : Window
 
         if (SelectedCharacter is null)
         {
-            PickerStatusLabel.Text = characters.Count == 0
-                ? "Signed in, but this account has no characters yet."
-                : SessionPickers.PickCharacter;
+            ShowNoCharactersNotice();
             return;
         }
 
         _ = LoadSpotsAsync(SelectedCharacter);
     }
 
-    private void ClearPickers(string message)
+    private void ClearPickers()
     {
         _spotsCts.Cancel();
         _holdEmptySpot = false;
@@ -437,9 +463,10 @@ public partial class MainWindow : Window
         _suppressPickerEvents = true;
         try
         {
+            _selectedCharacter = null;
             CharacterCombo.ItemsSource = null;
             CharacterCombo.SelectedItem = null;
-            CharacterCombo.IsEnabled = false;
+            ApplyCharacterPicker(null);
             SpotCombo.ItemsSource = null;
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
@@ -456,7 +483,6 @@ public partial class MainWindow : Window
 
         // Sets the flag itself, so it cannot run inside the block above.
         FillAreaFilter(null);
-        PickerStatusLabel.Text = message;
     }
 
     private void CharacterCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -468,12 +494,13 @@ public partial class MainWindow : Window
 
         // Guarded above, so only a user's own pick is remembered — never the
         // programmatic selection BindCharacters and ClearPickers make.
-        if (SelectedCharacter is not null)
+        _selectedCharacter = CharacterCombo.SelectedItem as CharacterInfo;
+        if (_selectedCharacter is not null)
         {
-            _lastCharacter.Save(_userId, SelectedCharacter.Id);
+            _lastCharacter.Save(_userId, _selectedCharacter.Id);
         }
 
-        _ = LoadSpotsAsync(SelectedCharacter);
+        _ = LoadSpotsAsync(_selectedCharacter);
         RefreshSaveEnabled();
     }
 
@@ -553,8 +580,8 @@ public partial class MainWindow : Window
         // A picked spot leaves nothing to resolve, but the redesign's single
         // hint slot under the field still has a job: confirm what the panel
         // itself is reading, since a stale/mismatched pick would otherwise be
-        // silent here (the actual save-target warning already lives in
-        // PickerStatusLabel via SpotLocationWarning).
+        // silent here (the save-target warning lives on LocationChangeBanner
+        // via SpotLocationWarning).
         // A correction that replaced a pick has to say so — it moved the save
         // target without being asked, and the player's answer to it is what
         // pins the session.
@@ -563,9 +590,7 @@ public partial class MainWindow : Window
         // could produce would be about a window nobody has put anything in.
         // That covers the seconds between Start and the first read too — "(0/5)"
         // there is not just noise, it is wrong, since picking a spot would not
-        // unlock Save either until something has actually been read. Once there
-        // are reads the slot must speak, because RefreshSaveEnabled blanks the
-        // line under Save on the strength of this one having carried the reason.
+        // unlock Save either until something has actually been read.
         var noSessionYet = _sessionStore.Count == 0;
         var text = _autoCorrect.NoticePending
             ? $"Spot switched to \"{SelectedSpot?.Name}\"."
@@ -610,12 +635,24 @@ public partial class MainWindow : Window
         ShowSpotResolveHint(resolve, stability);
         RefreshLocationBanner(gate, stability);
 
+        // Three independent facts, composed with exact-sentence dedup.
+        // HoldReason often restates the current-frame problem; putting it
+        // into _saveWarning first used to print that sentence twice when
+        // the held frame also had a non-blocking issue.
+        _holdReason = gate.CanSave ? gate.HoldReason : null;
+        _saveWarning = gate.CanSave
+            ? (gate.Issue is { BlocksSave: false } issue ? issue.Message : null)
+            : gate.BlockReason;
+        RefreshReadProblemBanner();
+
         var pickersReady = SessionPickers.SaveReady(SelectedCharacter, resolve);
 
         // Save mode whenever tracking is on (even before the first read) or
         // there's a held frame from an earlier Stop — otherwise Start.
         var saveMode = _polling.IsRunning || gate.CanSave;
-        MainActionButton.Content = saveMode ? "Save & send session" : "Start tracking";
+        MainActionButton.Content = _saveInFlight
+            ? "Saving session…"
+            : saveMode ? "Save & send session" : "Start tracking";
         // A poll tick lands here on every poll interval, including while a save is awaiting
         // its response — without this the button would re-arm mid-POST and a
         // second click would duplicate the log.
@@ -626,69 +663,15 @@ public partial class MainWindow : Window
         // Save mode can leave the button disabled for reasons the player
         // cannot clear from here (no character on the account, a location
         // that never settles), and Stop no longer discards the held frame —
-        // so save mode always keeps a second, always-enabled way out: Stop
-        // while a run is on, and a fresh run once it is not.
+        // so save mode always keeps a second way out: Stop while a run is
+        // on, and a fresh run once it is not (disabled only while a save
+        // is already in flight).
         SecondaryActionLink.Content = _polling.IsRunning ? "Stop tracking" : "Start a new session";
         SecondaryActionLink.Visibility = saveMode ? Visibility.Visible : Visibility.Collapsed;
-
-        // Button enablement always updates. The status line does not: a tick
-        // during POST used to replace "Saving session…" with "Ready to save…",
-        // and after a 2xx the lock reason replaced the confirmation.
-        if (_saveConfirmation.FreezePickerStatus(_saveInFlight))
-        {
-            return;
-        }
-
-        if (!SessionPickers.CharacterChosen(SelectedCharacter))
-        {
-            return;
-        }
-
-        if (!gate.CanSave)
-        {
-            // One fact, one slot: when the banner is already showing this
-            // very sentence, repeating it here put the same defect on screen
-            // twice, two lines apart. Anything else it might be showing is a
-            // different fact, and tracking off means no banner at all — either
-            // way this line is the only channel left and has to carry it.
-            PickerStatusLabel.Text = AlreadyOnBanner(gate.BlockReason) ? string.Empty : gate.BlockReason ?? string.Empty;
-            return;
-        }
-
-        if (!resolve.CanSave)
-        {
-            // Same message ShowSpotResolveHint just put under the Spot field
-            // above — no need to repeat it a second time under Save.
-            PickerStatusLabel.Text = string.Empty;
-            return;
-        }
-
-        // Readiness itself doesn't need a sentence — the Save button already
-        // shows that by unlocking. This line is only for warnings worth a
-        // second look even though Save is enabled.
-        var warnings = new List<string>();
-
-        // Why the current frame was passed over is the banner's fact, not
-        // this line's; what is being posted instead ("Saving last verified
-        // read…") is only ever said here.
-        if (gate.HoldReason is not null && !AlreadyOnBanner(gate.HoldReason))
-        {
-            warnings.Add(gate.HoldReason);
-        }
-
-        warnings.AddRange(gate.Warnings);
-
-        // A non-blocking read defect (spliced XP) belongs to the banner too,
-        // but only while the banner is actually showing it: on the hold path it
-        // describes the current frame and this one describes the older frame
-        // being saved, and a capture error displaces it entirely.
-        if (gate.Issue is { BlocksSave: false } issue
-            && !AlreadyOnBanner(issue.Message))
-        {
-            warnings.Add(issue.Message);
-        }
-
-        PickerStatusLabel.Text = string.Join(" · ", warnings);
+        // Stop tracking is safe during a save; starting a fresh run is not.
+        SecondaryActionLink.IsEnabled = _polling.IsRunning || !_saveInFlight;
+        SignOutButton.IsEnabled = !_saveInFlight;
+        UpdateAvailableButton.IsEnabled = !_saveInFlight && !_applyingUpdate;
     }
 
     /// <summary>
@@ -750,6 +733,10 @@ public partial class MainWindow : Window
         // the player pinned against the old one no longer applies.
         _autoCorrect.Reset();
         _spotsLoaded = false;
+        if (character is not null)
+        {
+            HideSaveResult();
+        }
 
         _suppressPickerEvents = true;
         try
@@ -772,14 +759,13 @@ public partial class MainWindow : Window
 
         if (character is null)
         {
-            PickerStatusLabel.Text = SessionPickers.PickCharacter;
             return;
         }
 
         var token = _auth.TryLoadToken();
         if (token is null)
         {
-            ClearPickers(SessionPickers.SignInToLoad);
+            ClearPickers();
             ShowLogin(SessionPickers.SessionExpired, isError: true);
             return;
         }
@@ -794,7 +780,7 @@ public partial class MainWindow : Window
         {
             _spotsLoaded = false;
             RefreshSaveEnabled();
-            PickerStatusLabel.Text = $"Could not load spots: {call.Error}";
+            ShowActionError($"Could not load spots: {call.Error}");
             return;
         }
 
@@ -946,22 +932,24 @@ public partial class MainWindow : Window
 
         if (!BonusText.TryParse(BonusBox.Text, out var bonus))
         {
-            PickerStatusLabel.Text = "Bonus must be a number (Acquired XP/SP %).";
+            HideSaveResult();
+            ShowBonusHint("Bonus must be a number (Acquired XP/SP %).");
             return;
         }
 
         var token = _auth.TryLoadToken();
         if (token is null)
         {
-            ClearPickers(SessionPickers.SignInToSave);
+            ClearPickers();
             ShowLogin(SessionPickers.SessionExpired, isError: true);
             return;
         }
 
         _saveInFlight = true;
         _saveConfirmation.BeginSave();
-        MainActionButton.IsEnabled = false;
-        PickerStatusLabel.Text = "Saving session…";
+        HideBonusHint();
+        HideSaveResult();
+        RefreshSaveEnabled();
         try
         {
             var resolve = CurrentSpotResolve();
@@ -988,7 +976,7 @@ public partial class MainWindow : Window
             var call = await Api.PostFarmLogAsync(token, request);
             if (!call.Success)
             {
-                PickerStatusLabel.Text = await FormatSaveFailureAsync(token, call.Error, ensured);
+                ShowActionError(await FormatSaveFailureAsync(token, call.Error, ensured));
                 return;
             }
 
@@ -1000,17 +988,12 @@ public partial class MainWindow : Window
             var wasTracking = _polling.IsRunning;
             _saveConfirmation.Saved();
             ResetLocalSessionAfterSave();
-            PickerStatusLabel.Text =
-                $"Saved farm log #{call.Value!.Id} for {SelectedCharacter.Name} at {spot.Label}"
-                + (created ? " (new World spot)" : "")
-                + $" ({totals.XpFarmed}k XP, {totals.Minutes} min). "
-                + (wasTracking
-                    ? "Tracking stopped. Start tracking to save another log."
-                    : "Start tracking to save another log.");
+            ShowSaveSuccess(
+                $"Saved farm session at {spot.Name}{(created ? " (new)" : "")}.");
 
             if (SaveConfirmationHold.ShouldStopTracking(wasTracking, saved: true))
             {
-                StopTracking("Session saved.");
+                StopTracking(string.Empty);
             }
         }
         finally
@@ -1028,6 +1011,7 @@ public partial class MainWindow : Window
     {
         _sessionStore.NewSession();
         HideLocationChange();
+        ClearReadProblem();
         ShowLiveStatus(LiveStatus.Idle());
         SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
     }
@@ -1072,7 +1056,7 @@ public partial class MainWindow : Window
             }
         }
 
-        PickerStatusLabel.Text = $"Could not create spot: {created.Error}";
+        ShowActionError($"Could not create spot: {created.Error}");
         return null;
     }
 
@@ -1206,6 +1190,7 @@ public partial class MainWindow : Window
             _updateTimer.Stop();
             UpdateAvailableButton.Content = $"Update available (v{updateInfo.TargetFullRelease.Version}) — restart to install";
             UpdateAvailableButton.Visibility = Visibility.Visible;
+            UpdateAvailableButton.IsEnabled = !_saveInFlight && !_applyingUpdate;
         }
         finally
         {
@@ -1225,7 +1210,7 @@ public partial class MainWindow : Window
             // Same rationale as SignOutButton_Click: the pending save still writes
             // its lock row when it returns, and restarting out from under it would
             // leave the client unsure whether the log ever reached the server.
-            PickerStatusLabel.Text = SessionPickers.SaveInProgress;
+            // Disabled during a save; this is the queued-click race.
             return;
         }
 
@@ -1235,6 +1220,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        _applyingUpdate = true;
         UpdateAvailableButton.IsEnabled = false;
         try
         {
@@ -1243,8 +1229,9 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             System.Diagnostics.Trace.WriteLine(ex);
+            _applyingUpdate = false;
             UpdateAvailableButton.IsEnabled = true;
-            PickerStatusLabel.Text = "Update failed to apply — try again later.";
+            ShowActionError("Update failed to apply — try again later.");
         }
     }
 
@@ -1275,6 +1262,13 @@ public partial class MainWindow : Window
         if (_polling.IsRunning && gameWindow is null)
         {
             ShowLiveStatus(LiveStatus.GameNotRunning());
+            // Capture-fail poll ticks used to skip this, so a move reminder
+            // never hit PendingNotice's clock while the client was down.
+            RefreshSaveEnabled();
+        }
+        else
+        {
+            RefreshLocationBanner(CurrentGate(), CurrentLocationStability());
         }
     }
 
@@ -1306,6 +1300,8 @@ public partial class MainWindow : Window
         _polling.RestartWarmUpProgress();
         _saveConfirmation.Release();
         HideLocationChange();
+        ClearReadProblem();
+        HideSaveResult();
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
         RefreshPollStatus("Game restarted — the Play Report is counting from zero again.");
@@ -1343,16 +1339,13 @@ public partial class MainWindow : Window
         // Any read/capture problem while tracking gets the banner treatment
         // — a closed Lamp panel, an unread field, "game not running"
         // mid-session, a contradicting read, all read the same way to the
-        // player: something needs attention. Nothing else in the card shows
-        // status.Detail, so a Green/Idle tick has nothing further to say.
-        if (_polling.IsRunning && status.Light is TrafficLight.Red or TrafficLight.Orange)
-        {
-            ShowReadProblem(status.Detail);
-        }
-        else
-        {
-            HideReadProblem();
-        }
+        // player: something needs attention. A Green/Idle tick, or a stopped
+        // loop, has no current-frame problem; a save warning can still be
+        // showing from RefreshSaveEnabled.
+        _currentFrameProblem = _polling.IsRunning && status.Light is TrafficLight.Red or TrafficLight.Orange
+            ? status.Detail
+            : null;
+        RefreshReadProblemBanner();
 
         var report = status.Report;
         var showData = report is not null;
@@ -1457,14 +1450,14 @@ public partial class MainWindow : Window
     /// in-game Play Report — nothing is blocked or hidden.
     /// </summary>
     /// <remarks>
-    /// Must be called once per accepted tick and nowhere else: the notice is
-    /// reported a single time per move, so a second caller would swallow it.
+    /// Once per accepted tick: that is when a newly settled name is observed.
+    /// The watch keeps the sentence for its own lifetime, so the banner can
+    /// re-read it without this method being called again.
     /// </remarks>
     private void NoteLocationChange()
     {
         var stability = CurrentLocationStability();
-        _locationMoveNotice = _locationWatch.Notice(stability.IsStable ? stability.CanonicalName : null)
-            ?? _locationMoveNotice;
+        _locationWatch.Notice(stability.IsStable ? stability.CanonicalName : null);
     }
 
     /// <summary>
@@ -1488,54 +1481,100 @@ public partial class MainWindow : Window
                 stability.IsStable ? stability.CanonicalName : null,
                 SpotCombo.ItemsSource as IEnumerable<SpotInfo>));
 
-        var message = mismatch ?? _locationMoveNotice;
+        var message = mismatch ?? _locationWatch.PendingNotice(DateTimeOffset.UtcNow);
         LocationChangeLabel.Text = message ?? string.Empty;
         LocationChangeBanner.Visibility = message is null
             ? Visibility.Collapsed
             : Visibility.Visible;
     }
 
+    /// <summary>
+    /// Drop the location-move reminder. Does not touch the read-problem
+    /// banner — that is a different question, cleared by
+    /// <see cref="ClearReadProblem"/> on a run reset.
+    /// </summary>
     private void HideLocationChange()
     {
         _locationWatch.Reset();
-        _locationMoveNotice = null;
         LocationChangeLabel.Text = string.Empty;
         LocationChangeBanner.Visibility = Visibility.Collapsed;
     }
 
-    /// <summary>
-    /// Whether the alert banner is already carrying this exact sentence, in
-    /// which case the quiet save line must not restate it — see
-    /// <see cref="RefreshSaveEnabled"/>.
-    /// </summary>
-    /// <remarks>
-    /// Matched on the text, not merely on the banner being up: the banner also
-    /// carries capture- and game-level problems ("Game not running.") that say
-    /// nothing about the stored read, and treating those as cover for a save
-    /// warning dropped a second, unrelated fact — a spliced-XP figure could
-    /// then be posted with nothing on screen questioning it.
-    /// </remarks>
-    private bool AlreadyOnBanner(string? message)
-        => ReadProblemBanner.Visibility == Visibility.Visible
-            && !string.IsNullOrEmpty(message)
-            && string.Equals(ReadProblemLabel.Text, message, StringComparison.Ordinal);
-
-    /// <summary>
-    /// The handoff's second banner: something is wrong with the current read
-    /// while tracking is on — a contradicting read, a closed Lamp panel, an
-    /// unread field, "game not running" mid-session — so the card is holding
-    /// the last verified frame instead. Driven entirely from ShowLiveStatus.
-    /// </summary>
-    private void ShowReadProblem(string message)
+    private void ClearReadProblem()
     {
-        ReadProblemLabel.Text = message;
-        ReadProblemBanner.Visibility = Visibility.Visible;
+        _currentFrameProblem = null;
+        _holdReason = null;
+        _saveWarning = null;
+        RefreshReadProblemBanner();
     }
 
-    private void HideReadProblem()
+    private void ShowNoCharactersNotice()
     {
-        ReadProblemLabel.Text = string.Empty;
-        ReadProblemBanner.Visibility = Visibility.Collapsed;
+        ApplySaveResultStyle(SaveResultKind.Notice);
+        SaveResultLabel.Text = "Signed in, but this account has no characters yet.";
+        WebsiteIconButton.Visibility = Visibility.Visible;
+        SaveResultBanner.Visibility = Visibility.Visible;
+    }
+
+    private void OpenWebsiteCommand_Executed(object sender, ExecutedRoutedEventArgs e) => OpenWebsite();
+
+    private static void OpenWebsite()
+        => System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(TokenStore.DefaultBaseUrl) { UseShellExecute = true });
+
+    private void ShowSaveSuccess(string message)
+        => ShowSaveResult(message, SaveResultKind.Success);
+
+    private void ShowActionError(string message)
+        => ShowSaveResult(message, SaveResultKind.Error);
+
+    private enum SaveResultKind
+    {
+        Success,
+        Error,
+        Notice,
+    }
+
+    private void ShowSaveResult(string message, SaveResultKind kind)
+    {
+        ApplySaveResultStyle(kind);
+        SaveResultLabel.Text = message;
+        WebsiteIconButton.Visibility = Visibility.Collapsed;
+        SaveResultBanner.Visibility = Visibility.Visible;
+    }
+
+    private void ApplySaveResultStyle(SaveResultKind kind)
+    {
+        var (bannerKey, textKey) = kind switch
+        {
+            SaveResultKind.Success => ("SuccessBanner", "SuccessBannerText"),
+            SaveResultKind.Error => ("ErrorBanner", "ErrorBannerText"),
+            _ => ("AlertBanner", "AlertBannerText"),
+        };
+        SaveResultBanner.Style = (Style)FindResource(bannerKey);
+        SaveResultLabel.Style = (Style)FindResource(textKey);
+    }
+
+    private void HideSaveResult()
+    {
+        SaveResultLabel.Text = string.Empty;
+        WebsiteIconButton.Visibility = Visibility.Collapsed;
+        SaveResultBanner.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// The handoff's second banner: is the current read any good. Three
+    /// sources are fields, so this one writer is the whole surface — call
+    /// order between ShowLiveStatus and RefreshSaveEnabled no longer decides
+    /// which half of the sentence is allowed to repeat.
+    /// </summary>
+    private void RefreshReadProblemBanner()
+    {
+        var message = ReadProblemText.Compose(_currentFrameProblem, _holdReason, _saveWarning);
+        ReadProblemLabel.Text = message ?? string.Empty;
+        ReadProblemBanner.Visibility = message is null
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 
     private async void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
@@ -1667,9 +1706,9 @@ public partial class MainWindow : Window
         // the pending save is still working from, and that save then clears it
         // a second time on its way out — wiping the new run's first reads and
         // leaving its every later tick discarded (SaveConfirmationHold).
+        // Disabled during a save; this is the queued-click race.
         if (_saveInFlight)
         {
-            PickerStatusLabel.Text = SessionPickers.SaveInProgress;
             return;
         }
 
@@ -1694,6 +1733,8 @@ public partial class MainWindow : Window
         // from wherever the previous run ended — they may have restarted the
         // Play Report themselves in between.
         HideLocationChange();
+        ClearReadProblem();
+        HideSaveResult();
         ShowLiveStatus(LiveStatus.Idle());
         _polling.Start();
         _pollCts = new CancellationTokenSource();
@@ -1754,6 +1795,7 @@ public partial class MainWindow : Window
                         && capture.ErrorMessage.Contains("Game not running", StringComparison.Ordinal)
                     ? LiveStatus.GameNotRunning()
                     : LiveStatus.CaptureFailed(capture.ErrorMessage ?? "Capture failed"));
+                RefreshSaveEnabled();
                 return;
             }
 
@@ -1774,6 +1816,7 @@ public partial class MainWindow : Window
             // bar dropped back off "Capturing…" so it stops implying work.
             RefreshPollStatus(string.Empty);
             ShowLiveStatus(LiveStatus.ParseFailed(ex.Message));
+            RefreshSaveEnabled();
         }
         finally
         {
@@ -1872,6 +1915,7 @@ public partial class MainWindow : Window
                 var failure = result.ErrorMessage ?? "Parse failed";
                 SaveMisread(imagePath, "Parse failed", failure);
                 ShowLiveStatus(LiveStatus.ParseFailed(failure));
+                RefreshSaveEnabled();
                 return;
             }
 
@@ -1881,11 +1925,17 @@ public partial class MainWindow : Window
                 return;
             }
 
+            // Withdraw a lamp figure that fell before anything else sees the
+            // frame. TryAccept reconciles again; that second pass is a no-op
+            // once the column is already unread. The light has to be painted
+            // from this copy, or a synthesized zero still looks like a clean read.
+            var report = _sessionStore.Reconcile(result.Report);
+
             var rejected = (string?)null;
             var appended = false;
             if (fromPoll)
             {
-                var tick = _polling.Tick(_sessionStore, result.Report);
+                var tick = _polling.Tick(_sessionStore, report);
                 // A tick that finished after Stop compared nothing, so the
                 // previous verdict must not carry over onto this frame — and
                 // must not replace StopTracking's poll-status line either.
@@ -1921,7 +1971,7 @@ public partial class MainWindow : Window
                     // Only a frame that actually landed in the window counts;
                     // LocationStability skips blank hints, so one here would
                     // spend the budget without moving the counter it feeds.
-                    if (!string.IsNullOrWhiteSpace(result.Report.LocationHint))
+                    if (!string.IsNullOrWhiteSpace(report.LocationHint))
                     {
                         _polling.NoteRead();
                     }
@@ -1929,7 +1979,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                var accepted = _sessionStore.TryAccept(result.Report);
+                var accepted = _sessionStore.TryAccept(report);
                 appended = accepted.Appended;
                 if (!accepted.Appended)
                 {
@@ -1942,9 +1992,9 @@ public partial class MainWindow : Window
             {
                 SaveMisread(imagePath, rejected, PlayReportPipeline.FormatWindow(result));
             }
-            else if (!result.Report.LampXpRead
-                && !result.Report.LampPanelClosed
-                && (result.Report.Xp is not null || result.Report.Adena is not null))
+            else if (!report.LampXpRead
+                && !report.LampPanelClosed
+                && (report.Xp is not null || report.Adena is not null))
             {
                 // Only frames that did show a Play Report. A closed lamp panel
                 // is the user's choice, not a bad read; and with no dialog on
@@ -1957,8 +2007,8 @@ public partial class MainWindow : Window
 
             if (appended)
             {
-                var applied = ApplyLocationHint(result.Report.LocationHint);
-                if (!string.IsNullOrWhiteSpace(result.Report.LocationHint))
+                var applied = ApplyLocationHint(report.LocationHint);
+                if (!string.IsNullOrWhiteSpace(report.LocationHint))
                 {
                     // Reported from what the call did, not from re-matching the
                     // hint: a hint can name a spot the picker did not follow
@@ -1966,19 +2016,19 @@ public partial class MainWindow : Window
                     // already there), and claiming a preselect then would lie
                     // in exactly the readout used to check this behaviour.
                     ParseStatusLabel.Text += applied is null
-                        ? $"\n\nLocation hint \"{result.Report.LocationHint}\" did not move the picker."
+                        ? $"\n\nLocation hint \"{report.LocationHint}\" did not move the picker."
                         : $"\n\nPreselected {applied.Label}.";
                 }
             }
 
             // Light/detail describe this tick. XP / Adena / rates are the
             // last verified frame — the same numbers Save would post.
-            // Order matters: this settles the alert banner, and the refresh
-            // below reads ReadProblemVisible to decide what the quiet save
-            // line is still allowed to say.
+            // The banner's two sources are fields composed by one writer, so
+            // the order of this call and the refresh below no longer decides
+            // what the save line may repeat.
             ShowLiveStatus(
                 rejected is null
-                    ? LiveStatus.FromReport(result.Report)
+                    ? LiveStatus.FromReport(report)
                     : LiveStatus.TickRejected(rejected));
             RefreshSessionStatus();
         }
