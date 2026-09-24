@@ -1,5 +1,5 @@
 <!--
-    Night Ops Terminal — the desktop companion's port of the web app's design
+    Night Ops Terminal – the desktop companion's port of the web app's design
     system (see l2-tracker-frontend/LANDING_PAGE_DESIGN_SPEC.md).
 
     Two deliberate deviations, both forced by WPF rather than chosen:
@@ -54,7 +54,7 @@
     <SolidColorBrush x:Key="ConfirmGreenBrush" Color="#FF3FB950" />
 
     <!-- Session redesign additions: rank badges and alert banners both read as
-         "amber" in the handoff (oklch H60/H90, low-mid lightness) — close
+         "amber" in the handoff (oklch H60/H90, low-mid lightness) – close
          enough to the palette's existing Caution Amber that they share its
          border/text tone rather than introducing a second amber. Only the
          translucent fill is new. -->
@@ -143,7 +143,7 @@
         <Setter Property="Foreground" Value="{StaticResource StaticGrayBrush}" />
     </Style>
 
-    <!-- Machine output (statuses, parse results). Arial, not Consolas — the
+    <!-- Machine output (statuses, parse results). Arial, not Consolas – the
          system has one face; status text is set apart by color, not family. -->
     <Style x:Key="StatusText" TargetType="TextBlock" BasedOn="{StaticResource SubtleText}" />
 
@@ -163,7 +163,7 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
-    <!-- The Rate & ranking card's big XP/h and Adena/h figures — the one
+    <!-- The Rate & ranking card's big XP/h and Adena/h figures – the one
          place text runs bigger than the rest of the window, so it needs its
          own scale rather than borrowing HeadlineText. -->
     <Style x:Key="BigNumberText" TargetType="TextBlock">
@@ -175,7 +175,7 @@
 
     <!-- Small pill above a big number: "#N of M spots". Hidden entirely
          (Visibility.Collapsed, set in code-behind) until at least one
-         accepted read exists — an idle "#0 of 0" reads as broken, not empty. -->
+         accepted read exists – an idle "#0 of 0" reads as broken, not empty. -->
     <Style x:Key="RankBadge" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource AmberBgBrush}" />
         <Setter Property="CornerRadius" Value="{StaticResource BorderRadiusBase}" />
@@ -191,7 +191,7 @@
     </Style>
 
     <!-- Location-changed / contradicting-read notices. A styled box, not the
-         plain SubtleText the window used before the redesign — these are
+         plain SubtleText the window used before the redesign – these are
          warnings the player should notice, not routine status text. -->
     <Style x:Key="AlertBanner" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource AmberBgBrush}" />
@@ -232,11 +232,11 @@
 
     <!-- No Effect here on purpose. An Effect applies to the whole visual
          subtree, so a shadow on the panel would drop every label inside it out
-         of ClearType and re-blur on each content change — and LiveStatusBorder
+         of ClearType and re-blur on each content change – and LiveStatusBorder
          rewrites its labels on every poll tick. A near-black drop shadow over a
          near-black page buys nothing worth that. Where elevation genuinely
          reads (the login card, the dropdown), the glow is painted by a separate
-         layer behind the content instead — see BeaconPanel below. -->
+         layer behind the content instead – see BeaconPanel below. -->
     <Style x:Key="GlassPanel" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
@@ -721,7 +721,7 @@
                             <DockPanel>
                                 <!-- Dock the chevron first so the DisplayMemberPath
                                      string is measured into the leftover and
-                                     ellipsizes in front of the arrow — a Grid *
+                                     ellipsizes in front of the arrow – a Grid *
                                      column still let Ranking/Character paint
                                      into the button. -->
                                 <Path x:Name="Arrow"
@@ -823,7 +823,7 @@
 
     <!-- The general row's Character picker: same ComboBox template and popup
          (virtualized items, focus ring, arrow) as everywhere else in the
-         window, just with the boxed background/border turned off — the
+         window, just with the boxed background/border turned off – the
          handoff shows this row as plain text with a chevron, not a field. -->
     <Style x:Key="FlatComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
         <Setter Property="Background" Value="Transparent" />
@@ -833,7 +833,7 @@
     </Style>
 
     <!-- The general row's Acquired XP/SP field: same TextBox template as
-         everywhere else, boxed background/border turned off — matches
+         everywhere else, boxed background/border turned off – matches
          FlatComboBox's treatment rather than the handoff's literal dotted
          underline (WPF has no border dash pattern, and a plain solid rule
          read as a stray line rather than a field cue). -->

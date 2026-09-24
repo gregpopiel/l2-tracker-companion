@@ -72,7 +72,7 @@ public static class FarmFieldsPass
         var cropHeight = dialog.CropBitmap.PixelHeight;
 
         // One GDI+ conversion of the dialog crop, shared by the XP and Adena
-        // micro-crops below — converting per crop re-encoded the whole dialog
+        // micro-crops below – converting per crop re-encoded the whole dialog
         // each time.
         using var source = new ImageEnhance.Source(dialog.CropBitmap);
 
@@ -127,7 +127,7 @@ public static class FarmFieldsPass
 
         // Always take the second opinion, not only when the token read failed.
         // OCR of an unchanged frame is deterministic, so a lone read can never
-        // be re-confirmed by looking again later — the crop is the only
+        // be re-confirmed by looking again later – the crop is the only
         // independent check Adena gets, and its figure goes straight to the API.
         if (tokens.Unit is not null)
         {
@@ -137,7 +137,7 @@ public static class FarmFieldsPass
                 usedFallback = tokens.AdenaFromTokens is null;
 
                 // The crop is now read on every frame, but its debug PNG is
-                // only worth writing when it is the figure being used — during
+                // only worth writing when it is the figure being used – during
                 // tracking that is a file write every 10s for nothing.
                 var (text, pngPath) = await EnhanceAndRecognizeAsync(
                         source,
@@ -211,7 +211,7 @@ public static class FarmFieldsPass
     public static string FormatBatchSummary(IReadOnlyList<FarmFieldsResult> results)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr farm fields — XP + Adena");
+        builder.AppendLine("# Windows.Media.Ocr farm fields – XP + Adena");
         builder.AppendLine($"# files: {results.Count}");
         builder.AppendLine($"# succeeded: {results.Count(r => r.Success)}");
         builder.AppendLine($"# failed: {results.Count(r => !r.Success)}");
@@ -376,7 +376,7 @@ public static class FarmFieldsPass
     private static string FormatDump(FarmFieldsResult result)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr farm fields — XP + Adena");
+        builder.AppendLine("# Windows.Media.Ocr farm fields – XP + Adena");
         builder.AppendLine($"# source: {result.SourcePath}");
         builder.AppendLine($"# image: {result.ImageWidth} x {result.ImageHeight}");
         builder.AppendLine($"# dialog crop: {result.DialogCrop.Left},{result.DialogCrop.Top} {result.DialogCrop.Width}x{result.DialogCrop.Height}");

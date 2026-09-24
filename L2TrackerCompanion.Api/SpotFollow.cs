@@ -67,7 +67,7 @@ public static class SpotTarget
                 return SpotTargetDecision.Following(selected, null);
             }
 
-            return SpotTargetDecision.Blocked($"Multiple spots match \"{currentHint!.Trim()}\" — pick one.");
+            return SpotTargetDecision.Blocked($"Multiple spots match \"{currentHint!.Trim()}\" – pick one.");
         }
 
         var owned = matchesNow.Count == 1 ? matchesNow[0] : null;
@@ -115,7 +115,7 @@ public static class SpotTarget
             .ToList();
         if (samePlace.Count > 1)
         {
-            return SpotTargetDecision.Blocked($"Multiple spots match \"{name}\" — pick one.");
+            return SpotTargetDecision.Blocked($"Multiple spots match \"{name}\" – pick one.");
         }
 
         if (samePlace.Count == 1)
@@ -184,7 +184,7 @@ public static class SpotTarget
     private static SpotTargetDecision FirstSuffix(IReadOnlyList<SpotInfo> spots, string official)
     {
         var first = spots.OrderBy(spot => spot.Name, StringComparer.OrdinalIgnoreCase).First();
-        return SpotTargetDecision.Following(first, $"Multiple spots match \"{official}\" — pick one.");
+        return SpotTargetDecision.Following(first, $"Multiple spots match \"{official}\" – pick one.");
     }
 
     private static bool HasTrailingWords(string? spotName, string official)

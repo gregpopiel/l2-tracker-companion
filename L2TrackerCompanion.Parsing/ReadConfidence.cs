@@ -6,7 +6,7 @@ namespace L2TrackerCompanion.Parsing;
 /// <remarks>
 /// OCR of an unchanged screen is deterministic: a player who has stopped
 /// farming produces byte-identical frames, so repeating a read over time
-/// re-confirms nothing — the same misread simply recurs. Trust therefore has
+/// re-confirms nothing – the same misread simply recurs. Trust therefore has
 /// to come from two <em>independent</em> extraction paths of the same frame
 /// disagreeing or not, which is what these flags record. <see cref="PlayTime"/>
 /// already worked this way (contradiction refuses the read); XP and Adena did

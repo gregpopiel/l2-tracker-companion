@@ -5,8 +5,8 @@ namespace L2TrackerCompanion.Session;
 /// <summary>
 /// Plan step 15: Start/Stop gate for the capture→OCR→accept tick, plus the
 /// cadence that tick should run at. The WPF timer still owns the actual
-/// scheduling; this type only says whether tracking is on — so a tick that
-/// finishes after Stop does not append — and how long the gap before the next
+/// scheduling; this type only says whether tracking is on – so a tick that
+/// finishes after Stop does not append – and how long the gap before the next
 /// read should be.
 /// </summary>
 public sealed class PollingLoop
@@ -33,7 +33,7 @@ public sealed class PollingLoop
     /// <summary>
     /// Ceiling on warm-up attempts, whatever they produced. Progress is counted
     /// in reads that actually reached the window, so on its own it would never
-    /// advance while the game is closed or the minimap is unreadable — this is
+    /// advance while the game is closed or the minimap is unreadable – this is
     /// what stops the faster cadence running indefinitely in that case.
     /// Generous rather than tight: an attempt that produced nothing costs only
     /// the tick itself, whereas ending the warm-up early costs the whole
@@ -64,7 +64,7 @@ public sealed class PollingLoop
     }
 
     /// <summary>
-    /// A read reached the location window — appended, carrying a hint. This is
+    /// A read reached the location window – appended, carrying a hint. This is
     /// what the warm-up is counting: an attempt that captured nothing, failed to
     /// parse, was discarded by monotonicity, or read no minimap name contributed
     /// nothing to the window, so it must not spend the budget meant to fill it.
@@ -80,12 +80,12 @@ public sealed class PollingLoop
     /// <summary>
     /// The session buffer was dropped, taking the gathered hints with it (an
     /// in-game reset, a stale baseline, a restarted client). The window is
-    /// starting over, so the reads counted towards it are gone too — but the
+    /// starting over, so the reads counted towards it are gone too – but the
     /// attempt ceiling deliberately is not, since it bounds the whole run.
     /// </summary>
     public void RestartWarmUpProgress() => _reads = 0;
 
-    /// <summary>A new run warms up again — its location window starts empty.</summary>
+    /// <summary>A new run warms up again – its location window starts empty.</summary>
     public void Start()
     {
         IsRunning = true;

@@ -5,13 +5,13 @@ namespace L2TrackerCompanion.Parsing;
 /// <summary>
 /// Compare a tick against the last <em>accepted</em> one. A live Play Report
 /// can only grow or stand still, so a drop is either an OCR misread or the
-/// player resetting the panel in-game — and those two have to be told apart,
+/// player resetting the panel in-game – and those two have to be told apart,
 /// because a reset is now the normal way a session begins.
 /// </summary>
 /// <remarks>
 /// Reset signature: the panel's own duration went backwards while neither XP
 /// nor Adena grew. Deliberately no ceiling on how far the new duration may
-/// have advanced — whether the reset is spotted in its first minute or its
+/// have advanced – whether the reset is spotted in its first minute or its
 /// fifteenth depends only on when a tick happened to land, and reads stop
 /// landing for entirely ordinary reasons (the panel closed, the client
 /// relogged, tracking paused). Judging a reset by <em>when we looked</em>
@@ -64,7 +64,7 @@ public static class Monotonicity
 
     /// <summary>
     /// The panel was restarted: play time went backwards and nothing else grew.
-    /// Every field must be readable — an unread field is a failed OCR pass,
+    /// Every field must be readable – an unread field is a failed OCR pass,
     /// never evidence of a reset.
     /// </summary>
     /// <remarks>
@@ -145,7 +145,7 @@ public sealed record MonotonicityDecision(MonotonicityOutcome Outcome, string? R
     public static MonotonicityDecision Accept() => new(MonotonicityOutcome.Accepted, null);
 
     public static MonotonicityDecision Reset()
-        => new(MonotonicityOutcome.Reset, "Play Report was reset in-game — starting a new session.");
+        => new(MonotonicityOutcome.Reset, "Play Report was reset in-game – starting a new session.");
 
     public static MonotonicityDecision Reject(string reason)
     {

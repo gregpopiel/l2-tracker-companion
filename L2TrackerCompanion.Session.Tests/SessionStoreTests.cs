@@ -224,7 +224,7 @@ public class SessionStoreTests
     {
         var loop = new PollingLoop();
 
-        // Nothing is warming up before Start — the idle window is the steady one.
+        // Nothing is warming up before Start – the idle window is the steady one.
         Assert.False(loop.IsWarmingUp);
         Assert.Equal(PollingLoop.Interval, loop.NextInterval);
 
@@ -243,8 +243,8 @@ public class SessionStoreTests
 
     /// <summary>
     /// The whole point of the warm-up is to fill the location window, and only a
-    /// read that reached that window fills it. Attempts that captured nothing —
-    /// Start pressed before the game was launched — must not spend the budget.
+    /// read that reached that window fills it. Attempts that captured nothing –
+    /// Start pressed before the game was launched – must not spend the budget.
     /// </summary>
     [Fact]
     public void AttemptsThatReachedNoHintDoNotSpendTheWarmUp()
@@ -294,7 +294,7 @@ public class SessionStoreTests
     /// <summary>
     /// A dropped buffer (in-game reset, stale baseline, restarted client) deletes
     /// the hints gathered so far, so the reads counted towards the window have to
-    /// go with them — otherwise the warm-up ends with the window nearly empty.
+    /// go with them – otherwise the warm-up ends with the window nearly empty.
     /// The attempt ceiling deliberately survives, since it bounds the whole run.
     /// </summary>
     [Fact]

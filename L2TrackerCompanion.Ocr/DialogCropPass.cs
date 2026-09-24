@@ -7,7 +7,7 @@ namespace L2TrackerCompanion.Ocr;
 
 /// <summary>
 /// Step 8: full-image OCR to locate the dialog, fixed-pixel crop, second OCR
-/// pass on the crop. No XP/Adena/lamp-XP parsing — this only checks the crop
+/// pass on the crop. No XP/Adena/lamp-XP parsing – this only checks the crop
 /// actually contains the dialog (and the lamp table when it was in frame).
 /// </summary>
 public static class DialogCropPass
@@ -64,7 +64,7 @@ public static class DialogCropPass
 
     /// <summary>
     /// Locate the dialog, crop, second OCR. The crop bitmap stays alive for
-    /// farm-field micro-crops — caller must dispose.
+    /// farm-field micro-crops – caller must dispose.
     /// </summary>
     public static async Task<DialogCropRecognition> RecognizeAsync(
         string imagePath,
@@ -215,7 +215,7 @@ public static class DialogCropPass
     public static string FormatBatchSummary(IReadOnlyList<DialogCropResult> results)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr dialog crop — locate + second pass, no parsing");
+        builder.AppendLine("# Windows.Media.Ocr dialog crop – locate + second pass, no parsing");
         builder.AppendLine($"# files: {results.Count}");
         builder.AppendLine($"# succeeded: {results.Count(r => r.Success)}");
         builder.AppendLine($"# failed: {results.Count(r => !r.Success)}");
@@ -316,7 +316,7 @@ public static class DialogCropPass
             : string.Join(", ", result.CropLampColors);
 
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr dialog crop — second pass, no parsing");
+        builder.AppendLine("# Windows.Media.Ocr dialog crop – second pass, no parsing");
         builder.AppendLine($"# source: {result.SourcePath}");
         builder.AppendLine($"# image: {result.ImageWidth} x {result.ImageHeight}");
         builder.AppendLine($"# language: {result.Language}");

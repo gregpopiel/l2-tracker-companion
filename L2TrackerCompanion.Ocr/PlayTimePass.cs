@@ -143,7 +143,7 @@ public static class PlayTimePass
     public static string FormatBatchSummary(IReadOnlyList<PlayTimeResult> results)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr play time — dual-read tokens + line crop");
+        builder.AppendLine("# Windows.Media.Ocr play time – dual-read tokens + line crop");
         builder.AppendLine($"# files: {results.Count}");
         builder.AppendLine($"# succeeded: {results.Count(r => r.Success)}");
         builder.AppendLine($"# failed: {results.Count(r => !r.Success)}");
@@ -303,7 +303,7 @@ public static class PlayTimePass
     private static string FormatDump(PlayTimeResult result)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr play time — dual-read tokens + line crop");
+        builder.AppendLine("# Windows.Media.Ocr play time – dual-read tokens + line crop");
         builder.AppendLine($"# source: {result.SourcePath}");
         builder.AppendLine($"# image: {result.ImageWidth} x {result.ImageHeight}");
         builder.AppendLine($"# dialog crop: {result.DialogCrop.Left},{result.DialogCrop.Top} {result.DialogCrop.Width}x{result.DialogCrop.Height}");

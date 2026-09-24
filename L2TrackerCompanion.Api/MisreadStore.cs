@@ -5,7 +5,7 @@ namespace L2TrackerCompanion.Api;
 /// <summary>
 /// Debug-mode archive of frames the pipeline could not read: a copy of the
 /// capture plus what was parsed from it. Material for improving the OCR
-/// passes offline — nothing here is ever sent anywhere or read back by the
+/// passes offline – nothing here is ever sent anywhere or read back by the
 /// app. Sits next to <see cref="TokenStore"/> / <see cref="AppOptionsStore"/>.
 /// </summary>
 /// <remarks>
@@ -21,7 +21,7 @@ public sealed class MisreadStore
 
     /// <summary>
     /// Newest folders kept. A 10s poll that keeps failing would otherwise
-    /// fill the disk — the recent frames are the ones worth having.
+    /// fill the disk – the recent frames are the ones worth having.
     /// </summary>
     public const int MaxEntries = 50;
 
@@ -46,7 +46,7 @@ public sealed class MisreadStore
 
     /// <summary>
     /// Archives one failed read. Returns the folder written, or
-    /// <see langword="null"/> if nothing was saved — a poll tick must not
+    /// <see langword="null"/> if nothing was saved – a poll tick must not
     /// fail because the disk is full or the capture vanished, so every error
     /// here is swallowed rather than raised.
     /// </summary>
@@ -87,7 +87,7 @@ public sealed class MisreadStore
 
     /// <summary>
     /// Folder names lead with a sortable timestamp, so oldest-first is plain
-    /// ordinal order — no directory timestamps involved.
+    /// ordinal order – no directory timestamps involved.
     /// </summary>
     private void Prune()
     {

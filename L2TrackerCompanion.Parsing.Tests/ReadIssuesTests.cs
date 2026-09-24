@@ -36,7 +36,7 @@ public class ReadIssuesTests
     {
         // The old save-side wording said "XP and Adena must both be readable"
         // whichever of the two had failed, so a frame that read Adena fine was
-        // told Adena was unreadable — next to a banner naming the real fields.
+        // told Adena was unreadable – next to a banner naming the real fields.
         var issue = ReadIssues.Describe(TestReports.Open(xp: null, minutes: null));
 
         Assert.NotNull(issue);

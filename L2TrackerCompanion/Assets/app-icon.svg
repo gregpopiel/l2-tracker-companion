@@ -1,7 +1,7 @@
 <!--
   The BrandMark arc (src/components/BrandMark.jsx), re-cut for favicon sizes.
   Two deliberate differences from the component: no inner "L2", which is
-  unreadable at 16px, and a heavier stroke — the component's 3 units would
+  unreadable at 16px, and a heavier stroke – the component's 3 units would
   render under a pixel wide at tab size.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" fill="none">

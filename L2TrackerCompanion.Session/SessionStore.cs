@@ -26,7 +26,7 @@ public sealed class SessionStore : IDisposable
     /// baseline is treated as the stale thing and dropped.
     /// </summary>
     /// <remarks>
-    /// A real OCR misread is transient — the next tick recovers. Several
+    /// A real OCR misread is transient – the next tick recovers. Several
     /// rejections in a row all measured against one unchanged row are evidence
     /// that the row is out of date (a reset nobody was watching for), not that
     /// the reads are bad. Without this the buffer can never advance again.
@@ -168,7 +168,7 @@ public sealed class SessionStore : IDisposable
     }
 
     /// <summary>
-    /// Newest snapshot that may itself be posted — not merely the last
+    /// Newest snapshot that may itself be posted – not merely the last
     /// accepted tick. A closed lamp panel is still appended for monotonicity
     /// and location, but it must not become the save payload.
     /// </summary>
@@ -219,7 +219,7 @@ public sealed class SessionStore : IDisposable
             NewSession();
             return SnapshotAcceptResult.AfterReset(
                 Append(report, capturedAt),
-                $"No read matched the previous one for {StaleBaselineStrikes} ticks — "
+                $"No read matched the previous one for {StaleBaselineStrikes} ticks – "
                 + "the stored baseline was dropped and counting restarted.");
         }
 
@@ -280,7 +280,7 @@ public sealed class SessionStore : IDisposable
     /// failed. A DELETE keeps the connection alive and cannot half-succeed.
     /// The sqlite_sequence row goes with it: id is declared AUTOINCREMENT,
     /// whose whole job is to never reuse a value, so deleting the rows alone
-    /// left the next session counting on from the old one — "Accepted #47"
+    /// left the next session counting on from the old one – "Accepted #47"
     /// on the first read of a fresh session. Nothing depends on ids being
     /// unique across sessions; they only order rows within the current one.
     /// </remarks>

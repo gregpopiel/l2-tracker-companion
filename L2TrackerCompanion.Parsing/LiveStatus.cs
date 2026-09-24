@@ -9,7 +9,7 @@ namespace L2TrackerCompanion.Parsing;
 /// a collapsed Magic Lamp panel is orange, not red; farm+lamps read is green.
 /// Missing minimap hint does not change the colour in v1.
 /// The live card's XP / Adena / rates come from the save payload (last
-/// verified frame), not from a rejected tick — see <see cref="ForDisplay"/>.
+/// verified frame), not from a rejected tick – see <see cref="ForDisplay"/>.
 /// </summary>
 public static class LiveStatus
 {
@@ -30,7 +30,7 @@ public static class LiveStatus
         ArgumentNullException.ThrowIfNull(report);
 
         // Every defect and its wording come from ReadIssues, the same describer
-        // SaveGate blocks on — the light and the reason can no longer disagree
+        // SaveGate blocks on – the light and the reason can no longer disagree
         // about a frame, and a clean read is the only thing left to say here.
         var issue = ReadIssues.Describe(report);
         return issue is null
@@ -43,7 +43,7 @@ public static class LiveStatus
 
     /// <summary>
     /// Keep this tick's light and message, but show the numbers Save would
-    /// post — the last verified frame, not a rejected OCR.
+    /// post – the last verified frame, not a rejected OCR.
     /// </summary>
     public static LiveStatusSnapshot ForDisplay(LiveStatusSnapshot tick, PlayReport? saveSource)
         => tick with { Report = saveSource };

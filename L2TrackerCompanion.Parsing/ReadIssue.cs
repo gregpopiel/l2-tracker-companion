@@ -16,7 +16,7 @@ public sealed record ReadIssue(TrafficLight Light, string Message, bool BlocksSa
 /// the traffic light shows) used to walk the same flags in almost the same order
 /// and phrase the findings independently, so the two drifted: the same frame
 /// could report "XP and Adena must both be readable to save." next to "Couldn't
-/// read XP and play time." — contradicting each other about which field failed,
+/// read XP and play time." – contradicting each other about which field failed,
 /// while a play-time contradiction blocked Save with no colour change at all.
 /// Both now describe a frame through this class, so one defect produces exactly
 /// one sentence and the UI only has to decide where to show it.
@@ -50,7 +50,7 @@ public static class ReadIssues
             return Blocking(
                 TrafficLight.Red,
                 Detail(
-                    "The two XP reads disagreed on the number of digits — one of them dropped a digit",
+                    "The two XP reads disagreed on the number of digits – one of them dropped a digit",
                     report.Confidence.DescribeXpDispute()));
         }
 
@@ -67,13 +67,13 @@ public static class ReadIssues
             return Blocking(TrafficLight.Red, "The Play Report shows no elapsed time yet.");
         }
 
-        // A collapsed panel is the player's own doing, not a bad read — orange,
+        // A collapsed panel is the player's own doing, not a bad read – orange,
         // but still blocking, since saving it would store silent zeros.
         if (report.LampPanelClosed)
         {
             return Blocking(
                 TrafficLight.Orange,
-                "Magic Lamp panel closed — expand it before saving; a collapsed panel "
+                "Magic Lamp panel closed – expand it before saving; a collapsed panel "
                 + "would be stored as zero lamp XP.");
         }
 
@@ -84,7 +84,7 @@ public static class ReadIssues
         {
             return Blocking(
                 TrafficLight.Red,
-                "Lamp XP exceeds the dialog's own XP, which is impossible — the frame was misread.");
+                "Lamp XP exceeds the dialog's own XP, which is impossible – the frame was misread.");
         }
 
         if (!report.LampXpRead
@@ -108,7 +108,7 @@ public static class ReadIssues
             return new ReadIssue(
                 TrafficLight.Orange,
                 Detail("XP was assembled from two disagreeing reads", report.Confidence.DescribeXpDispute())
-                    + $" Saving {saving} ({how}) — check it against the panel.",
+                    + $" Saving {saving} ({how}) – check it against the panel.",
                 BlocksSave: false);
         }
 
@@ -138,5 +138,5 @@ public static class ReadIssues
     /// says what to look at rather than only that something is wrong.
     /// </summary>
     internal static string Detail(string headline, string? dispute)
-        => dispute is null ? headline + "." : $"{headline} — {dispute}.";
+        => dispute is null ? headline + "." : $"{headline} – {dispute}.";
 }

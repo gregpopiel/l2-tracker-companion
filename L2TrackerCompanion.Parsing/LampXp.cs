@@ -52,12 +52,12 @@ public static class LampXp
     /// <remarks>
     /// Measured on the POC set: the first source in precedence order (the
     /// table cell crop) is the one that most often reads a row wrong, and it
-    /// fails in a way nothing downstream can detect — a dropped <c>K</c>
+    /// fails in a way nothing downstream can detect – a dropped <c>K</c>
     /// suffix turns <c>14M 400K</c> into a well-formed 14,000,400, so it is
     /// never null and never triggers a retry.
     /// <para>
     /// Agreement alone is not enough, because two sources routinely lose the
-    /// same <c>K</c> group and then out-vote the one source that read it —
+    /// same <c>K</c> group and then out-vote the one source that read it –
     /// live on 2026-09-06 that stored Green as 36,000,000 against the game's
     /// own <c>36M 608K</c>. A truncated figure is not an arbitrary wrong
     /// number though (see <see cref="IsTruncationOf"/>), so it is promoted to
@@ -99,7 +99,7 @@ public static class LampXp
     /// <summary>
     /// Is this the same figure with one or more trailing magnitude groups
     /// lost? WinOCR drops the <c>K</c> group, so <c>36M 608K</c> comes back
-    /// as <c>36M</c> — 36,000,000 is 36,608,000 with its thousands zeroed.
+    /// as <c>36M</c> – 36,000,000 is 36,608,000 with its thousands zeroed.
     /// </summary>
     /// <remarks>
     /// Deliberately narrower than "prefer the larger figure": a misread
@@ -110,7 +110,7 @@ public static class LampXp
     /// real reading rather than a degraded one.
     /// <para>
     /// The target has to be a whole number of thousands. Lamp rows are
-    /// printed as M and K groups, so a real figure always is — while the
+    /// printed as M and K groups, so a real figure always is – while the
     /// same lost-<c>K</c> failure can spill digits into the units instead
     /// (<c>17M 888K</c> read as 17,000,888). Without this, the round
     /// readings beside such a misread count as truncations of it and hand

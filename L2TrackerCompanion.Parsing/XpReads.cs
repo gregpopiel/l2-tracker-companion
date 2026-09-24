@@ -12,7 +12,7 @@ namespace L2TrackerCompanion.Parsing;
 /// A splice is a <em>repair</em> of a read the two sources could not agree
 /// on, so <see cref="CombineDetailed"/> reports it alongside the value.
 /// Snapshot saves surface that as a warning instead of silently trusting the
-/// repaired figure — see <see cref="SaveGate"/>.
+/// repaired figure – see <see cref="SaveGate"/>.
 /// </remarks>
 public static class XpReads
 {
@@ -64,7 +64,7 @@ public static class XpReads
 /// <param name="MagnitudeMismatch">
 /// The two sources disagreed on how many digits the figure has. Dropping or
 /// adding a digit is the failure mode that would corrupt a saved log by a
-/// factor of ten, so this one is never repaired — it blocks the save.
+/// factor of ten, so this one is never repaired – it blocks the save.
 /// </param>
 public readonly record struct XpCombineResult(
     long? Value,

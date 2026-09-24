@@ -7,7 +7,7 @@ namespace L2TrackerCompanion.Parsing;
 /// <c>O</c> vanishes, leaving nothing to parse). Fold after the fact instead.
 /// </summary>
 /// <remarks>
-/// Trailing <c>B</c>/<c>M</c>/<c>K</c> are magnitude suffixes, not digits —
+/// Trailing <c>B</c>/<c>M</c>/<c>K</c> are magnitude suffixes, not digits –
 /// <see cref="GameNumber"/> splits those off before folding so a leading
 /// <c>B</c> ("B50K" for "850K") can still become 8, while a trailing <c>B</c>
 /// stays billions.

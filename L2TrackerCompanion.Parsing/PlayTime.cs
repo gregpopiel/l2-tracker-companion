@@ -98,7 +98,7 @@ public static partial class PlayTime
 
     /// <summary>
     /// Tokens that can belong to the value line. "Total" (the other word of
-    /// the label) is purely alphabetic and must stay out — its box sometimes
+    /// the label) is purely alphabetic and must stay out – its box sometimes
     /// reports a top a few pixels below "time" and would otherwise drag the
     /// crop up into the label.
     /// </summary>
@@ -225,7 +225,7 @@ public static partial class PlayTime
 
     /// <summary>
     /// Always crop the label strip when an anchor exists, even if the
-    /// token band is empty — WinOCR often emits no duration tokens at all.
+    /// token band is empty – WinOCR often emits no duration tokens at all.
     /// Union with the token boxes so a far-right <c>min.</c> is not clipped.
     /// </summary>
     public static CropRect CombinedValueCrop(PlayTimeRead read, int imageWidth, int imageHeight)
@@ -243,7 +243,7 @@ public static partial class PlayTime
     /// Dual-read: crop and tokens must not contradict. Either side alone
     /// is allowed (the upscale smears this line on many shots; the tokens
     /// carry the "0 d." / "04." ambiguity <see cref="ParseMinutes"/>
-    /// resolves). A disagreement is unmodelled — refuse rather than guess.
+    /// resolves). A disagreement is unmodelled – refuse rather than guess.
     /// </summary>
     public static int? Combine(int? fromCrop, int? fromTokens)
     {

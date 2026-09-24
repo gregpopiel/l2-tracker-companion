@@ -54,7 +54,7 @@ public static class LocationName
     }
 
     /// <summary>
-    /// Blank names match nothing, including another blank — the same rule
+    /// Blank names match nothing, including another blank – the same rule
     /// <c>SpotMatch.SameName</c> uses for an exact spot match.
     /// </summary>
     public static bool SamePlace(string? left, string? right)

@@ -131,9 +131,9 @@ public class LampXpTests
     [Theory]
     // The live 2026-09-06 failure: game showed "36M 608K", app stored 36,000,000.
     [InlineData(36_608_000L, 36_000_000L, 36_000_000L, null, 36_608_000L)]
-    // 100714 green, "2M 400K" — one of the two mismatches left after voting alone.
+    // 100714 green, "2M 400K" – one of the two mismatches left after voting alone.
     [InlineData(2_400_000L, null, 2_000_000L, null, 2_400_000L)]
-    // 235757 blue, "4M 680K" — the other one.
+    // 235757 blue, "4M 680K" – the other one.
     [InlineData(4_680_000L, null, 4_000_000L, null, 4_680_000L)]
     // 191638 blue: the lost-K-suffix shape (23,000,040) survives untouched,
     // but promoting its sibling gives the correct figure the majority.
@@ -153,7 +153,7 @@ public class LampXpTests
     {
         // 140305 blue: "7M 776K" read as 9M by the table crop. 9,776,000 is
         // larger but is not 7,776,000 with a group zeroed, so promotion must
-        // not touch it — "prefer the larger figure" would pick the wrong one.
+        // not touch it – "prefer the larger figure" would pick the wrong one.
         Assert.Equal(7_776_000, LampXp.MostSupported(9_776_000, 7_776_000, null, 7_776_000));
         Assert.Equal(9_776_000, LampXp.MostSupported(9_776_000, 7_776_000, null, null));
     }
@@ -185,7 +185,7 @@ public class LampXpTests
     [Fact]
     public void MostSupportedCountsZeroAsAValue()
     {
-        // An empty lamp row is a real 0, not a missing read — two sources
+        // An empty lamp row is a real 0, not a missing read – two sources
         // agreeing on 0 must beat one source that produced a figure.
         // Both cases would resolve to the figure on precedence alone, so the
         // agreeing zeros are what decides them.

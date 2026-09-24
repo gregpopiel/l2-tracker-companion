@@ -16,7 +16,7 @@ public sealed class WindowCaptureService
     private const string AppDataFolderName = "L2TrackerCompanion";
 
     /// <summary>
-    /// Fixed Windows profile path — not next to the exe. When the app is launched via
+    /// Fixed Windows profile path – not next to the exe. When the app is launched via
     /// WSL (<c>dotnet run</c> against a \\wsl.localhost\ tree), BaseDirectory is a UNC path
     /// that is awkward to browse and differs from where developers expect output.
     /// </summary>
@@ -127,7 +127,7 @@ public sealed class WindowCaptureService
             return new CaptureResult
             {
                 Success = false,
-                ErrorMessage = "Lineage II is minimized — restore the game window before capturing. "
+                ErrorMessage = "Lineage II is minimized – restore the game window before capturing. "
                     + "The game can run behind other windows, but Windows.Graphics.Capture does not "
                     + "receive frames from a minimized (taskbar) window.",
             };
@@ -135,7 +135,7 @@ public sealed class WindowCaptureService
 
         // PrintWindow fails with ACCESS_DENIED (Win32 error 5) on the L2.bin client.
         // Windows.Graphics.Capture targets the game HWND via the compositor and does
-        // not require the companion to be foreground — see GraphicsCaptureService remarks.
+        // not require the companion to be foreground – see GraphicsCaptureService remarks.
         return _graphicsCaptureService.CaptureWindow(window.Hwnd, outputPath);
     }
 

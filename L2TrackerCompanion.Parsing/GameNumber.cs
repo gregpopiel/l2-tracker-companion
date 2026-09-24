@@ -11,7 +11,7 @@ namespace L2TrackerCompanion.Parsing;
 /// </summary>
 /// <remarks>
 /// Lamp counts, per-lamp scale solve, and the <c>N pc(s).</c> checksum are
-/// deliberately not ported — production reads the printed XP figures only.
+/// deliberately not ported – production reads the printed XP figures only.
 /// </remarks>
 public static partial class GameNumber
 {
@@ -35,7 +35,7 @@ public static partial class GameNumber
     /// Token-wise parse. Whether the dialog's <c>1M 165K 47</c> arrives as
     /// three tokens or as <c>1M165K</c> + <c>47.</c> is the engine's choice;
     /// a token carrying more than one magnitude group is split back apart.
-    /// Returns <see langword="null"/> rather than a partial sum — a plausible
+    /// Returns <see langword="null"/> rather than a partial sum – a plausible
     /// wrong number is worse than unread.
     /// </summary>
     public static long? Parse(params string[] tokens) => Parse((IEnumerable<string>)tokens);
@@ -106,7 +106,7 @@ public static partial class GameNumber
     /// One tight line holding exactly one figure. Closes a stray space
     /// <em>inside</em> a group (Tesseract split <c>751K</c> into <c>75</c> +
     /// <c>1K</c>; token-wise that is unrecoverable). Any letter surviving the
-    /// fold that isn't a <c>B</c>/<c>M</c>/<c>K</c> suffix refuses the read —
+    /// fold that isn't a <c>B</c>/<c>M</c>/<c>K</c> suffix refuses the read –
     /// otherwise <c>garbage</c> would fold to 969.
     /// </summary>
     public static long? ParseLine(string text)

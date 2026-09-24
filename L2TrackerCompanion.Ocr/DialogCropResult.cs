@@ -44,7 +44,7 @@ public sealed class DialogCropResult
 
     /// <summary>
     /// Crop pass found the dialog itself (adena + a locate token). Farm-field
-    /// parsing is a later step — this only answers "is the panel in the crop?"
+    /// parsing is a later step – this only answers "is the panel in the crop?"
     /// </summary>
     public bool DialogContained =>
         Success

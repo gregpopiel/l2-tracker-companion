@@ -3,10 +3,10 @@
 # Output: releases/L2Tracker-Setup.exe + L2Tracker-Portable.zip +
 # L2Tracker-<ver>-full.nupkg + manifests (gitignored). Pack id is L2Tracker
 # (`-u`); vpk still suffixes the installer/zip with `-win-`, so those two are
-# renamed after pack. Do not change `-u` without a fresh pack — that id is
+# renamed after pack. Do not change `-u` without a fresh pack – that id is
 # baked into the nupkg and the install folder.
 # Attach to GitHub only those three plus releases.win.json.
-# Skip RELEASES and assets.win.json — updater does not read them.
+# Skip RELEASES and assets.win.json – updater does not read them.
 # Requires the `vpk` global dotnet tool: dotnet tool install -g vpk
 set -euo pipefail
 

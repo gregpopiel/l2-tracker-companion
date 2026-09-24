@@ -7,7 +7,7 @@ namespace L2TrackerCompanion.Parsing;
 /// <remarks>
 /// Trust is primarily <em>in-frame</em>: two independent reads of the same
 /// field either agree or they do not. Time-based agreement is secondary and
-/// only meaningful while the figures are still moving — a player who has
+/// only meaningful while the figures are still moving – a player who has
 /// stopped farming produces identical frames, and identical frames reproduce
 /// an identical misread, so repetition alone can never unlock a save.
 ///
@@ -26,7 +26,7 @@ public static class SaveGate
         if (report is null)
         {
             // No message: the idle state is already self-evident (a
-            // disabled Save button, zeroed totals) — nothing here needs
+            // disabled Save button, zeroed totals) – nothing here needs
             // explaining in a status line.
             return SaveGateDecision.Blocked(TrafficLight.Idle, null);
         }
@@ -41,7 +41,7 @@ public static class SaveGate
         if (!snapshot.Ok)
         {
             // Defensive only: ReadIssues covers everything TryCreate rejects,
-            // so reaching this means the two fell out of step — surface the
+            // so reaching this means the two fell out of step – surface the
             // snapshot's own reason rather than an empty status line.
             var light = report.LampPanelClosed ? TrafficLight.Orange : TrafficLight.Red;
             return SaveGateDecision.Blocked(light, snapshot.Error!);
@@ -66,7 +66,7 @@ public static class SaveGate
     /// <param name="currentAccepted">
     /// False when <paramref name="current"/> was not appended (a monotonicity
     /// drop, a tick that finished after Stop). In-frame agreement is not
-    /// enough — that frame must not beat the hold.
+    /// enough – that frame must not beat the hold.
     /// </param>
     public static SaveGateDecision EvaluateWithHold(
         PlayReport? current,
@@ -102,7 +102,7 @@ public static class SaveGate
 
         // The live card is already painted from this held frame, so a sentence
         // saying which read is being saved restated a fact nobody acts on.
-        // HoldReason is why the current frame was passed over — only when
+        // HoldReason is why the current frame was passed over – only when
         // Evaluate actually named a defect. A missing current frame (game not
         // running, empty store) has BlockReason null on purpose; inventing
         // "not trustworthy" there duplicated the live-status line

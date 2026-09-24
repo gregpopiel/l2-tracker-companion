@@ -46,7 +46,7 @@ public class LocationChangeWatchTests
         var watch = new LocationChangeWatch();
         watch.Notice("Cruma Tower");
 
-        // LocationStability passes null while its window disagrees — an
+        // LocationStability passes null while its window disagrees – an
         // occluded minimap must not read as having walked somewhere.
         Assert.Null(watch.Notice(null));
         Assert.Null(watch.Notice("   "));

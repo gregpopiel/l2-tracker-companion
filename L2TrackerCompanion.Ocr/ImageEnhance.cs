@@ -20,7 +20,7 @@ public static class ImageEnhance
     /// One source image, converted to GDI+ once and reused for every crop taken
     /// from it. The conversion runs a full-size PNG encode plus decode, so doing
     /// it per micro-crop meant re-compressing the whole dialog (or lamp table)
-    /// once per field — roughly ten times per 10s poll tick. Hold one of these
+    /// once per field – roughly ten times per 10s poll tick. Hold one of these
     /// for as long as you are cropping the same source, and dispose it.
     /// Not thread-safe: every pass awaits its crops one at a time, and two
     /// concurrent first calls would each convert and leak one of the results.
@@ -110,7 +110,7 @@ public static class ImageEnhance
     /// <summary>
     /// Table crop: resample only (no grayscale/contrast). Matches the
     /// browser's 3× lamp-table pass, which upscales then recognizes colour
-    /// names — contrast-stretching that strip smears the labels.
+    /// names – contrast-stretching that strip smears the labels.
     /// </summary>
     public static async Task<SoftwareBitmap> ScaleCropAsync(
         SoftwareBitmap source,

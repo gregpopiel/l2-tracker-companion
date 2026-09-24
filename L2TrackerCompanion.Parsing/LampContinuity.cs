@@ -4,8 +4,8 @@ namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
 /// Lamp XP only ever grows within a session. A figure that falls is a bad
-/// read — including the <c>0</c> a located-but-unparsed cell is given so a
-/// genuine empty lamp can still be saved — and the column is withdrawn
+/// read – including the <c>0</c> a located-but-unparsed cell is given so a
+/// genuine empty lamp can still be saved – and the column is withdrawn
 /// rather than allowed to discard the rest of the frame.
 /// </summary>
 /// <remarks>
@@ -52,7 +52,7 @@ public static class LampContinuity
         var inv = CultureInfo.InvariantCulture;
         var warning =
             $"{name} read {after.ToString("N0", inv)} after {before.ToString("N0", inv)} "
-            + "— lamp XP only ever grows, so the column was treated as unread";
+            + "– lamp XP only ever grows, so the column was treated as unread";
         return candidate with
         {
             LampXpRead = false,

@@ -3,7 +3,7 @@ namespace L2TrackerCompanion.Parsing;
 /// <summary>
 /// Token-band XP/Adena read, anchored on the <c>adena</c> <em>unit</em> word
 /// (the one trailing the figure), not the "Adena" section heading. Micro-crop
-/// OCR of those bands is a later pass — this library only does geometry +
+/// OCR of those bands is a later pass – this library only does geometry +
 /// parse.
 /// </summary>
 public static class FarmFields

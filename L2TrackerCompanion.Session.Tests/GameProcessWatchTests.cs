@@ -63,7 +63,7 @@ public class GameProcessWatchTests
     public void ClosingOneOfTwoClientsIsNotARestart()
     {
         // The app was following the client that got closed, so the id it now
-        // reports differs and the old process is gone — but the surviving
+        // reports differs and the old process is gone – but the surviving
         // client's panel was never reset. A game window was visible the whole
         // time, which is what tells the two apart.
         var watch = new GameProcessWatch();

@@ -30,7 +30,7 @@ public class MisreadStoreTests
 
     /// <summary>
     /// Polling overwrites one capture.png every 10s, so the archived copy has
-    /// to be a copy — a saved path would point at a later frame.
+    /// to be a copy – a saved path would point at a later frame.
     /// </summary>
     [Fact]
     public void SavedCaptureIsACopyNotAReference()

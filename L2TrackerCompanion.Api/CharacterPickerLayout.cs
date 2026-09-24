@@ -1,7 +1,7 @@
 namespace L2TrackerCompanion.Api;
 
 /// <summary>
-/// One character is just its name — a dropdown for a list of one is noise.
+/// One character is just its name – a dropdown for a list of one is noise.
 /// Zero or several keep the picker (disabled when empty).
 /// </summary>
 public readonly record struct CharacterPickerLayout(

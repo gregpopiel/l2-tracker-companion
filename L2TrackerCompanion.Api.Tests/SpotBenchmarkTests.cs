@@ -29,7 +29,7 @@ public class SpotBenchmarkTests
     public void PureXpRanksSeparatelyAgainstFarmXpHourly()
     {
         // FarmXpHourly ("pure" XP, lamps excluded) is deliberately set apart
-        // from AverageXpHourly ("raw" XP, lamps included) on Blazing Swamp —
+        // from AverageXpHourly ("raw" XP, lamps included) on Blazing Swamp –
         // a live pure-XP read must rank against the former, not the latter,
         // and the pool (gated on AverageXpHourly) must still include it.
         var spots = new[]
@@ -70,7 +70,7 @@ public class SpotBenchmarkTests
     public void StoredThousandsAreScaledToRawGameUnits()
     {
         // 12,000,000 XP/h read live is the same pace as the 12,000 stored for
-        // Cruma Tower — mid-table, not a landslide.
+        // Cruma Tower – mid-table, not a landslide.
         var snapshot = SpotBenchmark.Evaluate(12_000_000, null, ThreeSpots);
         Assert.Equal(2, snapshot.XpRank);
 
@@ -150,7 +150,7 @@ public class SpotBenchmarkTests
     public void AnEmptyPoolSaysSoInsteadOfRankingAgainstNothing()
     {
         Assert.Equal(
-            "No saved sessions yet — nothing to compare against.",
+            "No saved sessions yet – nothing to compare against.",
             Text(SpotBenchmark.Evaluate(13_000_000, null, [])));
 
         Assert.Equal(

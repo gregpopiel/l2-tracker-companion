@@ -248,7 +248,7 @@ static async Task<int> RunSpotsAsync()
         var spots = await client.GetSpotsAsync(token, character.Id);
         if (!spots.Success || spots.Value is null)
         {
-            Console.WriteLine($"{character.Name} ({character.Id}): failed — {spots.Error}");
+            Console.WriteLine($"{character.Name} ({character.Id}): failed – {spots.Error}");
             return 2;
         }
 
@@ -268,7 +268,7 @@ static async Task<int> RunSpotsAsync()
     var settings = await client.GetSettingsAsync(token);
     if (!settings.Success || settings.Value is null)
     {
-        Console.WriteLine($"settings: failed — {settings.Error} (using schema default bonus {UserSettingsInfo.SchemaDefaults.DefaultBonus})");
+        Console.WriteLine($"settings: failed – {settings.Error} (using schema default bonus {UserSettingsInfo.SchemaDefaults.DefaultBonus})");
         return 0;
     }
 
@@ -300,7 +300,7 @@ static async Task<int> RunHttpSmokeAsync()
     var client = new TrackerApiClient(http);
 
     Console.WriteLine($"Base URL: {auth.BaseUrl}");
-    Console.WriteLine("(native HttpClient — no Origin header)");
+    Console.WriteLine("(native HttpClient – no Origin header)");
     Console.WriteLine();
 
     var characters = await client.GetCharactersAsync(token);
@@ -415,8 +415,8 @@ static async Task<int> RunSaveAsync(string[] args)
         return 2;
     }
 
-    // A non-blocking read defect no longer travels as a warning string — it is
-    // the same ReadIssue the app shows in its alert banner — so print it here
+    // A non-blocking read defect no longer travels as a warning string – it is
+    // the same ReadIssue the app shows in its alert banner – so print it here
     // too, or the headless path loses the reason a figure is not to be trusted.
     if (gate.Issue is { BlocksSave: false } issue)
     {
@@ -553,7 +553,7 @@ static async Task<int> RunMatchHintAsync(string input)
     var token = auth.TryLoadToken();
     if (token is null)
     {
-        Console.WriteLine("No stored token — cannot load spots. Matcher itself does not need the API.");
+        Console.WriteLine("No stored token – cannot load spots. Matcher itself does not need the API.");
         return 1;
     }
 
@@ -689,7 +689,7 @@ static async Task<int> RunFarmBatchAsync(string imageDirectory, string outputDir
     }
     else
     {
-        Console.WriteLine($"No tesseract baseline at {baselinePath} — skipped comparison.");
+        Console.WriteLine($"No tesseract baseline at {baselinePath} – skipped comparison.");
     }
 
     return results.All(r => r.Success) ? 0 : 2;
@@ -765,7 +765,7 @@ static async Task<int> RunLampBatchAsync(string imageDirectory, string outputDir
     }
     else
     {
-        Console.WriteLine($"No tesseract baseline at {baselinePath} — skipped comparison.");
+        Console.WriteLine($"No tesseract baseline at {baselinePath} – skipped comparison.");
     }
 
     return results.All(r => r.Success) ? 0 : 2;
@@ -809,7 +809,7 @@ static async Task<int> RunLocationBatchAsync(string imageDirectory, string outpu
     }
     else
     {
-        Console.WriteLine($"No tesseract baseline at {baselinePath} — skipped comparison.");
+        Console.WriteLine($"No tesseract baseline at {baselinePath} – skipped comparison.");
     }
 
     return results.All(r => r.Success) ? 0 : 2;

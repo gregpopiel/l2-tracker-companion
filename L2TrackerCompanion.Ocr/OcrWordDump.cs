@@ -7,7 +7,7 @@ namespace L2TrackerCompanion.Ocr;
 
 /// <summary>
 /// Step 5 smoke: run <see cref="OcrEngine"/> on a PNG and dump every word plus its
-/// bounding box. No field parsing — later steps consume this dump (or a live
+/// bounding box. No field parsing – later steps consume this dump (or a live
 /// RecognizeAsync call) to locate "Play Report", the "adena" unit, and lamp colours.
 /// Boxes are in source-image pixels, origin top-left.
 /// </summary>
@@ -17,7 +17,7 @@ namespace L2TrackerCompanion.Ocr;
 /// <c>Characters</c>, and Red/Purple/Green dump with stable boxes; row-name Y values
 /// step by ~38px (usable pitch). <c>Report</c> is consistently <c>Rewrt</c>/<c>Rewt</c>/<c>Recort</c>
 /// (~33×9–10px glyphs). Blue is often <c>gue</c>/<c>Nue</c>. A full-desktop 1904×996
-/// pass finds <c>adena</c> and <c>Characters</c> but no lamp colour names — same reason
+/// pass finds <c>adena</c> and <c>Characters</c> but no lamp colour names – same reason
 /// the browser locate pass crops before reading the table. Locate in later steps should
 /// keep the "Characters" fallback; do not assume an exact "Report" token.
 /// </remarks>
@@ -54,7 +54,7 @@ public static class OcrWordDump
             return [];
         }
 
-        // Top-level only — skip images/processed/ (tesseract.js intermediates).
+        // Top-level only – skip images/processed/ (tesseract.js intermediates).
         return Directory.GetFiles(imageDirectory, "*.png")
             .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -63,7 +63,7 @@ public static class OcrWordDump
     public static string FormatBatchSummary(IReadOnlyList<OcrDumpResult> results)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr batch dump — no parsing");
+        builder.AppendLine("# Windows.Media.Ocr batch dump – no parsing");
         builder.AppendLine($"# files: {results.Count}");
         builder.AppendLine($"# succeeded: {results.Count(r => r.Success)}");
         builder.AppendLine($"# failed: {results.Count(r => !r.Success)}");
@@ -235,7 +235,7 @@ public static class OcrWordDump
             : string.Join(", ", result.FoundLampColors);
 
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr word dump — no parsing");
+        builder.AppendLine("# Windows.Media.Ocr word dump – no parsing");
         builder.AppendLine($"# source: {result.SourcePath}");
         builder.AppendLine($"# image: {result.ImageWidth} x {result.ImageHeight}");
         builder.AppendLine($"# language: {result.Language}");

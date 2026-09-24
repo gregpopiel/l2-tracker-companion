@@ -20,12 +20,12 @@ namespace L2TrackerCompanion.Capture;
 /// <remarks>
 /// Unfocused capture: WGC reads the DWM compositor's backing texture for the target
 /// HWND, not the GDI framebuffer of whichever window currently has focus. The
-/// companion can stay behind the game (or minimized) while capturing L2.bin — only
+/// companion can stay behind the game (or minimized) while capturing L2.bin – only
 /// the game window needs to exist and be visible to the compositor.
 /// Verified 2026-09-02 on the developer PC: capture of HWND 0x40B3E succeeded with
 /// another app in the foreground (headless CLI, no companion window shown) and with
 /// the WPF companion behind Lineage II (manual "Capture once", ~3 MB PNG).
-/// Does not work while the game window is minimized (IsIconic) — WGC times out with
+/// Does not work while the game window is minimized (IsIconic) – WGC times out with
 /// no compositor frames; same behavior in glasscap. Restore the window (it may stay
 /// behind other apps) before capturing.
 /// PrintWindow (step 2) failed with ACCESS_DENIED on this client; this path replaced it.
@@ -33,7 +33,7 @@ namespace L2TrackerCompanion.Capture;
 /// COM ownership: every raw pointer obtained here through P/Invoke (D3D11CreateDevice,
 /// QueryInterface, RoGetActivationFactory, CreateForWindow) is a reference this class
 /// owns and must release itself. CsWinRT's MarshalInspectable&lt;T&gt;.FromAbi does NOT
-/// take ownership of the pointer handed to it — it adds its own references, so the
+/// take ownership of the pointer handed to it – it adds its own references, so the
 /// caller's still has to be released (ObjectReference.Attach is the transferring
 /// counterpart). Verified 2026-09-03 by refcount probe on a real GraphicsCaptureItem:
 /// count was 1 from CreateForWindow and 3 after FromAbi. None of these were released
@@ -44,7 +44,7 @@ namespace L2TrackerCompanion.Capture;
 /// Device lifetime: the IDirect3DDevice is created once and reused across ticks rather
 /// than rebuilt per capture. Because a device can be lost for good (driver TDR, driver
 /// update, adapter reset), any failed capture drops the cached one so the next tick
-/// rebuilds it — otherwise a single TDR would break capture until the app restarted.
+/// rebuilds it – otherwise a single TDR would break capture until the app restarted.
 /// Callers are serialized on the WPF UI thread (CaptureWindow blocks in Thread.Join),
 /// so a capture in flight can never have its device disposed underneath it.
 /// </remarks>
@@ -131,7 +131,7 @@ public sealed class GraphicsCaptureService
             // default (Win11 22H2+). IsBorderRequired lets us suppress it, but it's
             // only present on newer builds (ApiInformation guard), and even where
             // present, setting it has been observed to throw (COMException, "Element
-            // not found") on some Windows builds/capture-item combinations — this is
+            // not found") on some Windows builds/capture-item combinations – this is
             // a cosmetic nicety, so swallow that rather than fail the whole capture.
             if (Windows.Foundation.Metadata.ApiInformation.IsPropertyPresent(
                     "Windows.Graphics.Capture.GraphicsCaptureSession", "IsBorderRequired"))
@@ -202,7 +202,7 @@ public sealed class GraphicsCaptureService
         }
         catch (Exception ex)
         {
-            // The cached device may be the reason this failed — a TDR, a driver
+            // The cached device may be the reason this failed – a TDR, a driver
             // update or an adapter reset leaves it permanently DEVICE_REMOVED,
             // and without dropping it every later tick would fail the same way
             // forever. Recreating it costs one device per failed capture, which
@@ -306,7 +306,7 @@ public sealed class GraphicsCaptureService
         // We own one ref via `device` (from D3D11CreateDevice) and a second via
         // `dxgiDevice` (from QueryInterface). CreateDirect3D11DeviceFromDXGIDevice
         // wraps the underlying device in its own WinRT object with its own
-        // internal ref — it does not consume ours, so both raw pointers must be
+        // internal ref – it does not consume ours, so both raw pointers must be
         // released here regardless of outcome, or each call leaks a full D3D11
         // device. This used to run on every 10s poll tick with no release at all.
         try
@@ -367,7 +367,7 @@ public sealed class GraphicsCaptureService
             // GetObjectForIUnknown takes its own ref on the underlying object for
             // the RCW it hands back, so our own `factoryPtr` ref from
             // RoGetActivationFactory is redundant once `interop` exists and must
-            // be released ourselves — previously never was, leaking the
+            // be released ourselves – previously never was, leaking the
             // activation factory on every capture.
             IGraphicsCaptureItemInterop interop;
             try
@@ -388,7 +388,7 @@ public sealed class GraphicsCaptureService
 
             // FromAbi adds its own reference rather than taking ownership of
             // `itemPtr` (ObjectReference.Attach is the transferring counterpart),
-            // so ours must be released — otherwise every 10s poll tick leaks a
+            // so ours must be released – otherwise every 10s poll tick leaks a
             // GraphicsCaptureItem, since this runs once per capture.
             try
             {

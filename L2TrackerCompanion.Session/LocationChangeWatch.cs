@@ -7,14 +7,14 @@ namespace L2TrackerCompanion.Session;
 /// they were at, so the app can remind them to restart the in-game Play Report.
 /// </summary>
 /// <remarks>
-/// Purely a reminder — nothing here blocks a save or hides a figure. The Play
+/// Purely a reminder – nothing here blocks a save or hides a figure. The Play
 /// Report counts from login, so a session spanning two spots is attributed to
 /// whichever one is picked at save time; keeping that correct is the player's
 /// call, and this is the nudge.
 /// <para>
 /// Only settled locations count. Feeding it the raw minimap hint would fire on
 /// every OCR wobble, so callers pass the canonical name from
-/// <c>LocationStability</c> and null while the window is still unsettled — an
+/// <c>LocationStability</c> and null while the window is still unsettled – an
 /// unsettled stretch is not a move, it is a gap, and the next settled name is
 /// only news if it differs from the last one.
 /// </para>
@@ -69,7 +69,7 @@ public sealed class LocationChangeWatch
         }
 
         Current = name;
-        _pendingNotice = $"Location changed to {name} — restart the in-game Play Report if you moved spots.";
+        _pendingNotice = $"Location changed to {name} – restart the in-game Play Report if you moved spots.";
         _pendingNoticeAt = now;
         return _pendingNotice;
     }

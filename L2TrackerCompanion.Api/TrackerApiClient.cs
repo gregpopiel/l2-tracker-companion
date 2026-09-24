@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 namespace L2TrackerCompanion.Api;
 
 /// <summary>
-/// Native <see cref="HttpClient"/> calls — no browser <c>Origin</c> header.
+/// Native <see cref="HttpClient"/> calls – no browser <c>Origin</c> header.
 /// <see cref="Create"/> reuses one client per base URL.
 /// </summary>
 public sealed class TrackerApiClient
@@ -288,7 +288,7 @@ public sealed class TrackerApiClient
 }
 
 /// <summary>
-/// <c>GET /api/me</c>. <c>DesktopAppEnabled</c> gates this app only — a user with it
+/// <c>GET /api/me</c>. <c>DesktopAppEnabled</c> gates this app only – a user with it
 /// off keeps full access to the website.
 /// </summary>
 public sealed record MeResponse(
@@ -335,10 +335,10 @@ public sealed record SpotCreatedResponse(int Id, string Name, int AreaId);
 /// <c>GET /api/spots?characterId=</c>. The three hourly figures are averages of
 /// <em>that character's</em> logs only (the endpoint filters the relation by
 /// <c>characterId</c>), and are null when the character has never logged here.
-/// <see cref="LogCount"/> is the one field that is not character-scoped — it
+/// <see cref="LogCount"/> is the one field that is not character-scoped – it
 /// counts every character on the account, because it gates spot deletion, which
 /// cascades account-wide. Never read it as a sample count for these averages.
-/// Amounts follow the API's thousands convention — see <see cref="LegacyThousands"/>.
+/// Amounts follow the API's thousands convention – see <see cref="LegacyThousands"/>.
 /// </summary>
 public sealed record SpotInfo(
     int Id,
@@ -439,7 +439,7 @@ public static class SessionPickers
 
 /// <summary>
 /// Exact case-insensitive match of a minimap <c>locationHint</c> against
-/// spot <see cref="SpotInfo.Name"/> — never fuzzy, never the area label.
+/// spot <see cref="SpotInfo.Name"/> – never fuzzy, never the area label.
 /// A miss returns null so the picker can stay as it was.
 /// </summary>
 public static class SpotMatch

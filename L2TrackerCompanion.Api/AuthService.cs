@@ -4,7 +4,7 @@ namespace L2TrackerCompanion.Api;
 /// Paste a website JWT, validate it with <c>GET /api/me</c> (which must also report
 /// desktop access as enabled) then <c>GET /api/characters</c>, persist only on success
 /// (DPAPI). A *rejected* token is cleared; a call that never reached the server
-/// (offline, DNS, timeout, 5xx) leaves the stored token alone — see <see cref="Reject"/>.
+/// (offline, DNS, timeout, 5xx) leaves the stored token alone – see <see cref="Reject"/>.
 /// </summary>
 public sealed class AuthService
 {
@@ -99,8 +99,8 @@ public sealed class AuthService
     }
 
     /// <summary>
-    /// Only a 401/403 proves the token itself is bad. Anything else — offline, DNS,
-    /// timeout, a 502 from the edge — must keep the stored token, or a network blip
+    /// Only a 401/403 proves the token itself is bad. Anything else – offline, DNS,
+    /// timeout, a 502 from the edge – must keep the stored token, or a network blip
     /// would sign the user out and force them to dig the JWT out of the browser again.
     /// </summary>
     private AuthResult Reject(System.Net.HttpStatusCode? status, string? error)
@@ -113,7 +113,7 @@ public sealed class AuthService
             return AuthResult.Fail(error ?? "Token was rejected.");
         }
 
-        var kept = _store.HasToken ? " The stored token was kept — retry once the server is reachable." : string.Empty;
+        var kept = _store.HasToken ? " The stored token was kept – retry once the server is reachable." : string.Empty;
         return AuthResult.Fail($"Could not reach {BaseUrl}: {error ?? "request failed"}.{kept}");
     }
 }

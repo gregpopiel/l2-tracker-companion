@@ -3,7 +3,7 @@ namespace L2TrackerCompanion.Parsing;
 /// <summary>
 /// Locate Magic Lamp colour-name anchors and the row pitch between them.
 /// Pitch, not glyph height, is what the XP band (and later the table crop)
-/// is measured from — box height for the same word jumps 9–32px.
+/// is measured from – box height for the same word jumps 9–32px.
 /// </summary>
 public static class LampGeometry
 {
@@ -168,7 +168,7 @@ public static class LampGeometry
     /// <summary>
     /// Dialog-pixel table strip measured from colour-name anchors + row pitch,
     /// then upscaled <see cref="TableScale"/>×. Equal left/right isn't the
-    /// point here — the icon column is ~80px left of the name, the XP column
+    /// point here – the icon column is ~80px left of the name, the XP column
     /// ends ~250px right.
     /// </summary>
     public static CropRect TableCrop(

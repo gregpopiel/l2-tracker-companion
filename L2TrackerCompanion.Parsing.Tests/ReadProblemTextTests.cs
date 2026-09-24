@@ -20,12 +20,12 @@ public class ReadProblemTextTests
     {
         var text = ReadProblemText.Compose(
             "The last read was not accepted.",
-            "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) — check it against the panel.");
+            "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) – check it against the panel.");
 
         Assert.Equal(
             "The last read was not accepted."
             + ReadProblemText.Separator
-            + "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) — check it against the panel.",
+            + "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) – check it against the panel.",
             text);
     }
 
@@ -39,7 +39,7 @@ public class ReadProblemTextTests
     public void UnrelatedFrameAndSaveFactsStayJoined()
     {
         // Compose only drops an identical sentence. A generic hold reason
-        // must not be invented in SaveGate just to fill this slot — that is
+        // must not be invented in SaveGate just to fill this slot – that is
         // what used to produce "Game not running. · The current read is not
         // trustworthy."
         var text = ReadProblemText.Compose(
@@ -71,7 +71,7 @@ public class ReadProblemTextTests
         // equalled HoldReason, the banner read the same sentence twice.
         const string frame = "The Magic Lamp XP column could not be read (no silent zeros).";
         const string spliced =
-            "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) — check it against the panel.";
+            "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) – check it against the panel.";
 
         var text = ReadProblemText.Compose(frame, frame, spliced);
 
@@ -84,14 +84,14 @@ public class ReadProblemTextTests
         var text = ReadProblemText.Compose(
             "XP dropped from 1,000,000 to 900,000",
             "The last read was not accepted.",
-            "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) — check it against the panel.");
+            "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) – check it against the panel.");
 
         Assert.Equal(
             "XP dropped from 1,000,000 to 900,000"
             + ReadProblemText.Separator
             + "The last read was not accepted."
             + ReadProblemText.Separator
-            + "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) — check it against the panel.",
+            + "XP was assembled from two disagreeing reads. Saving 6,412,172 (spliced) – check it against the panel.",
             text);
     }
 }

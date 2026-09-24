@@ -4,7 +4,7 @@ namespace L2TrackerCompanion.Api;
 
 /// <summary>
 /// The character picked last, so a restart lands on it instead of the first one in
-/// the list. Two lines next to <see cref="AppOptionsStore"/> — the account's user id,
+/// the list. Two lines next to <see cref="AppOptionsStore"/> – the account's user id,
 /// then the character id (a plain preference, so no DPAPI).
 /// </summary>
 /// <remarks>
@@ -71,7 +71,7 @@ public sealed class LastCharacterStore
             return;
         }
 
-        // Losing the preference is not worth crashing over — it is re-saved on the
+        // Losing the preference is not worth crashing over – it is re-saved on the
         // next pick, and a missing file already means "start on the first character".
         try
         {

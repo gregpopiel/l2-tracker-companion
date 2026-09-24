@@ -86,7 +86,7 @@ public static class LocationHintPass
     public static string FormatBatchSummary(IReadOnlyList<LocationHintResult> results)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr location hint — full-image pass, no extra OCR");
+        builder.AppendLine("# Windows.Media.Ocr location hint – full-image pass, no extra OCR");
         builder.AppendLine($"# files: {results.Count}");
         builder.AppendLine($"# succeeded: {results.Count(r => r.Success)}");
         builder.AppendLine($"# with hint: {results.Count(r => r.Hint is not null)}/{results.Count}");
@@ -194,7 +194,7 @@ public static class LocationHintPass
     private static string FormatDump(LocationHintResult result)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr location hint — same full-image pass as dialog locate");
+        builder.AppendLine("# Windows.Media.Ocr location hint – same full-image pass as dialog locate");
         builder.AppendLine($"# source: {result.SourcePath}");
         builder.AppendLine($"# image: {result.ImageWidth} x {result.ImageHeight}");
         builder.AppendLine($"# kind: {result.FrameKind}");

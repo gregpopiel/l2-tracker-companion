@@ -6,7 +6,7 @@ namespace L2TrackerCompanion.Parsing;
 /// against a spot list is the caller's job.
 /// </summary>
 /// <remarks>
-/// <see cref="Warnings"/> is diagnostic-only — it is archived with the snapshot
+/// <see cref="Warnings"/> is diagnostic-only – it is archived with the snapshot
 /// and printed by the OCR pipeline and OcrDump, and no UI ever shows it. What
 /// the player reads about a bad frame comes from <see cref="ReadIssues"/>, so
 /// do not add a UI surface for these strings: that is exactly the split that
@@ -85,7 +85,7 @@ public sealed record PlayReport(
                 $"Lamp XP ({lamps.LampXpTotal.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)}) "
                 + $"exceeds the dialog's own XP "
                 + $"({(xp?.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) ?? "null")}), "
-                + "which is impossible — the lamp figures were discarded");
+                + "which is impossible – the lamp figures were discarded");
         }
         else if (!lamps.LampXpRead && lamps.HasLampRows)
         {

@@ -15,7 +15,7 @@ public enum RateUnit
 
 /// <summary>
 /// Plan step 23: XP/min and Adena/min from the latest Play Report screenshot
-/// (raw OCR totals ÷ play-time minutes). Display-only — not the Save delta.
+/// (raw OCR totals ÷ play-time minutes). Display-only – not the Save delta.
 /// </summary>
 public static class LiveRates
 {
@@ -64,7 +64,7 @@ public static class LiveRates
     /// One raw amount as an hourly rate, whatever the user's display unit is.
     /// The website's own spot statistics are per hour, so anything comparing a
     /// live read against them has to ask for hours explicitly rather than
-    /// scaling a per-minute figure back up — that would round twice.
+    /// scaling a per-minute figure back up – that would round twice.
     /// </summary>
     /// <returns>Null when the amount is unread or the play time is unusable.</returns>
     public static long? PerHour(long? amount, int? minutes)

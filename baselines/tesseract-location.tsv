@@ -1,4 +1,4 @@
-# tesseract.js perRow.js baseline — minimap location hint on the 41 POC screenshots
+# tesseract.js perRow.js baseline – minimap location hint on the 41 POC screenshots
 # generated from /tmp/perrow-baseline.log (2026-09-02)
 # empty = not visible (dialog-only crops and framed shots without HUD). Target: 3 HUD shots get a hint; dialog-only get nothing.
 file	hint

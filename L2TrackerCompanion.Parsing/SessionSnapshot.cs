@@ -2,8 +2,8 @@ namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
 /// Build a farm log out of a <em>single</em> Play Report read. The panel is
-/// already a complete session record — it carries its own totals and its own
-/// duration — so nothing here subtracts an earlier snapshot or consults the
+/// already a complete session record – it carries its own totals and its own
+/// duration – so nothing here subtracts an earlier snapshot or consults the
 /// wall clock.
 /// </summary>
 /// <remarks>
@@ -45,7 +45,7 @@ public static class SessionSnapshot
         if (report.LampPanelClosed)
         {
             return SnapshotSaveResult.Fail(
-                "Expand the Magic Lamp panel before saving — a collapsed panel would be stored as zero lamp XP.");
+                "Expand the Magic Lamp panel before saving – a collapsed panel would be stored as zero lamp XP.");
         }
 
         // Order matters: LampXp.Decide answers an impossible sum by clearing
@@ -54,7 +54,7 @@ public static class SessionSnapshot
         if (report.LampXpExceedsDialog)
         {
             return SnapshotSaveResult.Fail(
-                "Lamp XP exceeds the dialog's own XP, which is impossible — the frame was misread.");
+                "Lamp XP exceeds the dialog's own XP, which is impossible – the frame was misread.");
         }
 
         if (!report.LampXpRead

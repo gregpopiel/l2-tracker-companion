@@ -8,8 +8,8 @@ namespace L2TrackerCompanion.Session;
 /// A changed process id is <em>not</em> that proof. The capture service follows
 /// whichever client is in front, so with two clients open the id flips on every
 /// alt-tab, and it also flips when one of two clients is closed. The only sound
-/// signal is having observed no game window at all — the client we were
-/// following actually exited — and then seeing one come back under a different
+/// signal is having observed no game window at all – the client we were
+/// following actually exited – and then seeing one come back under a different
 /// id. Pure logic so it can be tested without Windows.
 /// </remarks>
 public sealed class GameProcessWatch

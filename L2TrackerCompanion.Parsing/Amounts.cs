@@ -1,7 +1,7 @@
 namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
-/// FarmLog amounts are stored — and the API expects them — in thousands.
+/// FarmLog amounts are stored – and the API expects them – in thousands.
 /// The Play Report prints the real figure; divide before POST (and before
 /// computing session deltas), not just before display.
 /// </summary>

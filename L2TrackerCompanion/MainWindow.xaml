@@ -85,7 +85,7 @@
                     <StackPanel VerticalAlignment="Top"
                                 Margin="20,6,20,14">
 
-                        <!-- General row: no card, no borders — a thin strip of
+                        <!-- General row: no card, no borders – a thin strip of
                              meta fields under the tabs, per the handoff.
                              Equal leftover columns on the sides so Bonus sits
                              on the true center; Character and Ranking use the
@@ -200,7 +200,7 @@
                              either. The save-result box is a different
                              question ("did the log / load / update land",
                              plus standing account notices such as no
-                             characters) — green on 2xx, red on failure,
+                             characters) – green on 2xx, red on failure,
                              amber otherwise. -->
                         <Border x:Name="LocationChangeBanner"
                                 Style="{StaticResource AlertBanner}"
@@ -456,7 +456,7 @@
                         <!-- One action button doing double duty: "Start
                              tracking" with nothing to save, "Save & send
                              session" once tracking is on or there's a held
-                             frame from an earlier Stop — see
+                             frame from an earlier Stop – see
                              MainActionButton_Click/RefreshSaveEnabled. -->
                         <Button x:Name="MainActionButton"
                                 Content="Start tracking"
@@ -471,7 +471,7 @@
                         <!-- The escape hatch for the merged button above:
                              "Stop tracking" while a run is on, and once
                              stopped with a frame still held, "Start a new
-                             session" — otherwise Save (which an unresolvable
+                             session" – otherwise Save (which an unresolvable
                              spot can block outright) would be the only way
                              out and a fresh run unreachable. Content and
                              visibility are set in RefreshSaveEnabled. -->

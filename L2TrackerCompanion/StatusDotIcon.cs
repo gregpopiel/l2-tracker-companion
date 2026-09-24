@@ -6,7 +6,7 @@ namespace L2TrackerCompanion;
 
 /// <summary>
 /// The title bar's tracking-status dot from the Session redesign, rendered
-/// as a <see cref="Window.Icon"/> swap rather than custom window chrome —
+/// as a <see cref="Window.Icon"/> swap rather than custom window chrome –
 /// no icon asset files needed beyond the app's own:
 /// <see cref="RenderTargetBitmap"/> is itself a <see cref="BitmapSource"/>,
 /// which <c>Window.Icon</c> accepts directly.
@@ -14,7 +14,7 @@ namespace L2TrackerCompanion;
 /// <remarks>
 /// A badge on the app icon, not a replacement for it: <c>Window.Icon</c> also
 /// drives the taskbar button and Alt+Tab, so a bare dot there would cost the
-/// app its identity everywhere Windows shows it — permanently, since Idle is
+/// app its identity everywhere Windows shows it – permanently, since Idle is
 /// the normal state whenever tracking is off.
 ///
 /// Takes a colour rather than owning one: the palette's own Confirm Green /
@@ -48,7 +48,7 @@ internal static class StatusDotIcon
         catch (Exception ex)
         {
             // A missing/unreadable resource must not take the window down over
-            // a decoration — Render falls back to the dot on its own.
+            // a decoration – Render falls back to the dot on its own.
             System.Diagnostics.Trace.WriteLine(ex);
             return null;
         }
@@ -64,7 +64,7 @@ internal static class StatusDotIcon
                 context.DrawImage(appIcon, new Rect(0, 0, Size, Size));
             }
 
-            // Top-left corner, at half the size of the old bottom-right badge —
+            // Top-left corner, at half the size of the old bottom-right badge –
             // still legible at the 16px the title bar draws, without hiding
             // the mark underneath.
             var radius = appIcon is null ? Size / 2.0 - 2 : Size / 6.0;

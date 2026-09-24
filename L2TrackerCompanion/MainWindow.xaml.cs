@@ -82,7 +82,7 @@ public partial class MainWindow : Window
 
         // The buffer only exists to compare one read against the previous
         // one within a run, and anything left over from the last run is stale
-        // by definition — the panel may have been reset while we were closed.
+        // by definition – the panel may have been reset while we were closed.
         _sessionStore.NewSession();
 
         _refreshTimer = new DispatcherTimer
@@ -118,7 +118,7 @@ public partial class MainWindow : Window
 
     private void MainTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        // ComboBox.SelectionChanged bubbles to TabControl — ignore those.
+        // ComboBox.SelectionChanged bubbles to TabControl – ignore those.
         if (e.Source is not System.Windows.Controls.TabControl || !IsLoaded)
         {
             return;
@@ -133,7 +133,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The User/Debug toggle is admin-only — a non-admin account never sees it at all,
+    /// The User/Debug toggle is admin-only – a non-admin account never sees it at all,
     /// not just a disabled Debug option, since User is the only mode it could ever pick.
     /// Not knowing yet (before sign-in resolves) is treated the same as not being admin.
     /// Any Debug mode saved locally from a previous, admin session is silently dropped
@@ -173,7 +173,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // One radio group now, so WPF clears the sibling itself — nothing to mirror.
+        // One radio group now, so WPF clears the sibling itself – nothing to mirror.
         _options.SetDebugMode(radio == DebugModeRadio);
         ApplyUiMode();
     }
@@ -211,7 +211,7 @@ public partial class MainWindow : Window
     {
         if (!_auth.HasStoredToken)
         {
-            // Nothing has happened yet — the hint above the form already says to
+            // Nothing has happened yet – the hint above the form already says to
             // paste a token, so a status line here would only repeat it.
             ShowLogin(string.Empty);
             return;
@@ -294,7 +294,7 @@ public partial class MainWindow : Window
         ShowLiveStatus(_liveStatus);
         ClearPickers();
 
-        // Unsaved snapshots belong to the account that produced them — the next
+        // Unsaved snapshots belong to the account that produced them – the next
         // token pasted at the gate may be a different one. Confirmed above.
         _sessionStore.NewSession();
         _saveConfirmation.Release();
@@ -303,7 +303,7 @@ public partial class MainWindow : Window
         HideSaveResult();
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
-        // Sign Out is a deliberate click on a button labeled "Sign out" — the gate
+        // Sign Out is a deliberate click on a button labeled "Sign out" – the gate
         // reappearing with its own hint already confirms it happened.
         ShowLogin(string.Empty);
     }
@@ -339,7 +339,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// Sign-in gate: nothing but the token form is reachable until the JWT validates.
     /// <paramref name="isError"/> distinguishes a rejected/unreachable token from a
-    /// neutral gate state (idle, checking, just signed out) — without it every message
+    /// neutral gate state (idle, checking, just signed out) – without it every message
     /// here rendered in the same gray, so a rejection read no differently than "signed out".
     /// </summary>
     private void ShowLogin(string status, bool checking = false, bool isError = false)
@@ -351,7 +351,7 @@ public partial class MainWindow : Window
             StopTracking("Stopped: not signed in.");
         }
 
-        // Signed out (or never proven admin yet) — Debug mode is admin-only.
+        // Signed out (or never proven admin yet) – Debug mode is admin-only.
         _isAdmin = false;
         // The stored pick survives on disk; only the account it belongs to is forgotten,
         // so signing back in as the same user still restores it.
@@ -394,14 +394,14 @@ public partial class MainWindow : Window
         AuthStatusLabel.Visibility = visibility;
     }
 
-    // The pick itself — independent of the combo, which is collapsed when
+    // The pick itself – independent of the combo, which is collapsed when
     // the account has only one character.
     private CharacterInfo? _selectedCharacter;
 
     private CharacterInfo? SelectedCharacter => _selectedCharacter;
 
     /// <summary>
-    /// One character is just its name — a dropdown for a list of one is noise.
+    /// One character is just its name – a dropdown for a list of one is noise.
     /// Zero or several keep the picker (disabled when empty).
     /// </summary>
     private void ApplyCharacterPicker(IReadOnlyList<CharacterInfo>? characters)
@@ -419,7 +419,7 @@ public partial class MainWindow : Window
 
     private void BindCharacters(IReadOnlyList<CharacterInfo> characters)
     {
-        // The remembered pick, when the account still has that character — otherwise
+        // The remembered pick, when the account still has that character – otherwise
         // the first one, which is also what a fresh install and a deleted character get.
         var remembered = _lastCharacter.TryLoad(_userId);
         var selected = characters.FirstOrDefault(c => c.Id == remembered) ?? characters.FirstOrDefault();
@@ -492,7 +492,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Guarded above, so only a user's own pick is remembered — never the
+        // Guarded above, so only a user's own pick is remembered – never the
         // programmatic selection BindCharacters and ClearPickers make.
         _selectedCharacter = CharacterCombo.SelectedItem as CharacterInfo;
         if (_selectedCharacter is not null)
@@ -625,13 +625,13 @@ public partial class MainWindow : Window
         var pickersReady = SessionPickers.SaveReady(SelectedCharacter, target.CanSave);
 
         // Save mode whenever tracking is on (even before the first read) or
-        // there's a held frame from an earlier Stop — otherwise Start.
+        // there's a held frame from an earlier Stop – otherwise Start.
         var saveMode = _polling.IsRunning || gate.CanSave;
         MainActionButton.Content = _saveInFlight
             ? "Saving session…"
             : saveMode ? "Save & send session" : "Start tracking";
         // A poll tick lands here on every poll interval, including while a save is awaiting
-        // its response — without this the button would re-arm mid-POST and a
+        // its response – without this the button would re-arm mid-POST and a
         // second click would duplicate the log.
         MainActionButton.IsEnabled = saveMode
             ? pickersReady && gate.CanSave && !_saveInFlight
@@ -639,7 +639,7 @@ public partial class MainWindow : Window
 
         // Save mode can leave the button disabled for reasons the player
         // cannot clear from here (no character on the account, a location
-        // that never settles), and Stop no longer discards the held frame —
+        // that never settles), and Stop no longer discards the held frame –
         // so save mode always keeps a second way out: Stop while a run is
         // on, and a fresh run once it is not (disabled only while a save
         // is already in flight).
@@ -738,7 +738,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// Fetches the account's areas once: World is what auto-created spots are
     /// filed under, and the whole list fills the benchmark's area picker.
-    /// A failed fetch leaves the picker at "All" — the ranking itself
+    /// A failed fetch leaves the picker at "All" – the ranking itself
     /// needs no areas at all.
     /// </summary>
     private async Task EnsureAreasAsync(string token, CancellationToken cancellationToken)
@@ -787,7 +787,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Same read, narrower field — no re-parse needed.
+        // Same read, narrower field – no re-parse needed.
         ShowLiveStatus(_liveStatus);
     }
 
@@ -951,7 +951,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The spot row the farm log should attach to — the picker, an exact
+    /// The spot row the farm log should attach to – the picker, an exact
     /// name match, or a newly created World spot. A failed create retries
     /// GET spots in case the name landed from a race.
     /// </summary>
@@ -1007,7 +1007,7 @@ public partial class MainWindow : Window
         }
 
         return message
-            + $" Spot \"{ensured.Spot.Name}\" was created — delete it on the website if you do not want it.";
+            + $" Spot \"{ensured.Spot.Name}\" was created – delete it on the website if you do not want it.";
     }
 
     private sealed record EnsuredSpot(SpotInfo Spot, bool Created);
@@ -1065,7 +1065,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Silent, background check — never surfaces a failure (offline, GitHub hiccup),
+    /// Silent, background check – never surfaces a failure (offline, GitHub hiccup),
     /// never restarts on its own except for <paramref name="autoApply"/>. Otherwise,
     /// once an update is downloaded, <see cref="UpdateAvailableButton"/> appears and
     /// the actual apply/restart waits for an explicit click, since the app can be
@@ -1111,7 +1111,7 @@ public partial class MainWindow : Window
             // Nothing left to poll for once a version is already downloaded and
             // waiting on the user's click.
             _updateTimer.Stop();
-            UpdateAvailableButton.Content = $"Update available (v{updateInfo.TargetFullRelease.Version}) — restart to install";
+            UpdateAvailableButton.Content = $"Update available (v{updateInfo.TargetFullRelease.Version}) – restart to install";
             UpdateAvailableButton.Visibility = Visibility.Visible;
             UpdateAvailableButton.IsEnabled = !_saveInFlight && !_applyingUpdate;
         }
@@ -1154,7 +1154,7 @@ public partial class MainWindow : Window
             System.Diagnostics.Trace.WriteLine(ex);
             _applyingUpdate = false;
             UpdateAvailableButton.IsEnabled = true;
-            ShowActionError("Update failed to apply — try again later.");
+            ShowActionError("Update failed to apply – try again later.");
         }
     }
 
@@ -1197,7 +1197,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// A restarted client always comes back with a zeroed Play Report, so an
-    /// observed restart is proof of a reset — no inference from the figures,
+    /// observed restart is proof of a reset – no inference from the figures,
     /// and no dependence on a tick landing in any particular window. The
     /// decision itself lives in <see cref="GameProcessWatch"/>, which is
     /// testable without Windows.
@@ -1227,7 +1227,7 @@ public partial class MainWindow : Window
         HideSaveResult();
         ShowLiveStatus(LiveStatus.Idle());
         RefreshSessionStatus();
-        RefreshPollStatus("Game restarted — the Play Report is counting from zero again.");
+        RefreshPollStatus("Game restarted – the Play Report is counting from zero again.");
     }
 
     private void RefreshSessionStatus()
@@ -1260,7 +1260,7 @@ public partial class MainWindow : Window
         UpdateTitleBarStatusIcon(status.Light);
 
         // Any read/capture problem while tracking gets the banner treatment
-        // — a closed Lamp panel, an unread field, "game not running"
+        // – a closed Lamp panel, an unread field, "game not running"
         // mid-session, a contradicting read, all read the same way to the
         // player: something needs attention. A Green/Idle tick, or a stopped
         // loop, has no current-frame problem; a save warning can still be
@@ -1314,7 +1314,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// "#N of M spots", hidden entirely rather than showing "#0 of 0" until
-    /// there is something real to place — see the handoff's idle-badge
+    /// there is something real to place – see the handoff's idle-badge
     /// decision.
     /// </summary>
     private static void SetRankBadge(
@@ -1337,7 +1337,7 @@ public partial class MainWindow : Window
         => value?.ToString("N0", CultureInfo.InvariantCulture) ?? "0";
 
     /// <summary>
-    /// The title bar's status dot moved here from the old Live status card —
+    /// The title bar's status dot moved here from the old Live status card –
     /// a swapped <see cref="Window.Icon"/> rather than custom window chrome,
     /// so the rest of the title bar (drag, minimize/maximize/close) stays
     /// entirely native. The dot is badged onto the app's own mark rather than
@@ -1349,7 +1349,7 @@ public partial class MainWindow : Window
     private void UpdateTitleBarStatusIcon(TrafficLight light)
     {
         // Resolved from the theme rather than re-spelled as hex here, so a
-        // palette edit changes this surface too — same pattern as
+        // palette edit changes this surface too – same pattern as
         // SetAuthStatus. Cached per brush: reassigning the same frozen source
         // is a no-op, but rendering a fresh one every tick would not be.
         var brushKey = light switch
@@ -1370,7 +1370,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Note a settled move to another location. Only a reminder to restart the
-    /// in-game Play Report — nothing is blocked or hidden.
+    /// in-game Play Report – nothing is blocked or hidden.
     /// </summary>
     /// <remarks>
     /// Once per accepted tick: that is when a newly settled name is observed.
@@ -1396,7 +1396,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Drop the location-move reminder. Does not touch the read-problem
-    /// banner — that is a different question, cleared by
+    /// banner – that is a different question, cleared by
     /// <see cref="ClearReadProblem"/> on a run reset.
     /// </summary>
     private void HideLocationChange()
@@ -1470,7 +1470,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// The handoff's second banner: is the current read any good. Three
-    /// sources are fields, so this one writer is the whole surface — call
+    /// sources are fields, so this one writer is the whole surface – call
     /// order between ShowLiveStatus and RefreshSaveEnabled no longer decides
     /// which half of the sentence is allowed to repeat.
     /// </summary>
@@ -1549,7 +1549,7 @@ public partial class MainWindow : Window
             or System.ComponentModel.Win32Exception)
         {
             // Same swallow as MisreadStore.Save: a debug convenience must not
-            // take the app — and the tracking session with it — down.
+            // take the app – and the tracking session with it – down.
             CaptureStatusLabel.Text = $"Could not open {_misreads.DirectoryPath}: {ex.Message}";
         }
     }
@@ -1580,7 +1580,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// The merged action button: Save whenever tracking is on or there's a
-    /// held frame worth saving (see RefreshSaveEnabled), Start otherwise —
+    /// held frame worth saving (see RefreshSaveEnabled), Start otherwise –
     /// same condition the button's own Content/IsEnabled are driven by.
     /// </summary>
     private async void MainActionButton_Click(object sender, RoutedEventArgs e)
@@ -1598,7 +1598,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// Stop while a run is on; otherwise start a fresh one, discarding the
     /// frame the previous run left behind (StartTrackingAsync's NewSession is
-    /// the discard) — confirmed first, since that read is still savable.
+    /// the discard) – confirmed first, since that read is still savable.
     /// </summary>
     private async void SecondaryActionLink_Click(object sender, RoutedEventArgs e)
     {
@@ -1610,7 +1610,7 @@ public partial class MainWindow : Window
 
         // Same rationale as SignOutButton_Click: a fresh run clears the store
         // the pending save is still working from, and that save then clears it
-        // a second time on its way out — wiping the new run's first reads and
+        // a second time on its way out – wiping the new run's first reads and
         // leaving its every later tick discarded (SaveConfirmationHold).
         // Disabled during a save; this is the queued-click race.
         if (_saveInFlight)
@@ -1636,7 +1636,7 @@ public partial class MainWindow : Window
         _saveConfirmation.Release();
         _sessionStore.NewSession();
         // Where the player is now is a first sighting for this run, not a move
-        // from wherever the previous run ended — they may have restarted the
+        // from wherever the previous run ended – they may have restarted the
         // Play Report themselves in between.
         HideLocationChange();
         ClearReadProblem();
@@ -1694,7 +1694,7 @@ public partial class MainWindow : Window
                 // Drop back to the bare "Tracking every Ns": leaving
                 // "Capturing…" up would claim work is in progress for as long
                 // as capture keeps failing. The reason itself is not the
-                // bottom bar's job — ShowLiveStatus below surfaces it through
+                // bottom bar's job – ShowLiveStatus below surfaces it through
                 // ReadProblemBanner in the messages section.
                 RefreshPollStatus(string.Empty);
                 ShowLiveStatus(capture.ErrorMessage is not null
@@ -1717,7 +1717,7 @@ public partial class MainWindow : Window
             // The timer discards this Task, so without a catch a throw here
             // (a locked session.db, a capture that failed inside the pipeline)
             // would be swallowed whole and tracking would look healthy while
-            // silently doing nothing every tick. Not the bottom bar — reported
+            // silently doing nothing every tick. Not the bottom bar – reported
             // through ReadProblemBanner via ShowLiveStatus below, with the
             // bar dropped back off "Capturing…" so it stops implying work.
             RefreshPollStatus(string.Empty);
@@ -1737,7 +1737,7 @@ public partial class MainWindow : Window
     /// <remarks>
     /// A warm-up gap is shorter than a tick can take (the capture alone blocks
     /// on the game window, then OCR runs), and <c>DispatcherTimer</c>
-    /// counts from the previous fire — so left alone, the reentrancy guard in
+    /// counts from the previous fire – so left alone, the reentrancy guard in
     /// <see cref="RunPollTickAsync"/> would silently drop warm-up ticks instead
     /// of spacing them, and a run would never actually get its faster reads.
     /// Assigning <c>Interval</c> restarts a running timer, which is exactly the
@@ -1745,7 +1745,7 @@ public partial class MainWindow : Window
     /// "the gap, or the tick's own duration, whichever is longer".
     ///
     /// Only the warm-up is re-armed every tick. The steady cadence is written
-    /// once, on the way out of the warm-up, and then left alone — restarting it
+    /// once, on the way out of the warm-up, and then left alone – restarting it
     /// each tick would stretch its period to the interval plus the tick.
     /// </remarks>
     private void ApplyPollCadence()
@@ -1760,7 +1760,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// Debug mode only: keep the frame behind a failed read plus what was
     /// parsed from it, as material for improving the OCR passes. Nothing is
-    /// sent anywhere — see <see cref="MisreadStore"/>.
+    /// sent anywhere – see <see cref="MisreadStore"/>.
     /// </summary>
     private void SaveMisread(string imagePath, string reason, string details)
     {
@@ -1810,7 +1810,7 @@ public partial class MainWindow : Window
 
             if (!result.Success || result.Report is null)
             {
-                // Not the bottom bar — ShowLiveStatus already surfaces this
+                // Not the bottom bar – ShowLiveStatus already surfaces this
                 // through ReadProblemBanner in the messages section. The bar
                 // only drops back off "Capturing…" so it stops implying work.
                 if (fromPoll)
@@ -1827,7 +1827,7 @@ public partial class MainWindow : Window
 
             if (inspectOnly)
             {
-                ParseStatusLabel.Text += "\n\nInspected only — the live session was not touched.";
+                ParseStatusLabel.Text += "\n\nInspected only – the live session was not touched.";
                 return;
             }
 
@@ -1843,7 +1843,7 @@ public partial class MainWindow : Window
             {
                 var tick = _polling.Tick(_sessionStore, report);
                 // A tick that finished after Stop compared nothing, so the
-                // previous verdict must not carry over onto this frame — and
+                // previous verdict must not carry over onto this frame – and
                 // must not replace StopTracking's poll-status line either.
                 if (!tick.Tracking)
                 {
@@ -1854,7 +1854,7 @@ public partial class MainWindow : Window
                 appended = tick.Appended;
                 if (!tick.Appended)
                 {
-                    // Not the bottom bar — a rejected tick already shows the
+                    // Not the bottom bar – a rejected tick already shows the
                     // same message via ReadProblemBanner (ShowLiveStatus
                     // below, with LiveStatus.TickRejected). The bar keeps
                     // showing its last accepted tick instead.
@@ -1867,7 +1867,7 @@ public partial class MainWindow : Window
                     if (tick.Outcome == MonotonicityOutcome.Reset)
                     {
                         // The buffer was dropped, so the location window
-                        // restarted with this frame as its only entry — the
+                        // restarted with this frame as its only entry – the
                         // warm-up has to gather them again rather than keep
                         // credit for hints that were just deleted.
                         _polling.RestartWarmUpProgress();
@@ -1905,7 +1905,7 @@ public partial class MainWindow : Window
                 // Only frames that did show a Play Report. A closed lamp panel
                 // is the user's choice, not a bad read; and with no dialog on
                 // screen at all DialogCropPass keeps the whole frame instead of
-                // failing, which leaves LampPanelClosed false too — without the
+                // failing, which leaves LampPanelClosed false too – without the
                 // farm-field check that archives every tick the dialog is shut
                 // and rotates the interesting frames out within minutes.
                 SaveMisread(imagePath, "Lamp XP not read", PlayReportPipeline.FormatWindow(result));
@@ -1921,7 +1921,7 @@ public partial class MainWindow : Window
             }
 
             // Light/detail describe this tick. XP / Adena / rates are the
-            // last verified frame — the same numbers Save would post.
+            // last verified frame – the same numbers Save would post.
             // The banner's two sources are fields composed by one writer, so
             // the order of this call and the refresh below no longer decides
             // what the save line may repeat.

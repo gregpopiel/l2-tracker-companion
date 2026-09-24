@@ -2,7 +2,7 @@ namespace L2TrackerCompanion.Api;
 
 /// <summary>
 /// Local UI mode: User hides developer tools; Debug shows capture/parse dumps.
-/// Stored as a one-line file next to <see cref="TokenStore"/> (not DPAPI — not a secret).
+/// Stored as a one-line file next to <see cref="TokenStore"/> (not DPAPI – not a secret).
 /// </summary>
 public sealed class AppOptionsStore
 {

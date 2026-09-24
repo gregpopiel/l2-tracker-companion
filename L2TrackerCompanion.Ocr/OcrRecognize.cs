@@ -24,7 +24,7 @@ public static class OcrRecognize
     /// One engine for the whole process. A fresh one used to be built for every
     /// parse, i.e. every 10s poll tick, even though recognition carries no state
     /// between calls. Every pass awaits its recognitions one at a time, so a
-    /// single instance serves them all. Never disposed — OcrEngine exposes no
+    /// single instance serves them all. Never disposed – OcrEngine exposes no
     /// Close/Dispose; if a language pack is installed or removed mid-run, the
     /// app has to be restarted to pick it up.
     /// </summary>

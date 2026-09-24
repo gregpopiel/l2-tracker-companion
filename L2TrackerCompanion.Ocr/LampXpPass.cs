@@ -212,7 +212,7 @@ public static class LampXpPass
     public static string FormatBatchSummary(IReadOnlyList<LampXpResult> results)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# Windows.Media.Ocr lamp table XP — 3× crop, all-or-none, sum gate");
+        builder.AppendLine("# Windows.Media.Ocr lamp table XP – 3× crop, all-or-none, sum gate");
         builder.AppendLine($"# files: {results.Count}");
         builder.AppendLine($"# succeeded: {results.Count(r => r.Success)}");
         builder.AppendLine($"# lampXpRead: {results.Count(r => r.LampXpRead)}/{results.Count}");
@@ -370,7 +370,7 @@ public static class LampXpPass
 
     /// <summary>
     /// What each of the four sources made of one row, kept for the dump.
-    /// A row can be read wrong without any source failing — the sources
+    /// A row can be read wrong without any source failing – the sources
     /// disagreeing is the only visible sign, so the resolved value alone
     /// cannot say which one to fix.
     /// </summary>

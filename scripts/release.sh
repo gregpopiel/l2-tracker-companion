@@ -2,10 +2,10 @@
 # Publishes a GitHub Release from the assets built by publish.sh.
 # Reads the version from the .csproj (same source publish.sh uses), so the
 # two scripts always agree on which version they're operating on.
-# Run publish.sh first — this script only uploads what's already in releases/.
+# Run publish.sh first – this script only uploads what's already in releases/.
 # Attaches exactly: L2Tracker-Setup.exe, L2Tracker-Portable.zip,
 # L2Tracker-<ver>-full.nupkg, releases.win.json (see publish.sh's header for
-# why RELEASES/assets.win.json are skipped — the updater doesn't read them).
+# why RELEASES/assets.win.json are skipped – the updater doesn't read them).
 # Requires: gh (authenticated against gregpopiel/l2-tracker-companion).
 set -euo pipefail
 
@@ -25,7 +25,7 @@ ASSETS=(
 
 for asset in "${ASSETS[@]}"; do
   if [[ ! -f "$asset" ]]; then
-    echo "Missing $asset — run scripts/publish.sh first." >&2
+    echo "Missing $asset – run scripts/publish.sh first." >&2
     exit 1
   fi
 done

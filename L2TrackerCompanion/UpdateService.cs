@@ -22,7 +22,7 @@ public sealed class UpdateService
     /// <summary>
     /// The running app's version. Reads it from Velopack when installed (matching
     /// what the update feed compares against); falls back to the version compiled
-    /// into the assembly (`&lt;Version&gt;` in the csproj) when not — e.g. `dotnet run`,
+    /// into the assembly (`&lt;Version&gt;` in the csproj) when not – e.g. `dotnet run`,
     /// where <see cref="UpdateManager.CurrentVersion"/> is null.
     /// </summary>
     public string CurrentVersion
@@ -34,7 +34,7 @@ public sealed class UpdateService
     /// Checks the GitHub Releases feed and, if a newer version exists, downloads it
     /// in the background. Returns the pending version, or null if already current,
     /// not running as a Velopack install (e.g. `dotnet run`), or the check/download
-    /// failed — a failure here (offline, GitHub hiccup) is never worth surfacing;
+    /// failed – a failure here (offline, GitHub hiccup) is never worth surfacing;
     /// the next periodic check just tries again.
     /// </summary>
     public async Task<UpdateInfo?> CheckAndDownloadAsync(CancellationToken cancellationToken = default)
@@ -68,7 +68,7 @@ public sealed class UpdateService
 
     /// <summary>
     /// Applies a downloaded update and restarts the app. Only ever called from an
-    /// explicit user click (see MainWindow) — never automatically, since the app
+    /// explicit user click (see MainWindow) – never automatically, since the app
     /// may be mid-poll or holding an unsaved farm-log delta.
     /// </summary>
     public void ApplyAndRestart(UpdateInfo updateInfo) => _manager.ApplyUpdatesAndRestart(updateInfo.TargetFullRelease);

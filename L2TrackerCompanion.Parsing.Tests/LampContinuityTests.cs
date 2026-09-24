@@ -20,7 +20,7 @@ public class LampContinuityTests
         Assert.Null(result.GreenLampXp);
         Assert.Equal(0, result.LampXpTotal);
         Assert.Contains(
-            "Green lamp XP read 0 after 256,000 — lamp XP only ever grows, so the column was treated as unread",
+            "Green lamp XP read 0 after 256,000 – lamp XP only ever grows, so the column was treated as unread",
             result.Warnings);
     }
 

@@ -2,7 +2,7 @@ namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
 /// One OCR token with a bounding box in source-image pixels, origin top-left.
-/// Deliberately not a WinRT type — locate/crop geometry is unit-testable.
+/// Deliberately not a WinRT type – locate/crop geometry is unit-testable.
 /// </summary>
 public sealed record WordBox(string Text, double Left, double Top, double Width, double Height);
 
@@ -27,7 +27,7 @@ public readonly record struct CropRect(int Left, int Top, int Width, int Height)
 /// <summary>
 /// Locate the Characters / Play Report dialog from word boxes and crop to a
 /// generous fixed-pixel margin around that anchor. Margins are NOT a multiple
-/// of the anchor's glyph height — Tesseract (and WinOCR) report that height
+/// of the anchor's glyph height – Tesseract (and WinOCR) report that height
 /// noisily (9–32px for the same word) while the game draws this dialog at a
 /// fixed pixel size. Left and right are equal because the Magic Lamp table
 /// docks to either side of the Characters window; 350/550 clipped a
@@ -56,7 +56,7 @@ public static class DialogCrop
 
         // The real subtitle sits just under the title (~50–60px in the 41-set).
         // Windows.Media.Ocr also emits a lowercase "report" from chat on full-
-        // desktop captures, hundreds of pixels away — preferring that over
+        // desktop captures, hundreds of pixels away – preferring that over
         // Characters placed the crop in the chat log and missed the dialog.
         if (report is not null && (characters is null || IsPlayReportSubtitle(report, characters)))
         {

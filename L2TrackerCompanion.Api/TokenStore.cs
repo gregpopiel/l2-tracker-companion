@@ -4,7 +4,7 @@ using System.Text;
 namespace L2TrackerCompanion.Api;
 
 /// <summary>
-/// DPAPI-encrypted JWT on disk (plan step 17). Current-user scope — never
+/// DPAPI-encrypted JWT on disk (plan step 17). Current-user scope – never
 /// stored as plain text. A failed validation must <see cref="Clear"/>.
 /// </summary>
 public sealed class TokenStore

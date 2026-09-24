@@ -7,7 +7,7 @@ namespace L2TrackerCompanion.Session.Tests;
 /// <summary>
 /// End-to-end reproductions of the live poll loop
 /// (<c>LocationStability.SettledName</c> over the whole session's raw minimap
-/// hints, feeding the settled name into <c>LocationChangeWatch.Notice</c>) —
+/// hints, feeding the settled name into <c>LocationChangeWatch.Notice</c>) –
 /// the pipeline MainWindow's <c>NoteLocationChange</c> runs on every accepted
 /// tick. The banner itself re-reads <c>PendingNotice</c> (including on
 /// capture-fail ticks that produce no new Notice).
@@ -34,7 +34,7 @@ public class LocationTrackingScenarioTests
         }
 
         /// <summary>
-        /// What <c>RefreshLocationBanner</c> shows without a new read —
+        /// What <c>RefreshLocationBanner</c> shows without a new read –
         /// a capture-fail / game-not-running tick.
         /// </summary>
         public string? BannerAt(DateTimeOffset now) => _watch.PendingNotice(now);
@@ -64,13 +64,13 @@ public class LocationTrackingScenarioTests
 
         // Player walks to Training Zone. The rolling 5-read window still has
         // a Dragon Valley majority for the first few ticks, so this must
-        // stay quiet — an early, unsettled read is not a reported move.
+        // stay quiet – an early, unsettled read is not a reported move.
         Assert.Null(loop.Tick("Training Zone")); // window: D D D D T
         Assert.Null(loop.Tick("Training Zone")); // window: D D D T T (3/5, not settled)
         Assert.Null(loop.Tick("Training Zone")); // window: D D T T T (3/5, still not settled)
 
         // The 4th consecutive Training Zone read finally gives the window a
-        // 4/5 majority — this is the tick that must warn.
+        // 4/5 majority – this is the tick that must warn.
         var warning = loop.Tick("Training Zone"); // window: D T T T T
         Assert.NotNull(warning);
         Assert.Contains("Training Zone", warning, StringComparison.Ordinal);
@@ -91,7 +91,7 @@ public class LocationTrackingScenarioTests
         }
 
         loop.Tick("Training Zone");
-        loop.Tick(null); // occluded minimap frame — a gap, not a move
+        loop.Tick(null); // occluded minimap frame – a gap, not a move
         loop.Tick("   ");
         loop.Tick("Training Zone");
         loop.Tick("Training Zone");
