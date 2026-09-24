@@ -87,6 +87,10 @@ public class LocationHintTests
         Assert.Equal("Alligator Island", LocationHint.Clean("Älligator Island"));
         Assert.Equal("Hot Springs", LocationHint.Clean("Hot.Springs"));
         Assert.Null(LocationHint.Clean("..."));
+        Assert.Equal("Giant's Cave", LocationHint.Clean("Giant's Cave"));
+        Assert.Equal("Ant's Lair", LocationHint.Clean("Ant\u2019s Lair"));
+        Assert.Equal("Hot Springs", LocationHint.Clean("Hot'Springs"));
+        Assert.Equal("O Barracks", LocationHint.Clean("O'Barracks"));
     }
 
     [Fact]
