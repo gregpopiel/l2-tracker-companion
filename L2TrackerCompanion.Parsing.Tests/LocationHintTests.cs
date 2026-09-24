@@ -73,6 +73,23 @@ public class LocationHintTests
     }
 
     [Fact]
+    public void ATrailingDotOrOtherMarkIsNotPartOfTheName()
+    {
+        var words = new[]
+        {
+            Box("Hot", left: 1708, top: 12, width: 30),
+            Box("Springs.", left: 1743, top: 12, width: 50),
+        };
+        Assert.Equal("Hot Springs", LocationHint.Read(words, 1904, 996));
+        Assert.Equal("Ant's Lair", LocationHint.Clean("Ant's Lair."));
+        Assert.Equal("Tower 2 (east)", LocationHint.Clean("Tower 2 (east)•"));
+        Assert.Equal("Dragon Valley", LocationHint.Clean("Drägön Valley"));
+        Assert.Equal("Alligator Island", LocationHint.Clean("Älligator Island"));
+        Assert.Equal("Hot Springs", LocationHint.Clean("Hot.Springs"));
+        Assert.Null(LocationHint.Clean("..."));
+    }
+
+    [Fact]
     public void DigitOnlyTokensAreNotCandidates()
     {
         var words = new[]

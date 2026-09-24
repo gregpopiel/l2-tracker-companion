@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+
 namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
@@ -67,6 +70,75 @@ public static class LocationHint
             return null;
         }
 
-        return string.Join(" ", best.OrderBy(w => w.Left).Select(w => w.Text));
+        return Clean(string.Join(" ", best.OrderBy(w => w.Left).Select(w => w.Text)));
+    }
+
+    /// <summary>
+    /// Drop glyphs a minimap dot paints over the label. A zone name is
+    /// ASCII letters, digits, spaces, and <c>( ) ' -</c>. An accent folds
+    /// onto its base letter (<c>ä</c> to <c>a</c>). A mark between words
+    /// becomes a space, so <c>Hot.Springs</c> stays two words, and a trailing
+    /// one (<c>Hot Springs.</c>) trims away.
+    /// </summary>
+    public static string? Clean(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        var decomposed = text.Normalize(NormalizationForm.FormD);
+        var buffer = new StringBuilder(decomposed.Length);
+        var pendingSpace = false;
+        foreach (var ch in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            var mapped = MapAllowed(ch);
+            if (mapped == ' ')
+            {
+                pendingSpace = buffer.Length > 0;
+                continue;
+            }
+
+            if (mapped == '\0')
+            {
+                continue;
+            }
+
+            if (pendingSpace)
+            {
+                buffer.Append(' ');
+            }
+
+            pendingSpace = false;
+            buffer.Append(mapped);
+        }
+
+        return buffer.Length == 0 ? null : buffer.ToString();
+    }
+
+    /// <summary>
+    /// <c>' '</c> is a gap. <c>'\0'</c> drops a leftover non-ASCII letter
+    /// without splitting the word.
+    /// </summary>
+    private static char MapAllowed(char ch)
+    {
+        if (char.IsAsciiLetterOrDigit(ch))
+        {
+            return ch;
+        }
+
+        return ch switch
+        {
+            '(' or ')' or '\'' or '-' => ch,
+            '\u2018' or '\u2019' => '\'',
+            '\u2013' or '\u2014' => '-',
+            _ when char.IsLetter(ch) => '\0',
+            _ => ' ',
+        };
     }
 }
