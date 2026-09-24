@@ -18,7 +18,7 @@ public partial class MainWindow : Window
 {
     private readonly WindowCaptureService _windowCaptureService = new();
     private readonly SessionStore _sessionStore = new(SessionStore.GetDefaultPath());
-    private readonly AuthService _auth = new(TokenStore.GetDefault());
+    private readonly AuthService _auth;
     private readonly AppOptionsStore _options = AppOptionsStore.GetDefault();
     private readonly MisreadStore _misreads = MisreadStore.GetDefault();
     private readonly LastCharacterStore _lastCharacter = LastCharacterStore.GetDefault();
@@ -67,6 +67,9 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _auth = new AuthService(
+            TokenStore.GetDefault(),
+            clientProduct: "companion/" + _updates.CurrentVersion);
         InitializeComponent();
         if (!ShowXpPerHour)
         {

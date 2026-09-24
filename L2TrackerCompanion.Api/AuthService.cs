@@ -10,12 +10,17 @@ public sealed class AuthService
 {
     private readonly TokenStore _store;
     private readonly Func<string, TrackerApiClient> _clientFactory;
+    private readonly string? _clientProduct;
 
-    public AuthService(TokenStore store, Func<string, TrackerApiClient>? clientFactory = null)
+    public AuthService(
+        TokenStore store,
+        Func<string, TrackerApiClient>? clientFactory = null,
+        string? clientProduct = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         _store = store;
         _clientFactory = clientFactory ?? TrackerApiClient.Create;
+        _clientProduct = string.IsNullOrWhiteSpace(clientProduct) ? null : clientProduct;
         BaseUrl = _store.LoadBaseUrl();
     }
 
@@ -67,7 +72,7 @@ public sealed class AuthService
 
         // Runs on every sign-in AND on every restore at startup, so revoking desktop access
         // takes effect the next time the app launches, not only on the next paste.
-        var me = await client.GetMeAsync(token, cancellationToken).ConfigureAwait(false);
+        var me = await client.GetMeAsync(token, cancellationToken, _clientProduct).ConfigureAwait(false);
         if (!me.Success || me.Value is null)
         {
             return Reject(me.Status, me.Error);

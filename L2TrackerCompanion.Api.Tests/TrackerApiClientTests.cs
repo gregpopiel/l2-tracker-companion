@@ -33,6 +33,7 @@ public class TrackerApiClientTests
         Assert.True(ok.Success);
         Assert.NotNull(seen);
         Assert.False(seen!.Headers.Contains("Origin"));
+        Assert.False(seen.Headers.Contains("X-L2-Client"));
         Assert.Equal("abc.def.ghi", seen.Headers.Authorization?.Parameter);
         Assert.Equal(AuthenticationHeaderValue.Parse("Bearer x").Scheme, seen.Headers.Authorization?.Scheme);
         Assert.Equal("/api/spots", seen.RequestUri?.AbsolutePath);
@@ -65,6 +66,7 @@ public class TrackerApiClientTests
         Assert.Equal("hour", result.Value.RateUnit);
         Assert.True(result.Value.RatePerHour);
         Assert.False(seen!.Headers.Contains("Origin"));
+        Assert.False(seen.Headers.Contains("X-L2-Client"));
         Assert.Equal("/api/settings", seen.RequestUri?.AbsolutePath);
     }
 
@@ -279,6 +281,31 @@ public class TrackerApiClientTests
                 spots: null,
                 spotsLoaded: false,
                 new AreaInfo(1, "World"))));
+    }
+
+    [Fact]
+    public async Task GetMeSendsClientProductOnlyWhenSet()
+    {
+        HttpRequestMessage? seen = null;
+        var client = new TrackerApiClient(new HttpClient(new StubHandler(request =>
+        {
+            seen = request;
+            return Json(HttpStatusCode.OK, """
+                {"id":"u1","username":"Tester","avatar":null,"isAdmin":false,"desktopAppEnabled":true}
+                """);
+        }))
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+
+        var plain = await client.GetMeAsync("jwt");
+        Assert.True(plain.Success);
+        Assert.False(seen!.Headers.Contains("X-L2-Client"));
+
+        var marked = await client.GetMeAsync("jwt", clientProduct: "companion/1.0.4");
+        Assert.True(marked.Success);
+        Assert.Equal("companion/1.0.4", seen!.Headers.GetValues("X-L2-Client").Single());
+        Assert.Equal("/api/me", seen.RequestUri?.AbsolutePath);
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string json)

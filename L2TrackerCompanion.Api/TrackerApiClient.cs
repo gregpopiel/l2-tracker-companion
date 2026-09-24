@@ -48,8 +48,9 @@ public sealed class TrackerApiClient
 
     public Task<ApiCallResult<MeResponse>> GetMeAsync(
         string token,
-        CancellationToken cancellationToken = default)
-        => GetAsync<MeResponse>("api/me", token, cancellationToken);
+        CancellationToken cancellationToken = default,
+        string? clientProduct = null)
+        => GetAsync<MeResponse>("api/me", token, cancellationToken, clientProduct);
 
     public Task<ApiCallResult<IReadOnlyList<CharacterInfo>>> GetCharactersAsync(
         string token,
@@ -226,11 +227,16 @@ public sealed class TrackerApiClient
     private async Task<ApiCallResult<T>> GetAsync<T>(
         string relativeUri,
         string token,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? clientProduct = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
         using var request = new HttpRequestMessage(HttpMethod.Get, relativeUri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
+        if (!string.IsNullOrWhiteSpace(clientProduct))
+        {
+            request.Headers.TryAddWithoutValidation("X-L2-Client", clientProduct);
+        }
 
         HttpResponseMessage response;
         try

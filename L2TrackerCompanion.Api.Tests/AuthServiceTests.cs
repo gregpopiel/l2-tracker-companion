@@ -128,6 +128,48 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task SignInSendsClientProductOnlyOnMe()
+    {
+        var dir = NewTempDir();
+        try
+        {
+            var seen = new List<HttpRequestMessage>();
+            var auth = new AuthService(new TokenStore(dir), _ => ClientThatRecords(seen), "companion/1.0.4");
+            var result = await auth.SignInAsync("jwt.value");
+
+            Assert.True(result.Success);
+            Assert.Equal(2, seen.Count);
+            Assert.Equal("/api/me", seen[0].RequestUri?.AbsolutePath);
+            Assert.Equal("companion/1.0.4", seen[0].Headers.GetValues("X-L2-Client").Single());
+            Assert.Equal("/api/characters", seen[1].RequestUri?.AbsolutePath);
+            Assert.False(seen[1].Headers.Contains("X-L2-Client"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SignInWithoutClientProductOmitsHeader()
+    {
+        var dir = NewTempDir();
+        try
+        {
+            var seen = new List<HttpRequestMessage>();
+            var auth = new AuthService(new TokenStore(dir), _ => ClientThatRecords(seen));
+            var result = await auth.SignInAsync("jwt.value");
+
+            Assert.True(result.Success);
+            Assert.All(seen, request => Assert.False(request.Headers.Contains("X-L2-Client")));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task GetCharactersDoesNotSendOriginHeader()
     {
         HttpRequestMessage? seen = null;
@@ -260,6 +302,25 @@ public class AuthServiceTests
     /// stub answers per endpoint. A non-OK <paramref name="status"/> applies to both: the
     /// <c>/api/me</c> failure short-circuits before the characters GET is ever made.
     /// </summary>
+    private static TrackerApiClient ClientThatRecords(List<HttpRequestMessage> seen)
+    {
+        var handler = new StubHandler(request =>
+        {
+            seen.Add(request);
+            var body = request.RequestUri?.AbsolutePath == "/api/me"
+                ? MeDesktopEnabledJson
+                : """[{"id":1,"name":"Hero","characterClass":null,"level":70,"percentage":0,"targetLevel":80}]""";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            };
+        });
+        return new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+    }
+
     private static TrackerApiClient ClientThatReturns(
         HttpStatusCode status,
         string json,
