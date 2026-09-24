@@ -134,7 +134,11 @@ public static class LocationName
             return false;
         }
 
-        var limit = Math.Max(1, Math.Max(left.Length, right.Length) / 4);
+        // Length 3–4 keeps one edit, so east/west stays a real move.
+        // Length 5–8 may differ by two; a longer word by three. A flat
+        // allowance of three rewrites most of a short word.
+        var longer = Math.Max(left.Length, right.Length);
+        var limit = longer >= 9 ? 3 : longer >= 5 ? 2 : 1;
         return Levenshtein(left, right) <= limit;
     }
 

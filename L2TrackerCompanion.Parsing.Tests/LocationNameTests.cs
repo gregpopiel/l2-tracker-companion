@@ -48,6 +48,30 @@ public class LocationNameTests
     }
 
     [Fact]
+    public void ATwoOrThreeLetterArtifactIsStillTheSamePlace()
+    {
+        Assert.True(LocationName.SamePlace("Dragon Valley", "Dxagxn Vallxy"));
+    }
+
+    [Fact]
+    public void ARewrittenZoneIsADifferentPlace()
+    {
+        Assert.False(LocationName.SamePlace("Dragon Valley", "Blazing Swamp"));
+    }
+
+    [Fact]
+    public void ATwoEditChangeOfALongerWordIsTheSamePlace()
+    {
+        Assert.True(LocationName.SamePlace("Dragon Valley", "Dxagxn Valley"));
+    }
+
+    [Fact]
+    public void AThreeEditChangeOfAFiveLetterWordIsADifferentPlace()
+    {
+        Assert.False(LocationName.SamePlace("Swamp", "Xwaax"));
+    }
+
+    [Fact]
     public void ABlankNameMatchesNothingIncludingAnotherBlank()
     {
         Assert.False(LocationName.SamePlace(null, "Dragon Valley"));
