@@ -478,39 +478,33 @@ static async Task<(int Id, bool Created)?> ResolveSpotFromLocationAsync(
 
     var areasCall = await client.GetAreasAsync(token);
     var world = areasCall.Success ? WorldArea.Find(areasCall.Value) : null;
-    var stability = LocationStability.Evaluate(store.List().Select(row => row.Report.LocationHint));
+    var settled = LocationStability.SettledName(store.List().Select(row => row.Report.LocationHint));
     var latest = store.LastSavable() ?? store.Last();
-    var resolve = SpotResolve.Evaluate(
+    var resolve = SpotTarget.Decide(
+        userChose: false,
         selected: null,
-        stability.IsStable ? stability.CanonicalName : null,
         latest?.Report.LocationHint,
+        settled,
         spotsCall.Value,
         spotsLoaded: true,
-        world);
+        world,
+        tracking: false,
+        hasReads: store.Count > 0);
     if (!resolve.CanSave)
     {
-        // A dump is one shot over an existing store: no poll loop is running,
-        // so advice to keep tracking would never come true here. That path can
-        // return an empty hint (the WPF picker says it by staying blank), which
-        // on a console would be a bare newline instead of a reason.
-        var hint = resolve.Hint(
-            stability.SampleCount,
-            stability.MajorityCount,
-            LocationStability.WindowSize,
-            tracking: false);
-        Console.WriteLine(string.IsNullOrEmpty(hint)
-            ? "No spot: Location was never read."
-            : hint);
+        Console.WriteLine(string.IsNullOrEmpty(resolve.Hint)
+            ? "Pick a spot."
+            : resolve.Hint);
         return null;
     }
 
-    if (resolve.Kind is SpotResolveKind.UseExisting or SpotResolveKind.UseSelected)
+    if (resolve.Spot is not null)
     {
-        Console.WriteLine($"Using existing spot: {resolve.Spot!.Name}.");
+        Console.WriteLine($"Using existing spot: {resolve.Spot.Name}.");
         return (resolve.Spot.Id, Created: false);
     }
 
-    var created = await client.PostSpotAsync(token, resolve.Name!, resolve.WorldArea!.Id);
+    var created = await client.PostSpotAsync(token, resolve.CreateName!, resolve.WorldArea!.Id);
     if (created.Success && created.Value is not null)
     {
         Console.WriteLine($"Created World spot: {created.Value.Name}.");
@@ -518,7 +512,7 @@ static async Task<(int Id, bool Created)?> ResolveSpotFromLocationAsync(
     }
 
     var retry = await client.GetSpotsAsync(token, characterId);
-    var match = SpotMatch.ExactName(resolve.Name, retry.Value);
+    var match = SpotMatch.ExactName(resolve.CreateName, retry.Value);
     if (match is not null)
     {
         Console.WriteLine($"Using existing spot: {match.Name}.");

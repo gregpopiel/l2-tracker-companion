@@ -426,6 +426,7 @@
                                       MinHeight="40"
                                       HorizontalAlignment="Stretch"
                                       DisplayMemberPath="Label"
+                                      Tag="Select spot..."
                                       IsEnabled="False"
                                       IsEditable="False"
                                       IsTextSearchEnabled="True"
@@ -438,6 +439,7 @@
                                     MinHeight="40"
                                     Margin="8,0,0,0"
                                     VerticalAlignment="Stretch"
+                                    Visibility="Collapsed"
                                     IsEnabled="False"
                                     Click="ClearSpotButton_Click" />
                         </Grid>

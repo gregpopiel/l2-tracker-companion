@@ -58,11 +58,9 @@ public sealed class LocationChangeWatch
             return null;
         }
 
-        // Fuzzy only here. LocationStability still feeds spot creation, where
-        // a name has to match exactly — a sentence has no data consequence
-        // and a created spot does. The price is that a genuine move between
-        // two names one glyph apart goes unannounced; the spot-mismatch
-        // warning already outranks this notice.
+        // Same place rule as location settling. A garble of two or three
+        // letters is not a move. The price is that a genuine move between
+        // two names a few glyphs apart goes unannounced.
         // A garble must not become Current, or the next clean read would
         // look like a move back.
         if (LocationName.SamePlace(Current, name))

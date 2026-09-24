@@ -6,142 +6,154 @@ namespace L2TrackerCompanion.Parsing.Tests;
 public class LocationStabilityTests
 {
     [Fact]
-    public void FourOfTheLastFiveTheSameIsStable()
+    public void FourNonEmptyHintsOfTheSamePlaceAreSettled()
     {
-        var decision = LocationStability.Evaluate(
+        var name = LocationStability.SettledName(
         [
             "Noise",
             "Dragon Valley (east)",
             "Dragon Valley (east)",
+            "Dragon Valley (east)",
+            "Dragon Valley (east)",
+        ]);
+
+        Assert.Equal("Dragon Valley (east)", name);
+    }
+
+    [Fact]
+    public void OppositeDriftsFromTheFirstHintDoNotSettle()
+    {
+        // Cxmp and Camx are each one letter from Camp, the limit for a
+        // four-letter word, but two letters from each other.
+        Assert.Null(LocationStability.SettledName(
+        [
+            "Camp",
+            "Cxmp",
+            "Camp",
+            "Camx",
+        ]));
+    }
+
+    [Fact]
+    public void ADifferentPlaceInTheRunUnsettlesIt()
+    {
+        Assert.Null(LocationStability.SettledName(
+        [
+            "Dragon Valley (east)",
+            "Dragon Valley (east)",
             "Somewhere Else",
             "Dragon Valley (east)",
-            "Dragon Valley (east)",
-        ]);
-
-        Assert.True(decision.IsStable);
-        Assert.Equal("Dragon Valley (east)", decision.CanonicalName);
-        Assert.Equal(LocationStability.WindowSize, decision.SampleCount);
-        Assert.Equal(LocationStability.MinMajority, decision.MajorityCount);
+        ]));
     }
 
     [Fact]
-    public void ThreeOfFiveIsNotEnough()
+    public void ThreeAgreeingHintsAreNotEnough()
     {
-        var decision = LocationStability.Evaluate(
-        [
-            "Alpha",
-            "Alpha",
-            "Alpha",
-            "Beta",
-            "Gamma",
-        ]);
-
-        Assert.False(decision.IsStable);
-        Assert.Null(decision.CanonicalName);
-        Assert.Equal(5, decision.SampleCount);
-        Assert.Equal(3, decision.MajorityCount);
-    }
-
-    [Fact]
-    public void FewerThanFiveNonEmptyHintsIsUnstableEvenIfTheyAllAgree()
-    {
-        var decision = LocationStability.Evaluate(
+        Assert.Null(LocationStability.SettledName(
         [
             "Dragon Valley (east)",
             null,
             "  ",
             "Dragon Valley (east)",
             "Dragon Valley (east)",
-            "Dragon Valley (east)",
-        ]);
-
-        Assert.False(decision.IsStable);
-        Assert.Null(decision.CanonicalName);
-        Assert.Equal(4, decision.SampleCount);
-        Assert.Equal(0, decision.MajorityCount);
+        ]));
     }
 
     [Fact]
     public void EmptyAndWhitespaceHintsAreSkipped()
     {
-        var decision = LocationStability.Evaluate(
+        var name = LocationStability.SettledName(
         [
             "Dragon Valley (east)",
             null,
             "",
             "   ",
             "Dragon Valley (east)",
-            "Dragon Valley (east)",
             "\t",
             "Dragon Valley (east)",
             "Dragon Valley (east)",
         ]);
 
-        Assert.True(decision.IsStable);
-        Assert.Equal("Dragon Valley (east)", decision.CanonicalName);
+        Assert.Equal("Dragon Valley (east)", name);
     }
 
     [Fact]
-    public void OnlyTheLastFiveNonEmptyHintsCount()
+    public void OnlyTheLastFourNonEmptyHintsCount()
     {
-        var decision = LocationStability.Evaluate(
+        var name = LocationStability.SettledName(
         [
             "Old Spot",
             "Old Spot",
             "Old Spot",
             "Old Spot",
-            "Old Spot",
             "New Spot",
             "New Spot",
-            "Other",
             "New Spot",
             "New Spot",
         ]);
 
-        Assert.True(decision.IsStable);
-        Assert.Equal("New Spot", decision.CanonicalName);
-        Assert.Equal(4, decision.MajorityCount);
+        Assert.Equal("New Spot", name);
     }
 
     [Fact]
-    public void MatchingIgnoresCaseAndUsesTheMostCommonOriginalSpelling()
+    public void ATwoOrThreeLetterArtifactStaysTheCurrentSpelling()
     {
-        var decision = LocationStability.Evaluate(
+        var name = LocationStability.SettledName(
+        [
+            "Dragon Valley",
+            "Dxagxn Vallxy",
+            "Dragon Valley",
+            "Dragan Vallex",
+        ]);
+
+        Assert.Equal("Dragon Valley", name);
+    }
+
+    [Fact]
+    public void TheMostCommonSpellingBeatsALeadingArtifact()
+    {
+        var name = LocationStability.SettledName(
+        [
+            "Dxagxn Vallxy",
+            "Dragon Valley",
+            "Dragon Valley",
+            "Dragon Valley",
+        ]);
+
+        Assert.Equal("Dragon Valley", name);
+    }
+
+    [Fact]
+    public void MatchingIgnoresCaseAndKeepsTheMajoritySpelling()
+    {
+        var name = LocationStability.SettledName(
         [
             "dragon valley (east)",
-            "Dragon Valley (east)",
             "Dragon Valley (east)",
             "DRAGON VALLEY (EAST)",
             "Dragon Valley (east)",
         ]);
 
-        Assert.True(decision.IsStable);
-        Assert.Equal("Dragon Valley (east)", decision.CanonicalName);
-        Assert.Equal(5, decision.MajorityCount);
+        Assert.Equal("Dragon Valley (east)", name);
     }
 
     [Fact]
-    public void LeadingAndTrailingWhitespaceDoesNotSplitAGroup()
+    public void LeadingAndTrailingWhitespaceDoesNotSplitTheRun()
     {
-        var decision = LocationStability.Evaluate(
+        var name = LocationStability.SettledName(
         [
             "  Dragon Valley (east)",
             "Dragon Valley (east)  ",
             "Dragon Valley (east)",
             "Dragon Valley (east)",
-            "Dragon Valley (east)",
         ]);
 
-        Assert.True(decision.IsStable);
-        Assert.Equal("Dragon Valley (east)", decision.CanonicalName);
+        Assert.Equal("Dragon Valley (east)", name);
     }
 
     [Fact]
-    public void NoHintsYetIsUnstable()
+    public void NoHintsYetIsUnsettled()
     {
-        var decision = LocationStability.Evaluate([]);
-
-        Assert.False(decision.IsStable);
-        Assert.Equal(0, decision.SampleCount);
+        Assert.Null(LocationStability.SettledName([]));
     }
 }

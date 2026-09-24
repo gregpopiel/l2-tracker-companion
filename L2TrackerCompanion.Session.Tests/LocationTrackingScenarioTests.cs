@@ -6,7 +6,7 @@ namespace L2TrackerCompanion.Session.Tests;
 
 /// <summary>
 /// End-to-end reproductions of the live poll loop
-/// (<c>LocationStability.Evaluate</c> over the whole session's raw minimap
+/// (<c>LocationStability.SettledName</c> over the whole session's raw minimap
 /// hints, feeding the settled name into <c>LocationChangeWatch.Notice</c>) —
 /// the pipeline MainWindow's <c>NoteLocationChange</c> runs on every accepted
 /// tick. The banner itself re-reads <c>PendingNotice</c> (including on
@@ -29,8 +29,8 @@ public class LocationTrackingScenarioTests
         public string? Tick(string? rawHint, DateTimeOffset now)
         {
             _rawHints.Add(rawHint);
-            var stability = LocationStability.Evaluate(_rawHints);
-            return _watch.Notice(stability.IsStable ? stability.CanonicalName : null, now);
+            var settled = LocationStability.SettledName(_rawHints);
+            return _watch.Notice(settled, now);
         }
 
         /// <summary>

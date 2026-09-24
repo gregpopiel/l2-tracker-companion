@@ -36,8 +36,7 @@ public partial class MainWindow : Window
     private LiveStatusSnapshot _liveStatus = LiveStatus.Idle();
     private bool _saveInFlight;
     private readonly SaveConfirmationHold _saveConfirmation = new();
-    private bool _holdEmptySpot;
-    private readonly SpotAutoCorrect _autoCorrect = new();
+    private readonly SpotFollowState _spotFollow = new();
     private bool _spotsLoaded;
     private AreaInfo? _worldArea;
     private IReadOnlyList<AreaInfo>? _areas;
@@ -436,6 +435,7 @@ public partial class MainWindow : Window
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
             ClearSpotButton.IsEnabled = false;
+            ClearSpotButton.Visibility = Visibility.Collapsed;
             BonusBox.IsEnabled = true;
         }
         finally
@@ -455,8 +455,7 @@ public partial class MainWindow : Window
     private void ClearPickers()
     {
         _spotsCts.Cancel();
-        _holdEmptySpot = false;
-        _autoCorrect.Reset();
+        _spotFollow.Reset();
         _spotsLoaded = false;
         _worldArea = null;
         _areas = null;
@@ -471,6 +470,7 @@ public partial class MainWindow : Window
             SpotCombo.SelectedItem = null;
             SpotCombo.IsEnabled = false;
             ClearSpotButton.IsEnabled = false;
+            ClearSpotButton.Visibility = Visibility.Collapsed;
             HideSpotResolveHint();
             BonusBox.Text = string.Empty;
             BonusBox.IsEnabled = false;
@@ -511,25 +511,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (SelectedSpot is not null)
-        {
-            _holdEmptySpot = false;
-        }
-
-        // Answering a correction pins the session where the player put it —
-        // otherwise the next matching read would undo this choice in seconds.
-        _autoCorrect.NoteUserPick();
+        _spotFollow.NoteUserChoice();
         RefreshSaveEnabled();
     }
 
     private void ClearSpotButton_Click(object sender, RoutedEventArgs e)
     {
-        _holdEmptySpot = true;
-        // Only the notice goes. Emptying the picker must not revoke protection
-        // the player already earned by answering a correction — otherwise
-        // re-picking the same spot afterwards would not pin, and the next
-        // matching read would overwrite it all over again.
-        _autoCorrect.DismissNotice();
+        _spotFollow.Clear();
         _suppressPickerEvents = true;
         try
         {
@@ -559,65 +547,52 @@ public partial class MainWindow : Window
             currentAccepted: last is not null);
     }
 
-    private LocationStabilityDecision CurrentLocationStability()
-        => LocationStability.Evaluate(_sessionStore.List().Select(row => row.Report.LocationHint));
+    private string? CurrentSettledName()
+        => LocationStability.SettledName(_sessionStore.List().Select(row => row.Report.LocationHint));
 
-    private SpotResolveDecision CurrentSpotResolve(SaveGateDecision? gate = null)
+    private SpotTargetDecision CurrentSpotTarget(SaveGateDecision? gate = null)
     {
-        var stability = CurrentLocationStability();
         gate ??= CurrentGate();
-        return SpotResolve.Evaluate(
+        return SpotTarget.Decide(
+            _spotFollow.UserChose,
             SelectedSpot,
-            stability.IsStable ? stability.CanonicalName : null,
             (gate.Source ?? _sessionStore.Last()?.Report)?.LocationHint,
+            CurrentSettledName(),
             SpotCombo.ItemsSource as IEnumerable<SpotInfo>,
             _spotsLoaded,
-            _worldArea);
+            _worldArea,
+            _polling.IsRunning,
+            _sessionStore.Count > 0);
     }
 
-    private void ShowSpotResolveHint(SpotResolveDecision resolve, LocationStabilityDecision stability)
+    private void ShowSpotResolveHint(string? text)
     {
-        // A picked spot leaves nothing to resolve, but the redesign's single
-        // hint slot under the field still has a job: confirm what the panel
-        // itself is reading, since a stale/mismatched pick would otherwise be
-        // silent here (the save-target warning lives on LocationChangeBanner
-        // via SpotLocationWarning).
-        // A correction that replaced a pick has to say so — it moved the save
-        // target without being asked, and the player's answer to it is what
-        // pins the session.
-        // Staying silent is this method's call, not Hint's, and it is only
-        // ever right before the session has a single read: every sentence Hint
-        // could produce would be about a window nobody has put anything in.
-        // That covers the seconds between Start and the first read too — "(0/5)"
-        // there is not just noise, it is wrong, since picking a spot would not
-        // unlock Save either until something has actually been read.
-        var noSessionYet = _sessionStore.Count == 0;
-        var text = _autoCorrect.NoticePending
-            ? $"Spot switched to \"{SelectedSpot?.Name}\"."
-            : resolve.Kind == SpotResolveKind.UseSelected
-                ? DetectedLocationHint()
-                : noSessionYet
-                    ? string.Empty
-                    : resolve.Hint(
-                        stability.SampleCount,
-                        stability.MajorityCount,
-                        LocationStability.WindowSize,
-                        _polling.IsRunning);
-        SpotResolveHintLabel.Text = text;
+        SpotResolveHintLabel.Text = text ?? string.Empty;
         SpotResolveHintRow.Visibility = string.IsNullOrEmpty(text)
             ? Visibility.Collapsed
             : Visibility.Visible;
     }
 
-    private string DetectedLocationHint()
+    /// <summary>
+    /// Put Decide's spot into the picker when it differs. Programmatic, so it
+    /// does not count as the player choosing.
+    /// </summary>
+    private void ApplyFollowedSpot(SpotTargetDecision target)
     {
-        if (!_polling.IsRunning)
+        if (target.Spot is not { Id: > 0 } spot || SelectedSpot?.Id == spot.Id)
         {
-            return string.Empty;
+            return;
         }
 
-        var hint = CurrentGate().Source?.LocationHint;
-        return string.IsNullOrWhiteSpace(hint) ? string.Empty : $"Detected in-game: {hint}";
+        _suppressPickerEvents = true;
+        try
+        {
+            SpotCombo.SelectedItem = spot;
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
     }
 
     private void HideSpotResolveHint()
@@ -628,12 +603,14 @@ public partial class MainWindow : Window
 
     private void RefreshSaveEnabled()
     {
-        ClearSpotButton.IsEnabled = SelectedSpot is not null && SpotCombo.IsEnabled;
-        var stability = CurrentLocationStability();
         var gate = CurrentGate();
-        var resolve = CurrentSpotResolve(gate);
-        ShowSpotResolveHint(resolve, stability);
-        RefreshLocationBanner(gate, stability);
+        var target = CurrentSpotTarget(gate);
+        ApplyFollowedSpot(target);
+        var showClear = _spotFollow.UserChose && SpotCombo.IsEnabled;
+        ClearSpotButton.Visibility = showClear ? Visibility.Visible : Visibility.Collapsed;
+        ClearSpotButton.IsEnabled = showClear;
+        ShowSpotResolveHint(target.Hint);
+        RefreshLocationBanner();
 
         // Three independent facts, composed with exact-sentence dedup.
         // HoldReason often restates the current-frame problem; putting it
@@ -645,7 +622,7 @@ public partial class MainWindow : Window
             : gate.BlockReason;
         RefreshReadProblemBanner();
 
-        var pickersReady = SessionPickers.SaveReady(SelectedCharacter, resolve);
+        var pickersReady = SessionPickers.SaveReady(SelectedCharacter, target.CanSave);
 
         // Save mode whenever tracking is on (even before the first read) or
         // there's a held frame from an earlier Stop — otherwise Start.
@@ -674,64 +651,12 @@ public partial class MainWindow : Window
         UpdateAvailableButton.IsEnabled = !_saveInFlight && !_applyingUpdate;
     }
 
-    /// <summary>
-    /// Move the picker onto the spot this hint names, if it may. Returns the
-    /// spot actually applied, or null when nothing moved — callers must report
-    /// from the return value rather than re-deriving the match, since a match
-    /// alone says nothing about whether the picker followed it.
-    /// </summary>
-    private SpotInfo? ApplyLocationHint(string? hint)
-    {
-        if (_holdEmptySpot || !_autoCorrect.MayOverwrite)
-        {
-            return null;
-        }
-
-        // The same shortcut SpotResolve takes, for the same reason: a hint that
-        // exactly names one owned spot needs no window behind it. The stability
-        // check this used to run was redundant even before that — it only fired
-        // when the hint already equalled the canonical name, so it went on to
-        // match the very same spot.
-        var match = SpotMatch.ExactName(hint, SpotCombo.ItemsSource as IEnumerable<SpotInfo>);
-        if (match is null)
-        {
-            return null;
-        }
-
-        if (SelectedSpot is not null && SelectedSpot.Id == match.Id)
-        {
-            // A later read agreeing with the picker retires the switch notice,
-            // so the hint slot goes back to reporting the live location instead
-            // of announcing a switch for the rest of the run. The right to pin
-            // is untouched and outlives this.
-            _autoCorrect.NoteConfirmed();
-            return null;
-        }
-
-        var replaced = SelectedSpot;
-        _suppressPickerEvents = true;
-        try
-        {
-            SpotCombo.SelectedItem = match;
-        }
-        finally
-        {
-            _suppressPickerEvents = false;
-        }
-
-        _autoCorrect.NoteApplied(replaced is not null);
-        return match;
-    }
-
     private async Task LoadSpotsAsync(CharacterInfo? character)
     {
         _spotsCts.Cancel();
         _spotsCts = new CancellationTokenSource();
         var cancellationToken = _spotsCts.Token;
-        _holdEmptySpot = false;
-        // A different character's list is a different vocabulary, so whatever
-        // the player pinned against the old one no longer applies.
-        _autoCorrect.Reset();
+        _spotFollow.Reset();
         _spotsLoaded = false;
         if (character is not null)
         {
@@ -803,7 +728,6 @@ public partial class MainWindow : Window
             _suppressPickerEvents = false;
         }
 
-        ApplyLocationHint(_sessionStore.Last()?.Report.LocationHint);
         RefreshSaveEnabled();
 
         // The benchmark ranks against this list, so it can only be right once
@@ -917,7 +841,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!SessionPickers.SaveReady(SelectedCharacter, CurrentSpotResolve()))
+        if (!SessionPickers.SaveReady(SelectedCharacter, CurrentSpotTarget().CanSave))
         {
             RefreshSaveEnabled();
             return;
@@ -952,7 +876,7 @@ public partial class MainWindow : Window
         RefreshSaveEnabled();
         try
         {
-            var resolve = CurrentSpotResolve();
+            var resolve = CurrentSpotTarget();
             var ensured = await EnsureSpotForSaveAsync(token, resolve);
             if (ensured is null)
             {
@@ -1004,8 +928,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// After a 2xx, drop every companion-side read. Character, spot and
-    /// bonus stay. Start tracking to capture the panel again.
+    /// After a 2xx, drop every companion-side read and the spot picker.
+    /// Character and bonus stay. The next run can set the spot again.
     /// </summary>
     private void ResetLocalSessionAfterSave()
     {
@@ -1014,6 +938,16 @@ public partial class MainWindow : Window
         ClearReadProblem();
         ShowLiveStatus(LiveStatus.Idle());
         SessionStatusLabel.Text = SessionStore.FormatInspect(_sessionStore.List(), _sessionStore.Path);
+        _spotFollow.Reset();
+        _suppressPickerEvents = true;
+        try
+        {
+            SpotCombo.SelectedItem = null;
+        }
+        finally
+        {
+            _suppressPickerEvents = false;
+        }
     }
 
     /// <summary>
@@ -1021,23 +955,21 @@ public partial class MainWindow : Window
     /// name match, or a newly created World spot. A failed create retries
     /// GET spots in case the name landed from a race.
     /// </summary>
-    private async Task<EnsuredSpot?> EnsureSpotForSaveAsync(string token, SpotResolveDecision resolve)
+    private async Task<EnsuredSpot?> EnsureSpotForSaveAsync(string token, SpotTargetDecision resolve)
     {
-        if (resolve.Kind is SpotResolveKind.UseSelected or SpotResolveKind.UseExisting)
+        if (resolve.Spot is not null)
         {
-            return resolve.Spot is null ? null : new EnsuredSpot(resolve.Spot, Created: false);
+            return new EnsuredSpot(resolve.Spot, Created: false);
         }
 
-        if (resolve.Kind != SpotResolveKind.CreateWorld
-            || string.IsNullOrWhiteSpace(resolve.Name)
-            || resolve.WorldArea is null)
+        if (string.IsNullOrWhiteSpace(resolve.CreateName) || resolve.WorldArea is null)
         {
             RefreshSaveEnabled();
             return null;
         }
 
         var world = resolve.WorldArea;
-        var created = await Api.PostSpotAsync(token, resolve.Name, world.Id);
+        var created = await Api.PostSpotAsync(token, resolve.CreateName, world.Id);
         if (created.Success && created.Value is not null)
         {
             var spot = WithWorldArea(created.Value, world);
@@ -1048,7 +980,7 @@ public partial class MainWindow : Window
         var spots = await Api.GetSpotsAsync(token, SelectedCharacter!.Id);
         if (spots.Success)
         {
-            var match = SpotMatch.ExactName(resolve.Name, spots.Value);
+            var match = SpotMatch.ExactName(resolve.CreateName, spots.Value);
             if (match is not null)
             {
                 await MergeCreatedSpotAsync(match);
@@ -1097,28 +1029,19 @@ public partial class MainWindow : Window
             return;
         }
 
-        var hold = _holdEmptySpot;
-        var selectedId = SelectedSpot?.Id;
+        var selectedId = SelectedSpot?.Id ?? spot.Id;
         _suppressPickerEvents = true;
         try
         {
             SpotCombo.ItemsSource = call.Value;
             SpotCombo.IsEnabled = true;
-            if (hold || selectedId is null)
-            {
-                SpotCombo.SelectedItem = null;
-            }
-            else
-            {
-                SpotCombo.SelectedItem = call.Value.FirstOrDefault(s => s.Id == selectedId) ?? spot;
-            }
+            SpotCombo.SelectedItem = call.Value.FirstOrDefault(s => s.Id == selectedId) ?? spot;
         }
         finally
         {
             _suppressPickerEvents = false;
         }
 
-        _holdEmptySpot = hold;
         ShowLiveStatus(_liveStatus);
     }
 
@@ -1268,7 +1191,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            RefreshLocationBanner(CurrentGate(), CurrentLocationStability());
+            RefreshLocationBanner();
         }
     }
 
@@ -1456,32 +1379,15 @@ public partial class MainWindow : Window
     /// </remarks>
     private void NoteLocationChange()
     {
-        var stability = CurrentLocationStability();
-        _locationWatch.Notice(stability.IsStable ? stability.CanonicalName : null);
+        _locationWatch.Notice(CurrentSettledName());
     }
 
     /// <summary>
-    /// The one slot for "you are not where this save thinks you are".
+    /// Reminder to restart the in-game Play Report after the settled location changes.
     /// </summary>
-    /// <remarks>
-    /// The move reminder and the save-target mismatch fire off the same settled
-    /// name and used to appear together in two different places — an amber
-    /// banner here and a grey line under it. They answer one question, so one
-    /// banner carries whichever applies, and the mismatch wins: it names the
-    /// spot the log would actually be attached to, which is the more useful of
-    /// the two. "Spot switched to …" stays under the Spot field, where it
-    /// answers a different question (why the picker moved on its own).
-    /// </remarks>
-    private void RefreshLocationBanner(SaveGateDecision gate, LocationStabilityDecision stability)
+    private void RefreshLocationBanner()
     {
-        var mismatch = SpotLocationWarning.Evaluate(
-            SelectedSpot,
-            SpotResolve.DetectedName(
-                (gate.Source ?? _sessionStore.Last()?.Report)?.LocationHint,
-                stability.IsStable ? stability.CanonicalName : null,
-                SpotCombo.ItemsSource as IEnumerable<SpotInfo>));
-
-        var message = mismatch ?? _locationWatch.PendingNotice(DateTimeOffset.UtcNow);
+        var message = _locationWatch.PendingNotice(DateTimeOffset.UtcNow);
         LocationChangeLabel.Text = message ?? string.Empty;
         LocationChangeBanner.Visibility = message is null
             ? Visibility.Collapsed
@@ -2005,20 +1911,13 @@ public partial class MainWindow : Window
                 SaveMisread(imagePath, "Lamp XP not read", PlayReportPipeline.FormatWindow(result));
             }
 
-            if (appended)
+            if (appended && !string.IsNullOrWhiteSpace(report.LocationHint))
             {
-                var applied = ApplyLocationHint(report.LocationHint);
-                if (!string.IsNullOrWhiteSpace(report.LocationHint))
-                {
-                    // Reported from what the call did, not from re-matching the
-                    // hint: a hint can name a spot the picker did not follow
-                    // (the run is pinned, Clear is holding it empty, or it is
-                    // already there), and claiming a preselect then would lie
-                    // in exactly the readout used to check this behaviour.
-                    ParseStatusLabel.Text += applied is null
-                        ? $"\n\nLocation hint \"{report.LocationHint}\" did not move the picker."
-                        : $"\n\nPreselected {applied.Label}.";
-                }
+                var next = CurrentSpotTarget();
+                var moved = next.Spot is { } spot && spot.Id != SelectedSpot?.Id;
+                ParseStatusLabel.Text += moved
+                    ? $"\n\nPreselected {next.Spot!.Label}."
+                    : $"\n\nLocation hint \"{report.LocationHint}\" did not move the picker.";
             }
 
             // Light/detail describe this tick. XP / Adena / rates are the

@@ -215,7 +215,7 @@ public class SessionStoreTests
     [Fact]
     public void WarmUpCoversTheWholeLocationWindow()
     {
-        Assert.Equal(LocationStability.WindowSize, PollingLoop.WarmUpReads);
+        Assert.Equal(LocationStability.RunLength, PollingLoop.WarmUpReads);
         Assert.True(PollingLoop.WarmUpInterval < PollingLoop.Interval);
     }
 

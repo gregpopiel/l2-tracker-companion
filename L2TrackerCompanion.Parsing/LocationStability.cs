@@ -1,25 +1,23 @@
 namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
-/// Whether a run of minimap location hints is stable enough to stand in for
-/// a manually chosen spot.
+/// Whether recent minimap hints are one place, settled enough to name a new spot.
 /// </summary>
 /// <remarks>
-/// Save itself still posts a single agreeing frame (see <see cref="SaveGate"/>),
-/// falling back to the last such frame when the current tick is rejected.
-/// This gate is only for auto-resolving the spot: a one-off OCR of the HUD
-/// header is too thin to create or attach a spot, so we require the last
-/// <see cref="WindowSize"/> non-empty hints to agree at least
-/// <see cref="MinMajority"/> times (80%). Empty reads are skipped so a
-/// briefly occluded minimap does not poison the window.
+/// The last <see cref="RunLength"/> non-empty hints must be the same place
+/// (<see cref="LocationName.SamePlace"/>), every pair of them, not only each
+/// against the first. Two reads can drift from the first in opposite
+/// directions and still be a different place from each other. Blank reads are
+/// skipped so a briefly occluded minimap does not break the run. One hint
+/// that is a different place unsettles the name. The spelling returned is the
+/// one that occurs most often in the run, ignoring case. A tie keeps the later
+/// spelling, so one leading artifact does not become the name.
 /// </remarks>
 public static class LocationStability
 {
-    public const int WindowSize = 5;
+    public const int RunLength = 4;
 
-    public const int MinMajority = 4;
-
-    public static LocationStabilityDecision Evaluate(IEnumerable<string?> hints)
+    public static string? SettledName(IEnumerable<string?> hints)
     {
         ArgumentNullException.ThrowIfNull(hints);
 
@@ -29,30 +27,38 @@ public static class LocationStability
             .Select(hint => hint!)
             .ToList();
 
-        if (nonEmpty.Count < WindowSize)
+        if (nonEmpty.Count < RunLength)
         {
-            return LocationStabilityDecision.Unstable(nonEmpty.Count);
+            return null;
         }
 
-        var window = nonEmpty.TakeLast(WindowSize).ToList();
-        var majority = window
-            .GroupBy(hint => hint, StringComparer.OrdinalIgnoreCase)
-            .OrderByDescending(group => group.Count())
-            .First();
-
-        if (majority.Count() < MinMajority)
+        var run = nonEmpty.TakeLast(RunLength).ToList();
+        for (var i = 0; i < run.Count; i++)
         {
-            return LocationStabilityDecision.Unstable(WindowSize, majority.Count());
+            for (var j = i + 1; j < run.Count; j++)
+            {
+                if (!LocationName.SamePlace(run[i], run[j]))
+                {
+                    return null;
+                }
+            }
         }
 
-        var canonical = majority
-            .GroupBy(hint => hint, StringComparer.Ordinal)
+        return MajoritySpelling(run);
+    }
+
+    private static string MajoritySpelling(IReadOnlyList<string> run)
+        => run
+            .Select((hint, index) => (hint, index))
+            .GroupBy(item => item.hint, StringComparer.OrdinalIgnoreCase)
             .OrderByDescending(group => group.Count())
+            .ThenByDescending(group => group.Max(item => item.index))
+            .First()
+            .GroupBy(item => item.hint, StringComparer.Ordinal)
+            .OrderByDescending(group => group.Count())
+            .ThenByDescending(group => group.Max(item => item.index))
             .First()
             .Key;
-
-        return LocationStabilityDecision.Stable(canonical, WindowSize, majority.Count());
-    }
 
     private static string? TrimOrNull(string? hint)
     {
@@ -64,17 +70,4 @@ public static class LocationStability
         var trimmed = hint.Trim();
         return trimmed.Length == 0 ? null : trimmed;
     }
-}
-
-public sealed record LocationStabilityDecision(
-    bool IsStable,
-    string? CanonicalName,
-    int SampleCount,
-    int MajorityCount)
-{
-    public static LocationStabilityDecision Unstable(int sampleCount, int majorityCount = 0)
-        => new(false, null, sampleCount, majorityCount);
-
-    public static LocationStabilityDecision Stable(string canonicalName, int sampleCount, int majorityCount)
-        => new(true, canonicalName, sampleCount, majorityCount);
 }

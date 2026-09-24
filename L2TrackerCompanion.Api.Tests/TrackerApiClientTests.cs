@@ -261,26 +261,33 @@ public class TrackerApiClientTests
         Assert.False(SessionPickers.SaveEnabled(character, null));
         Assert.False(SessionPickers.SaveEnabled(null, spot));
         Assert.True(SessionPickers.SaveEnabled(character, spot));
-        var fromLocation = SpotResolve.Evaluate(
-            null,
-            "Dragon Valley (east)",
-            "Dragon Valley (east)",
-            [spot],
+        var fromLocation = SpotTarget.Decide(
+            userChose: false,
+            selected: null,
+            currentHint: "Dragon Valley (east)",
+            settledName: "Dragon Valley (east)",
+            spots: [spot],
             spotsLoaded: true,
-            new AreaInfo(1, "World"));
-        Assert.True(SessionPickers.SaveReady(character, fromLocation));
+            worldArea: new AreaInfo(1, "World"),
+            tracking: true,
+            hasReads: true);
+        Assert.True(SessionPickers.SaveReady(character, fromLocation.CanSave));
         Assert.False(SessionPickers.SaveReady(
             character,
-            SpotResolve.Evaluate(null, null, null, [spot], spotsLoaded: true, null)));
+            SpotTarget.Decide(
+                false, null, null, null, [spot], true, null, true, true).CanSave));
         Assert.False(SessionPickers.SaveReady(
             character,
-            SpotResolve.Evaluate(
+            SpotTarget.Decide(
+                false,
                 null,
                 "Brand New Camp",
                 "Brand New Camp",
                 spots: null,
                 spotsLoaded: false,
-                new AreaInfo(1, "World"))));
+                new AreaInfo(1, "World"),
+                tracking: false,
+                hasReads: true).CanSave));
     }
 
     [Fact]

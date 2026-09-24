@@ -433,8 +433,8 @@ public static class SessionPickers
     public static bool SaveEnabled(CharacterInfo? character, SpotInfo? spot)
         => CharacterChosen(character) && spot is not null && spot.Id > 0;
 
-    public static bool SaveReady(CharacterInfo? character, SpotResolveDecision resolve)
-        => CharacterChosen(character) && resolve.CanSave;
+    public static bool SaveReady(CharacterInfo? character, bool spotReady)
+        => CharacterChosen(character) && spotReady;
 }
 
 /// <summary>

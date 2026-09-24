@@ -733,12 +733,24 @@
                                       VerticalAlignment="Center"
                                       Data="M 0 0 L 4 4 L 8 0 Z"
                                       Fill="{StaticResource StaticGrayBrush}" />
-                                <TextBlock x:Name="ContentSite"
-                                           VerticalAlignment="Center"
-                                           Text="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}"
-                                           TextTrimming="CharacterEllipsis"
-                                           TextWrapping="NoWrap"
-                                           IsHitTestVisible="False" />
+                                <Grid>
+                                    <!-- Tag is the empty-state line. Only the spot
+                                         picker sets it; other combos leave it blank. -->
+                                    <TextBlock x:Name="Placeholder"
+                                               VerticalAlignment="Center"
+                                               Text="{TemplateBinding Tag}"
+                                               Foreground="{StaticResource StaticGrayBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               TextWrapping="NoWrap"
+                                               IsHitTestVisible="False"
+                                               Visibility="Collapsed" />
+                                    <TextBlock x:Name="ContentSite"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}"
+                                               TextTrimming="CharacterEllipsis"
+                                               TextWrapping="NoWrap"
+                                               IsHitTestVisible="False" />
+                                </Grid>
                             </DockPanel>
                         </Border>
                         <Border x:Name="FocusRing"
@@ -796,6 +808,12 @@
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="Text" Value="{x:Null}">
+                            <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

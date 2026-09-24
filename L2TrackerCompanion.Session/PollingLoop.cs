@@ -28,7 +28,7 @@ public sealed class PollingLoop
     /// must not drift apart. At the steady cadence alone the spot cannot resolve
     /// itself for the first 40 seconds of a session.
     /// </summary>
-    public const int WarmUpReads = LocationStability.WindowSize;
+    public const int WarmUpReads = LocationStability.RunLength;
 
     /// <summary>
     /// Ceiling on warm-up attempts, whatever they produced. Progress is counted
