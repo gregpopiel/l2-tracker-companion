@@ -281,15 +281,13 @@ public partial class MainWindow : Window
 
     private void TokenBox_PasswordChanged(object sender, RoutedEventArgs e) => UpdateTokenPlaceholder();
 
-    // The caret shares the placeholder's first glyph, so an empty focused box
-    // draws a blue bar through the "P". Hide it until there is text to follow.
+    private void TokenBox_FocusChanged(object sender, RoutedEventArgs e) => UpdateTokenPlaceholder();
+
+    // Same rule as the note field: the hint is only for an empty, idle box.
     private void UpdateTokenPlaceholder()
     {
-        var empty = string.IsNullOrEmpty(TokenBox.Password);
-        TokenPlaceholder.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
-        TokenBox.CaretBrush = empty
-            ? System.Windows.Media.Brushes.Transparent
-            : (Brush)FindResource("BeaconBlueBrush");
+        var show = string.IsNullOrEmpty(TokenBox.Password) && !TokenBox.IsKeyboardFocused;
+        TokenPlaceholder.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void TokenBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -550,6 +548,7 @@ public partial class MainWindow : Window
             BonusBox.Text = string.Empty;
             BonusBox.IsEnabled = false;
             HideBonusHint();
+            NoteBox.Text = string.Empty;
         }
         finally
         {
@@ -722,6 +721,7 @@ public partial class MainWindow : Window
         SecondaryActionLink.Visibility = saveMode ? Visibility.Visible : Visibility.Collapsed;
         // Stop tracking is safe during a save; starting a fresh run is not.
         SecondaryActionLink.IsEnabled = _polling.IsRunning || !_saveInFlight;
+        NoteBox.IsEnabled = !_saveInFlight;
         SignOutButton.IsEnabled = !_saveInFlight;
         UpdateAvailableButton.IsEnabled = !_saveInFlight && !_applyingUpdate;
     }
@@ -971,7 +971,8 @@ public partial class MainWindow : Window
                 PurpleLampXP: totals.PurpleLampXP,
                 BlueLampXP: totals.BlueLampXP,
                 GreenLampXP: totals.GreenLampXP,
-                Date: totals.EndedAt);
+                Date: totals.EndedAt,
+                Note: NoteBox.Text);
             var call = await Api.PostFarmLogAsync(token, request);
             if (!call.Success)
             {
@@ -1018,11 +1019,22 @@ public partial class MainWindow : Window
         try
         {
             SpotCombo.SelectedItem = null;
+            NoteBox.Text = string.Empty;
         }
         finally
         {
             _suppressPickerEvents = false;
         }
+    }
+
+    private void NoteBox_TextChanged(object sender, RoutedEventArgs e) => UpdateNotePlaceholder();
+
+    private void NoteBox_FocusChanged(object sender, RoutedEventArgs e) => UpdateNotePlaceholder();
+
+    private void UpdateNotePlaceholder()
+    {
+        var show = string.IsNullOrEmpty(NoteBox.Text) && !NoteBox.IsKeyboardFocused;
+        NotePlaceholder.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>
@@ -1711,6 +1723,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        NoteBox.Text = string.Empty;
         await StartTrackingAsync();
     }
 

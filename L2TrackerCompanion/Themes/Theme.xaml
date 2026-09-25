@@ -105,6 +105,10 @@
 
     <CornerRadius x:Key="BorderRadiusBase" TopLeft="4" TopRight="4" BottomRight="4" BottomLeft="4" />
 
+    <!-- One inset for the spot picker, the note, and the token box. Templates
+         apply it as a margin: Padding is added again to the caret. -->
+    <Thickness x:Key="FieldInset">12,10</Thickness>
+
     <!-- ===================== 3. SHARED EFFECTS ===================== -->
 
     <!-- The Beacon Rule: glow marks focus and the login card only, never resting chrome. -->
@@ -278,6 +282,7 @@
         <Setter Property="MinWidth" Value="{StaticResource ButtonMinWidth}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Cursor" Value="Hand" />
         <!-- The template draws its own focus ring, so the system dotted rect
              (invisible enough over the primary gradient) is turned off. -->
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -509,10 +514,48 @@
                     BorderThickness="{TemplateBinding BorderThickness}"
                     CornerRadius="{StaticResource BorderRadiusBase}"
                     Padding="{TemplateBinding Padding}">
-                <ScrollViewer x:Name="PART_ContentHost" Focusable="False" />
+                <ScrollViewer x:Name="PART_ContentHost"
+                              Focusable="False"
+                              HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                              VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}" />
             </Border>
             <!-- The glow rides its own layer so focusing a field does not drop
                  what you are typing out of ClearType. -->
+            <Border x:Name="FocusRing"
+                    BorderBrush="{StaticResource BeaconBlueBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource BorderRadiusBase}"
+                    Effect="{StaticResource BeaconGlowEffect}"
+                    Visibility="Collapsed" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BeaconBlueBrush}" />
+                <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- Note field. TextBox.Padding is added again to the caret on top of a
+         template that already pads the border, which drops the cursor below
+         the placeholder. The inset lives only on the content host. -->
+    <ControlTemplate x:Key="NoteTextTemplate" TargetType="TextBoxBase">
+        <Grid>
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{StaticResource BorderRadiusBase}">
+                <ScrollViewer x:Name="PART_ContentHost"
+                              Margin="{StaticResource FieldInset}"
+                              Focusable="False"
+                              VerticalAlignment="Center"
+                              HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                              VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}" />
+            </Border>
             <Border x:Name="FocusRing"
                     BorderBrush="{StaticResource BeaconBlueBrush}"
                     BorderThickness="1"
@@ -545,6 +588,11 @@
         <Setter Property="Template" Value="{StaticResource TextInputTemplate}" />
     </Style>
 
+    <Style x:Key="NoteTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template" Value="{StaticResource NoteTextTemplate}" />
+    </Style>
+
     <Style TargetType="PasswordBox">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
@@ -554,7 +602,7 @@
         <Setter Property="SelectionBrush" Value="{StaticResource BeaconBlueBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Template">
             <Setter.Value>
@@ -564,12 +612,14 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{StaticResource BorderRadiusBase}"
-                                Padding="{TemplateBinding Padding}">
+                                CornerRadius="{StaticResource BorderRadiusBase}">
                             <!-- Hidden, not the default Disabled: Disabled reports the full
                                  password width, so pasting a token widens the field.
-                                 Hidden keeps the bullets scrolling inside the box. -->
+                                 Hidden keeps the bullets scrolling inside the box.
+                                 The inset is a margin, not Padding: Padding is added
+                                 again to the caret and drops it below the placeholder. -->
                             <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{StaticResource FieldInset}"
                                           Focusable="False"
                                           VerticalAlignment="Center"
                                           HorizontalScrollBarVisibility="Hidden"

@@ -66,13 +66,14 @@
                                          FontSize="{StaticResource FontSizeField}"
                                          MinHeight="40"
                                          KeyDown="TokenBox_KeyDown"
-                                         PasswordChanged="TokenBox_PasswordChanged" />
-                            <!-- Same border and padding as the box, so the hint
-                                 starts where the typed text does. Width is tied
-                                 to the box so the hint cannot stretch the field. -->
+                                         PasswordChanged="TokenBox_PasswordChanged"
+                                         GotKeyboardFocus="TokenBox_FocusChanged"
+                                         LostKeyboardFocus="TokenBox_FocusChanged" />
+                            <!-- Same inset as the note field. Width is tied to the box
+                                 so the hint cannot stretch the field. -->
                             <Border Width="{Binding ActualWidth, ElementName=TokenBox}"
                                     BorderThickness="{Binding BorderThickness, ElementName=TokenBox}"
-                                    Padding="{Binding Padding, ElementName=TokenBox}"
+                                    Padding="{StaticResource FieldInset}"
                                     Background="Transparent"
                                     IsHitTestVisible="False">
                                 <TextBlock x:Name="TokenPlaceholder"
@@ -87,7 +88,6 @@
                         <Button x:Name="SignInButton"
                                 Content="Continue"
                                 Style="{StaticResource PrimaryButton}"
-                                Cursor="Hand"
                                 FontWeight="Bold"
                                 FontSize="{StaticResource FontSizeField}"
                                 Height="40"
@@ -104,7 +104,6 @@
                                 Click="RetryButton_Click" />
                         <Button Content="Don't have an account? Sign up"
                                 Style="{StaticResource LinkButton}"
-                                Cursor="Hand"
                                 HorizontalAlignment="Stretch"
                                 Margin="0,8,0,0"
                                 Click="SignUpButton_Click" />
@@ -468,6 +467,7 @@
                             <ComboBox x:Name="SpotCombo"
                                       FontSize="{StaticResource FontSizeField}"
                                       MinHeight="40"
+                                      Padding="{StaticResource FieldInset}"
                                       HorizontalAlignment="Stretch"
                                       DisplayMemberPath="Label"
                                       Tag="Select spot..."
@@ -488,13 +488,42 @@
                                     Click="ClearSpotButton_Click" />
                         </Grid>
                         <Grid x:Name="SpotResolveHintRow"
-                              Margin="0,0,0,14"
+                              Margin="0,0,0,8"
                               Visibility="Collapsed">
                             <TextBlock x:Name="SpotResolveHintLabel"
                                        Text=""
                                        TextWrapping="Wrap"
                                        FontSize="{StaticResource FontSizeXs}"
                                        Style="{StaticResource SubtleText}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,14">
+                            <TextBox x:Name="NoteBox"
+                                     Style="{StaticResource NoteTextBox}"
+                                     FontSize="{StaticResource FontSizeField}"
+                                     MinHeight="40"
+                                     MaxLength="200"
+                                     HorizontalAlignment="Stretch"
+                                     VerticalContentAlignment="Center"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     TextChanged="NoteBox_TextChanged"
+                                     GotKeyboardFocus="NoteBox_FocusChanged"
+                                     LostKeyboardFocus="NoteBox_FocusChanged" />
+                            <Border Width="{Binding ActualWidth, ElementName=NoteBox}"
+                                    BorderThickness="{Binding BorderThickness, ElementName=NoteBox}"
+                                    Padding="{StaticResource FieldInset}"
+                                    Background="Transparent"
+                                    IsHitTestVisible="False">
+                                <TextBlock x:Name="NotePlaceholder"
+                                           Text="Optional note..."
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           FontFamily="{StaticResource AppFontFamily}"
+                                           FontSize="{StaticResource FontSizeField}"
+                                           Foreground="{StaticResource StaticGrayBrush}" />
+                            </Border>
                         </Grid>
 
                         <!-- One action button doing double duty: "Start

@@ -175,6 +175,58 @@ public class TrackerApiClientTests
         Assert.Contains("\"acquiredXpSp\":25", body, StringComparison.Ordinal);
         Assert.Contains("\"minutes\":15", body, StringComparison.Ordinal);
         Assert.DoesNotContain("redLampXp\":", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"note\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PostFarmLogSendsTrimmedNote()
+    {
+        string? body = null;
+        var handler = new StubHandler(request =>
+        {
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Json(HttpStatusCode.OK, """{"id":1,"characterId":1,"spotId":10}""");
+        });
+        var client = new TrackerApiClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://l2tracker.cc/"),
+        });
+
+        var call = await client.PostFarmLogAsync(
+            "jwt",
+            new FarmLogRequest(
+                CharacterId: 1,
+                SpotId: 10,
+                XpFarmed: 1000,
+                Adena: 100,
+                Minutes: 15,
+                AcquiredXpSp: 25,
+                RedLampXP: 0,
+                PurpleLampXP: 0,
+                BlueLampXP: 0,
+                GreenLampXP: 0,
+                Note: "  night farm  "));
+
+        Assert.True(call.Success);
+        Assert.Contains("\"note\":\"night farm\"", body, StringComparison.Ordinal);
+
+        call = await client.PostFarmLogAsync(
+            "jwt",
+            new FarmLogRequest(
+                CharacterId: 1,
+                SpotId: 10,
+                XpFarmed: 1000,
+                Adena: 100,
+                Minutes: 15,
+                AcquiredXpSp: 25,
+                RedLampXP: 0,
+                PurpleLampXP: 0,
+                BlueLampXP: 0,
+                GreenLampXP: 0,
+                Note: "   "));
+
+        Assert.True(call.Success);
+        Assert.DoesNotContain("\"note\"", body, StringComparison.Ordinal);
     }
 
     [Fact]

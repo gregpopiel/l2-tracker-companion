@@ -402,7 +402,16 @@ public sealed record FarmLogRequest(
     long BlueLampXP,
     long GreenLampXP,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    DateTimeOffset? Date = null);
+    DateTimeOffset? Date = null,
+    string? Note = null)
+{
+    /// <summary>
+    /// Free-text note. Blank stays null so the field is omitted; the API
+    /// stores a trimmed value of at most 200 characters.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Note { get; init; } = string.IsNullOrWhiteSpace(Note) ? null : Note.Trim();
+}
 
 public sealed record FarmLogResponse(int Id, int CharacterId, int SpotId);
 
