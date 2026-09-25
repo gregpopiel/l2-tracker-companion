@@ -225,9 +225,8 @@ public partial class MainWindow : Window
         var debugVisibility = debug ? Visibility.Visible : Visibility.Collapsed;
         DebugToolsPanel.Visibility = debugVisibility;
         Title = debug ? "L2 Tracker Companion (Debug)" : "L2 Tracker Companion";
-        AuthHintLabel.Text = debug
-            ? "Paste the JWT from the website (browser localStorage key l2_jwt_token)."
-            : "Paste the token from the website.";
+        TokenDebugHint.Visibility = debugVisibility;
+        TokenPlaceholder.Text = "Paste your token";
 
         RefreshGameWindowStatus();
         RefreshSessionStatus();
@@ -278,10 +277,19 @@ public partial class MainWindow : Window
 
     private void RetryButton_Click(object sender, RoutedEventArgs e) => _ = RestoreAuthAsync();
 
-    private void WebsiteLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    private void SignUpButton_Click(object sender, RoutedEventArgs e) => OpenWebsite();
+
+    private void TokenBox_PasswordChanged(object sender, RoutedEventArgs e) => UpdateTokenPlaceholder();
+
+    // The caret shares the placeholder's first glyph, so an empty focused box
+    // draws a blue bar through the "P". Hide it until there is text to follow.
+    private void UpdateTokenPlaceholder()
     {
-        OpenWebsite();
-        e.Handled = true;
+        var empty = string.IsNullOrEmpty(TokenBox.Password);
+        TokenPlaceholder.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        TokenBox.CaretBrush = empty
+            ? System.Windows.Media.Brushes.Transparent
+            : (Brush)FindResource("BeaconBlueBrush");
     }
 
     private void TokenBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -296,7 +304,9 @@ public partial class MainWindow : Window
     private async void SignInButton_Click(object sender, RoutedEventArgs e)
     {
         SignInButton.IsEnabled = false;
-        SetAuthStatus("Validating token…", isError: false);
+        // Drop the previous rejection before the round trip. An empty status
+        // only hides the banner; it does not show "Validating token…".
+        SetAuthStatus(string.Empty, false);
         try
         {
             // The base URL is whatever AuthService loaded from api-base-url.txt;
@@ -407,6 +417,7 @@ public partial class MainWindow : Window
         LoginView.Visibility = Visibility.Visible;
         if (!checking)
         {
+            UpdateTokenPlaceholder();
             TokenBox.Focus();
         }
     }
@@ -428,11 +439,34 @@ public partial class MainWindow : Window
     // blank line.
     private void SetAuthStatus(string status, string brushKey)
     {
-        var brush = (Brush)FindResource(brushKey);
-        var visibility = string.IsNullOrEmpty(status) ? Visibility.Collapsed : Visibility.Visible;
+        if (string.IsNullOrEmpty(status))
+        {
+            AuthStatusBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         AuthStatusLabel.Text = status;
-        AuthStatusLabel.Foreground = brush;
-        AuthStatusLabel.Visibility = visibility;
+        AuthStatusBanner.Visibility = Visibility.Visible;
+        if (brushKey == "AlarmRedBrush")
+        {
+            AuthStatusBanner.Style = (Style)FindResource("ErrorBanner");
+            AuthStatusLabel.Style = (Style)FindResource("ErrorBannerText");
+            // A previous neutral status sets Foreground locally, and that beats
+            // the style, so the line stayed gray on the red fill.
+            AuthStatusLabel.Foreground = (Brush)FindResource("RedTextBrush");
+            AuthStatusLabel.TextAlignment = TextAlignment.Left;
+            return;
+        }
+
+        AuthStatusBanner.Style = null;
+        AuthStatusBanner.ClearValue(System.Windows.Controls.Border.BackgroundProperty);
+        AuthStatusBanner.ClearValue(System.Windows.Controls.Border.BorderBrushProperty);
+        AuthStatusBanner.ClearValue(System.Windows.Controls.Border.BorderThicknessProperty);
+        AuthStatusBanner.ClearValue(System.Windows.Controls.Border.PaddingProperty);
+        AuthStatusBanner.Margin = new Thickness(0, 0, 0, 18);
+        AuthStatusLabel.Style = (Style)FindResource("StatusText");
+        AuthStatusLabel.Foreground = (Brush)FindResource(brushKey);
+        AuthStatusLabel.TextAlignment = TextAlignment.Center;
     }
 
     // The pick itself – independent of the combo, which is collapsed when

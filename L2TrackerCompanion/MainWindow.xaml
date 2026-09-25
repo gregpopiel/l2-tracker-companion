@@ -29,51 +29,89 @@
                       Grid.Row="0"
                       Grid.RowSpan="2"
                       VerticalScrollBarVisibility="Auto">
-            <ContentControl MaxWidth="380"
-                            Margin="24,56,24,24"
-                            VerticalAlignment="Top"
+            <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+            <!-- Fixed width: measured unconstrained, the token box reports the
+                 full JWT as its desired width and the field grows on paste. -->
+            <ContentControl Width="400"
+                            Margin="24"
+                            VerticalAlignment="Center"
                             HorizontalAlignment="Center"
                             Style="{StaticResource BeaconPanel}">
                 <StackPanel>
-                    <TextBlock Text="L2 Tracker Companion"
-                               Style="{StaticResource HeadlineText}"
-                               Margin="0,0,0,14" />
-                    <StackPanel x:Name="GateForm">
-                        <TextBlock x:Name="AuthHintLabel"
-                                   Text="Paste the token from the website."
+                    <StackPanel Margin="0,0,0,28">
+                        <TextBlock Text="Sign in to L2Tracker"
+                                   FontFamily="{StaticResource AppFontFamily}"
+                                   FontSize="22"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource SignalWhiteBrush}"
+                                   TextAlignment="Center" />
+                        <!-- Debug only: the field placeholder stays one short line,
+                             so this wrapping hint carries the localStorage key. -->
+                        <TextBlock x:Name="TokenDebugHint"
+                                   Text="Paste the JWT from the website (browser localStorage key l2_jwt_token)."
                                    Style="{StaticResource SubtleText}"
-                                   Margin="0,0,0,12" />
-                        <TextBlock Style="{StaticResource SubtleText}"
-                                   Margin="0,0,0,12"
-                                   TextWrapping="Wrap">
-                            Don't have an account yet? Sign up at
-                            <Hyperlink NavigateUri="https://l2tracker.cc"
-                                       RequestNavigate="WebsiteLink_RequestNavigate">l2tracker.cc</Hyperlink>
-                        </TextBlock>
-                        <PasswordBox x:Name="TokenBox"
-                                     Margin="0,0,0,12"
-                                     KeyDown="TokenBox_KeyDown" />
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Right"
-                                    Margin="0,0,0,14">
-                            <Button x:Name="RetryButton"
-                                    Content="Retry with stored token"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,0,8,0"
-                                    Visibility="Collapsed"
-                                    Click="RetryButton_Click" />
-                            <Button x:Name="SignInButton"
-                                    Content="Sign in"
-                                    Style="{StaticResource PrimaryButton}"
-                                    Click="SignInButton_Click" />
-                        </StackPanel>
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed"
+                                   Margin="0,8,0,0" />
                     </StackPanel>
-                    <TextBlock x:Name="AuthStatusLabel"
-                               Text=""
-                               Visibility="Collapsed"
-                               Style="{StaticResource StatusText}" />
+                    <Border x:Name="AuthStatusBanner" Visibility="Collapsed" Margin="0,0,0,18">
+                        <TextBlock x:Name="AuthStatusLabel"
+                                   Text=""
+                                   TextWrapping="Wrap" />
+                    </Border>
+                    <StackPanel x:Name="GateForm">
+                        <Grid>
+                            <PasswordBox x:Name="TokenBox"
+                                         FontSize="{StaticResource FontSizeField}"
+                                         MinHeight="40"
+                                         KeyDown="TokenBox_KeyDown"
+                                         PasswordChanged="TokenBox_PasswordChanged" />
+                            <!-- Same border and padding as the box, so the hint
+                                 starts where the typed text does. Width is tied
+                                 to the box so the hint cannot stretch the field. -->
+                            <Border Width="{Binding ActualWidth, ElementName=TokenBox}"
+                                    BorderThickness="{Binding BorderThickness, ElementName=TokenBox}"
+                                    Padding="{Binding Padding, ElementName=TokenBox}"
+                                    Background="Transparent"
+                                    IsHitTestVisible="False">
+                                <TextBlock x:Name="TokenPlaceholder"
+                                           Text="Paste your token"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontFamily="{StaticResource AppFontFamily}"
+                                           FontSize="{StaticResource FontSizeField}"
+                                           Foreground="{StaticResource StaticGrayBrush}" />
+                            </Border>
+                        </Grid>
+                        <Button x:Name="SignInButton"
+                                Content="Continue"
+                                Style="{StaticResource PrimaryButton}"
+                                Cursor="Hand"
+                                FontWeight="Bold"
+                                FontSize="{StaticResource FontSizeField}"
+                                Height="40"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Margin="0,14,0,0"
+                                Click="SignInButton_Click" />
+                        <Button x:Name="RetryButton"
+                                Content="Retry with stored token"
+                                Style="{StaticResource SecondaryButton}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,12,0,0"
+                                Visibility="Collapsed"
+                                Click="RetryButton_Click" />
+                        <Button Content="Don't have an account? Sign up"
+                                Style="{StaticResource LinkButton}"
+                                Cursor="Hand"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,8,0,0"
+                                Click="SignUpButton_Click" />
+                    </StackPanel>
                 </StackPanel>
             </ContentControl>
+            </Grid>
         </ScrollViewer>
 
         <TabControl x:Name="MainTabs"
@@ -515,27 +553,38 @@
                                                 Margin="6,0,0,0"
                                                 Click="OpenMisreadsButton_Click" />
                                     </StackPanel>
-                                    <TextBlock x:Name="CaptureStatusLabel"
-                                               Text=""
-                                               Style="{StaticResource StatusText}"
-                                               Margin="0,10,0,0" />
-                                    <TextBlock x:Name="ParseStatusLabel"
-                                               Text=""
-                                               Style="{StaticResource StatusText}"
-                                               Margin="0,10,0,0" />
-                                    <TextBlock x:Name="SessionStatusLabel"
-                                               Text=""
-                                               Style="{StaticResource StatusText}"
-                                               Margin="0,10,0,0" />
-                                    <!-- The raw read the redesigned card no
-                                         longer spells out (XP / Adena / play
-                                         time / lamps / location). Lives here so
-                                         DebugToolsPanel's own visibility is
-                                         what shows it. -->
-                                    <TextBlock x:Name="LiveValuesLabel"
-                                               Text=""
-                                               Style="{StaticResource StatusText}"
-                                               Margin="0,10,0,0" />
+                                    <!-- The dump grows without bound (captures,
+                                         parses, every snapshot). Cap it so the
+                                         Session tab keeps its own scroll for
+                                         the card above, and this log scrolls
+                                         on its own. -->
+                                    <ScrollViewer MaxHeight="220"
+                                                  Margin="0,10,0,0"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel>
+                                            <TextBlock x:Name="CaptureStatusLabel"
+                                                       Text=""
+                                                       Style="{StaticResource StatusText}" />
+                                            <TextBlock x:Name="ParseStatusLabel"
+                                                       Text=""
+                                                       Style="{StaticResource StatusText}"
+                                                       Margin="0,10,0,0" />
+                                            <TextBlock x:Name="SessionStatusLabel"
+                                                       Text=""
+                                                       Style="{StaticResource StatusText}"
+                                                       Margin="0,10,0,0" />
+                                            <!-- The raw read the redesigned card no
+                                                 longer spells out (XP / Adena / play
+                                                 time / lamps / location). Lives here so
+                                                 DebugToolsPanel's own visibility is
+                                                 what shows it. -->
+                                            <TextBlock x:Name="LiveValuesLabel"
+                                                       Text=""
+                                                       Style="{StaticResource StatusText}"
+                                                       Margin="0,10,0,0" />
+                                        </StackPanel>
+                                    </ScrollViewer>
                                 </StackPanel>
                             </HeaderedContentControl>
                         </StackPanel>

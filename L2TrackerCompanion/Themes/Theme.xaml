@@ -245,9 +245,8 @@
         <Setter Property="Padding" Value="10" />
     </Style>
 
-    <!-- The login card is one of the surfaces allowed a Beacon Seam + glow.
-         A ContentControl rather than a Border so the glow can live on a sibling
-         layer underneath the content, keeping the card's text crisp. -->
+    <!-- Login card, matched to the website: the card fill (not the lighter
+         raised gray) and a 1px hairline, the same rgba(48, 54, 61, 0.5) seam. -->
     <Style x:Key="BeaconPanel" TargetType="ContentControl">
         <!-- Decoration, not a control: it must not land in the tab order the
              way a bare ContentControl otherwise could. -->
@@ -256,19 +255,13 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContentControl">
-                    <Grid>
-                        <!-- Glow layer: fill only, no content, so the effect has
-                             no text to blur. -->
-                        <Border Background="{StaticResource GlassPanelRaisedBrush}"
-                                CornerRadius="{StaticResource BorderRadiusBase}"
-                                Effect="{StaticResource BeaconGlowEffect}" />
-                        <Border BorderBrush="{StaticResource BeaconSeamBrush}"
-                                BorderThickness="1"
-                                CornerRadius="{StaticResource BorderRadiusBase}"
-                                Padding="20">
-                            <ContentPresenter />
-                        </Border>
-                    </Grid>
+                    <Border Background="{StaticResource GlassPanelBrush}"
+                            BorderBrush="{StaticResource HairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource BorderRadiusBase}"
+                            Padding="32,28">
+                        <ContentPresenter />
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -573,7 +566,14 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="{StaticResource BorderRadiusBase}"
                                 Padding="{TemplateBinding Padding}">
-                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" />
+                            <!-- Hidden, not the default Disabled: Disabled reports the full
+                                 password width, so pasting a token widens the field.
+                                 Hidden keeps the bullets scrolling inside the box. -->
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Focusable="False"
+                                          VerticalAlignment="Center"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Hidden" />
                         </Border>
                         <Border x:Name="FocusRing"
                                 BorderBrush="{StaticResource BeaconBlueBrush}"
@@ -583,6 +583,9 @@
                                 Visibility="Collapsed" />
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource GlassPanelLiftedBrush}" />
+                        </Trigger>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BeaconBlueBrush}" />
                             <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
