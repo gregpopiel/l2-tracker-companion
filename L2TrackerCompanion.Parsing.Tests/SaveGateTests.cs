@@ -64,7 +64,7 @@ public class SaveGateTests
     }
 
     [Fact]
-    public void SplicedXpWarnsButStillSaves()
+    public void SplicedXpStillSavesWithoutAnIssue()
     {
         var report = TestReports.Open(
             confidence: new ReadConfidence(
@@ -77,8 +77,8 @@ public class SaveGateTests
         var decision = SaveGate.Evaluate(report, At);
 
         Assert.True(decision.CanSave);
-        Assert.Equal(TrafficLight.Orange, decision.Light);
-        Assert.False(decision.Issue!.BlocksSave);
+        Assert.Equal(TrafficLight.Green, decision.Light);
+        Assert.Null(decision.Issue);
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class SaveGateTests
     }
 
     [Fact]
-    public void ADisputedXpNamesBothFiguresAndTheOneBeingSaved()
+    public void ADisputedXpSavesWithoutNamingTheFigures()
     {
         var report = TestReports.Open(
             xp: 9_210_400,
@@ -120,10 +120,9 @@ public class SaveGateTests
         var decision = SaveGate.Evaluate(report, At);
 
         Assert.True(decision.CanSave);
-        var message = decision.Issue!.Message;
-        Assert.Contains("4,210,400", message, StringComparison.Ordinal);
-        Assert.Contains("9,210,400", message, StringComparison.Ordinal);
-        Assert.Contains("spliced", message, StringComparison.Ordinal);
+        Assert.Equal(TrafficLight.Green, decision.Light);
+        Assert.Null(decision.Issue);
+        Assert.Equal(report, decision.Source);
     }
 
     [Fact]

@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
@@ -127,22 +125,9 @@ public static class ReadIssues
             return Blocking(TrafficLight.Red, UnreadLampColumn);
         }
 
-        // The one non-blocking defect: the figure is usable, but it was
-        // reconciled rather than read cleanly, so it is worth a second look.
-        // The message names what will actually be posted, since the player has
-        // the panel on screen and can settle it at a glance.
-        if (report.Confidence.XpSpliced || report.Confidence.XpDisagreed)
-        {
-            var inv = CultureInfo.InvariantCulture;
-            var saving = report.Xp?.ToString("N0", inv) ?? "(unread)";
-            var how = report.Confidence.XpSpliced ? "spliced" : "picked";
-            return new ReadIssue(
-                TrafficLight.Orange,
-                Detail("XP was assembled from two disagreeing reads", report.Confidence.DescribeXpDispute())
-                    + $" Saving {saving} ({how}) – check it against the panel.",
-                BlocksSave: false);
-        }
-
+        // A picked or spliced XP is the figure Save posts. The two OCR passes
+        // disagreed, but the sentence named nothing the player can choose, so
+        // it is not an issue.
         return null;
     }
 

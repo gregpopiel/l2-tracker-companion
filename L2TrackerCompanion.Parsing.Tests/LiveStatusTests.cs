@@ -208,7 +208,7 @@ public class LiveStatusTests
     }
 
     [Fact]
-    public void ASilentMisreadStillSurfacesADefectOnTheHeldFrame()
+    public void ASilentMisreadPaintsASplicedHoldGreen()
     {
         var held = TestReports.Open(
             xp: 9_210_400,
@@ -226,9 +226,10 @@ public class LiveStatusTests
             held,
             discarded: true);
 
-        Assert.Equal(TrafficLight.Orange, shown.Light);
-        Assert.Contains("spliced", shown.Detail, StringComparison.Ordinal);
-        Assert.DoesNotContain("Discarded", shown.Detail, StringComparison.Ordinal);
+        Assert.Equal(TrafficLight.Green, shown.Light);
+        Assert.Equal("Farm and lamps read.", shown.Detail);
+        Assert.DoesNotContain("spliced", shown.Detail, StringComparison.Ordinal);
+        Assert.Equal(held, shown.Report);
     }
 
     [Fact]

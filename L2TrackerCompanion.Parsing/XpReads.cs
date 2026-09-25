@@ -9,10 +9,9 @@ namespace L2TrackerCompanion.Parsing;
 /// than picking one figure wholesale.
 /// </summary>
 /// <remarks>
-/// A splice is a <em>repair</em> of a read the two sources could not agree
-/// on, so <see cref="CombineDetailed"/> reports it alongside the value.
-/// Snapshot saves surface that as a warning instead of silently trusting the
-/// repaired figure – see <see cref="SaveGate"/>.
+/// A splice is a repair of a read the two sources could not agree on, so
+/// <see cref="CombineDetailed"/> reports it alongside the value. Save posts
+/// that figure. A digit-count mismatch is the disagreement that still blocks.
 /// </remarks>
 public static class XpReads
 {

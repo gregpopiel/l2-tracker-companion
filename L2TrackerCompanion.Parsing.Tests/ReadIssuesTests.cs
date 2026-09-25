@@ -144,7 +144,7 @@ public class ReadIssuesTests
     }
 
     [Fact]
-    public void SplicedXpIsTheOneDefectThatDoesNotBlock()
+    public void SplicedXpIsNotAnIssue()
     {
         var issue = ReadIssues.Describe(
             TestReports.Open(
@@ -155,10 +155,7 @@ public class ReadIssuesTests
                     xpFromTokens: 4_210_400,
                     xpFromCrop: 9_210_400)));
 
-        Assert.NotNull(issue);
-        Assert.False(issue.BlocksSave);
-        Assert.Equal(TrafficLight.Orange, issue.Light);
-        Assert.Contains("Saving 9,210,400 (spliced)", issue.Message, StringComparison.Ordinal);
+        Assert.Null(issue);
     }
 
     [Fact]
