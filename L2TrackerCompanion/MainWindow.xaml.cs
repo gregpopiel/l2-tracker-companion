@@ -70,6 +70,7 @@ public partial class MainWindow : Window
             TokenStore.GetDefault(),
             clientProduct: "companion/" + _updates.CurrentVersion);
         InitializeComponent();
+        MaxHeight = SystemParameters.WorkArea.Height;
         if (!ShowXpPerHour)
         {
             XpColumn.Width = new GridLength(0);

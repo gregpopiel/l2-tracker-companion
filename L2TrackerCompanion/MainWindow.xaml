@@ -4,10 +4,11 @@
         xmlns:local="clr-namespace:L2TrackerCompanion"
         Title="L2 Tracker Companion"
         Width="480"
-        Height="720"
         MinWidth="480"
         MaxWidth="480"
-        MinHeight="520"
+        MinHeight="720"
+        SizeToContent="Height"
+        ResizeMode="CanMinimize"
         Background="{StaticResource TerminalBlackBrush}"
         Foreground="{StaticResource SignalWhiteBrush}"
         FontFamily="{StaticResource AppFontFamily}"
@@ -27,7 +28,7 @@
         <ScrollViewer x:Name="LoginView"
                       Grid.Row="0"
                       Grid.RowSpan="2"
-                      VerticalScrollBarVisibility="Hidden">
+                      VerticalScrollBarVisibility="Auto">
             <ContentControl MaxWidth="380"
                             Margin="24,56,24,24"
                             VerticalAlignment="Top"
@@ -81,7 +82,7 @@
                     Visibility="Collapsed"
                     SelectionChanged="MainTabs_SelectionChanged">
             <TabItem Header="Session">
-                <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel VerticalAlignment="Top"
                                 Margin="20,6,20,14">
 
@@ -542,7 +543,7 @@
                 </ScrollViewer>
             </TabItem>
             <TabItem Header="Settings">
-                <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel MaxWidth="{StaticResource ContentMaxWidth}"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
