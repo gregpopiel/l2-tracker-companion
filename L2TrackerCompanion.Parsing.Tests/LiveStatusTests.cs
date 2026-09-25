@@ -240,6 +240,162 @@ public class LiveStatusTests
         Assert.Contains("XP dropped", status.Detail, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void APlayTimeDisagreementWithACleanHoldStaysGreen()
+    {
+        var held = TestReports.Open(minutes: 90);
+        var disagreed = TestReports.Open(
+            confidence: new ReadConfidence(
+                XpDisagreed: false,
+                XpSpliced: false,
+                XpMagnitudeMismatch: false,
+                AdenaDisagreed: false,
+                PlayTimeDisagreed: true));
+        var shown = LiveStatus.ForPlayer(
+            LiveStatus.FromReport(disagreed),
+            disagreed,
+            held,
+            discarded: false);
+
+        Assert.Equal(TrafficLight.Green, shown.Light);
+        Assert.Equal("Farm and lamps read.", shown.Detail);
+        Assert.DoesNotContain("play-time", shown.Detail, StringComparison.Ordinal);
+        Assert.Equal(held, shown.Report);
+    }
+
+    [Fact]
+    public void APlayTimeDisagreementWithNoHoldStillAnnouncesItself()
+    {
+        var disagreed = TestReports.Open(
+            confidence: new ReadConfidence(
+                XpDisagreed: false,
+                XpSpliced: false,
+                XpMagnitudeMismatch: false,
+                AdenaDisagreed: false,
+                PlayTimeDisagreed: true));
+        var tick = LiveStatus.FromReport(disagreed);
+        var shown = LiveStatus.ForPlayer(tick, disagreed, null, discarded: false);
+
+        Assert.Equal(TrafficLight.Red, shown.Light);
+        Assert.Equal(ReadIssues.PlayTimeDisagreed, shown.Detail);
+    }
+
+    [Fact]
+    public void AnImpossibleLampSumWithACleanHoldStaysGreen()
+    {
+        var held = TestReports.Open(minutes: 90);
+        var exceeds = PlayReport.From(
+            100,
+            10,
+            1,
+            LampXp.Decide(
+                new Dictionary<string, long?>
+                {
+                    ["red"] = 500,
+                    ["purple"] = 500,
+                    ["blue"] = 500,
+                    ["green"] = 500,
+                },
+                OpenRows(),
+                dialogXp: 100,
+                dialogAdena: 10),
+            null);
+        var shown = LiveStatus.ForPlayer(
+            LiveStatus.FromReport(exceeds),
+            exceeds,
+            held,
+            discarded: false);
+
+        Assert.Equal(TrafficLight.Green, shown.Light);
+        Assert.Equal("Farm and lamps read.", shown.Detail);
+        Assert.DoesNotContain("exceeds", shown.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(held, shown.Report);
+    }
+
+    [Fact]
+    public void AnImpossibleLampSumWithNoHoldStillAnnouncesItself()
+    {
+        var exceeds = PlayReport.From(
+            100,
+            10,
+            1,
+            LampXp.Decide(
+                new Dictionary<string, long?>
+                {
+                    ["red"] = 500,
+                    ["purple"] = 500,
+                    ["blue"] = 500,
+                    ["green"] = 500,
+                },
+                OpenRows(),
+                dialogXp: 100,
+                dialogAdena: 10),
+            null);
+        var tick = LiveStatus.FromReport(exceeds);
+        var shown = LiveStatus.ForPlayer(tick, exceeds, null, discarded: false);
+
+        Assert.Equal(TrafficLight.Red, shown.Light);
+        Assert.Equal(ReadIssues.LampXpExceedsDialogXp, shown.Detail);
+    }
+
+    [Fact]
+    public void AnInterruptedTickWithUnreadXpKeepsTheHoldRed()
+    {
+        var held = TestReports.Open(minutes: 90);
+        var unread = TestReports.Open() with { Xp = null, UnreadFields = ["XP"] };
+        var gate = SaveGate.EvaluateWithHold(unread, At, held, At);
+        var shown = LiveStatus.ForInterruptedTick(gate);
+
+        Assert.Equal(TrafficLight.Red, shown.Light);
+        Assert.Equal("Couldn't read XP.", shown.Detail);
+        Assert.Equal(held, shown.Report);
+    }
+
+    [Fact]
+    public void AnInterruptedTickWithAQuietPlayTimeHoldStaysGreen()
+    {
+        var held = TestReports.Open(minutes: 90);
+        var gate = SaveGate.EvaluateWithHold(DisagreedPlayTime(), At, held, At);
+        var shown = LiveStatus.ForInterruptedTick(gate);
+
+        Assert.Equal(TrafficLight.Green, shown.Light);
+        Assert.Equal("Farm and lamps read.", shown.Detail);
+        Assert.Equal(held, shown.Report);
+    }
+
+    [Fact]
+    public void AnInterruptedTickWithAPlayTimeBlockAndNoHoldStaysRed()
+    {
+        var gate = SaveGate.EvaluateWithHold(DisagreedPlayTime(), At, null, At);
+        var shown = LiveStatus.ForInterruptedTick(gate);
+
+        Assert.Equal(TrafficLight.Red, shown.Light);
+        Assert.Equal(ReadIssues.PlayTimeDisagreed, shown.Detail);
+        Assert.Null(shown.Report);
+    }
+
+    [Fact]
+    public void AnInterruptedTickWithNothingToPaintIsIdle()
+    {
+        var gate = SaveGate.EvaluateWithHold(null, At, null, At);
+        var shown = LiveStatus.ForInterruptedTick(gate);
+
+        Assert.Equal(TrafficLight.Idle, shown.Light);
+        Assert.Equal("No snapshot yet.", shown.Detail);
+        Assert.Null(shown.Report);
+    }
+
+    private static readonly DateTimeOffset At = new(2026, 9, 3, 21, 0, 0, TimeSpan.Zero);
+
+    private static PlayReport DisagreedPlayTime()
+        => TestReports.Open(
+            confidence: new ReadConfidence(
+                XpDisagreed: false,
+                XpSpliced: false,
+                XpMagnitudeMismatch: false,
+                AdenaDisagreed: false,
+                PlayTimeDisagreed: true));
+
     private static LampXpDecision OpenLamps(long red, long purple, long blue, long green, long dialogXp)
         => LampXp.Decide(
             new Dictionary<string, long?>

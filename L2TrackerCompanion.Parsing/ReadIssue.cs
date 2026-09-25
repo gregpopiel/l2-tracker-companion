@@ -26,6 +26,12 @@ public static class ReadIssues
     public const string UnreadLampColumn =
         "The Magic Lamp XP column could not be read (no silent zeros).";
 
+    public const string PlayTimeDisagreed =
+        "The play-time line was read twice and the two reads disagreed.";
+
+    public const string LampXpExceedsDialogXp =
+        "Lamp XP exceeds the dialog's own XP, which is impossible – the frame was misread.";
+
     /// <summary>
     /// The column was withdrawn because a lamp figure fell, and that is the
     /// only defect this frame would announce. A stronger defect still speaks.
@@ -35,6 +41,18 @@ public static class ReadIssues
         ArgumentNullException.ThrowIfNull(report);
         return LampContinuity.WasWithdrawn(report)
             && Describe(report)?.Message == UnreadLampColumn;
+    }
+
+    /// <summary>
+    /// A play-time contradiction or an impossible lamp sum. The frame still
+    /// cannot be saved. The player is not told when a good frame is already
+    /// held, because the sentence names nothing they can check or fix.
+    /// </summary>
+    public static bool IsQuietDefect(PlayReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        var message = Describe(report)?.Message;
+        return message == PlayTimeDisagreed || message == LampXpExceedsDialogXp;
     }
 
     /// <returns>The first defect found, or null when the read is clean.</returns>
@@ -47,9 +65,7 @@ public static class ReadIssues
         // the disagreements are checked ahead of the unread list.
         if (report.Confidence.PlayTimeDisagreed)
         {
-            return Blocking(
-                TrafficLight.Red,
-                "The play-time line was read twice and the two reads disagreed.");
+            return Blocking(TrafficLight.Red, PlayTimeDisagreed);
         }
 
         if (report.Confidence.AdenaDisagreed)
@@ -96,9 +112,7 @@ public static class ReadIssues
         // would swallow this case and report the wrong reason for it.
         if (report.LampXpExceedsDialog)
         {
-            return Blocking(
-                TrafficLight.Red,
-                "Lamp XP exceeds the dialog's own XP, which is impossible – the frame was misread.");
+            return Blocking(TrafficLight.Red, LampXpExceedsDialogXp);
         }
 
         if (!report.LampXpRead

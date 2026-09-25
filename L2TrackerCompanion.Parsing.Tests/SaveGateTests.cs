@@ -325,4 +325,72 @@ public class SaveGateTests
         // A filler HoldReason here composed into a second, invented defect.
         Assert.Null(decision.HoldReason);
     }
+
+    [Fact]
+    public void APlayTimeDisagreementWithACleanHoldStaysQuiet()
+    {
+        var held = TestReports.Open(minutes: 90);
+        var decision = SaveGate.EvaluateWithHold(DisagreedPlayTime(), At, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.Equal(held, decision.Source);
+        Assert.Equal(90, decision.Totals!.Minutes);
+        Assert.Null(decision.HoldReason);
+        Assert.Equal(TrafficLight.Red, decision.Light);
+    }
+
+    [Fact]
+    public void APlayTimeDisagreementWithNoHoldStillBlocks()
+    {
+        var decision = SaveGate.Evaluate(DisagreedPlayTime(), At);
+
+        Assert.False(decision.CanSave);
+        Assert.Equal(ReadIssues.PlayTimeDisagreed, decision.BlockReason);
+    }
+
+    [Fact]
+    public void AnImpossibleLampSumWithACleanHoldStaysQuiet()
+    {
+        var held = TestReports.Open(minutes: 90, green: 256_000);
+        var decision = SaveGate.EvaluateWithHold(ImpossibleLampSum(), At, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.Equal(held, decision.Source);
+        Assert.Null(decision.HoldReason);
+        Assert.Equal(TrafficLight.Red, decision.Light);
+    }
+
+    [Fact]
+    public void AnImpossibleLampSumWithNoHoldStillBlocks()
+    {
+        var decision = SaveGate.Evaluate(ImpossibleLampSum(), At);
+
+        Assert.False(decision.CanSave);
+        Assert.Equal(ReadIssues.LampXpExceedsDialogXp, decision.BlockReason);
+    }
+
+    private static PlayReport DisagreedPlayTime()
+        => TestReports.Open(
+            confidence: new ReadConfidence(
+                XpDisagreed: false,
+                XpSpliced: false,
+                XpMagnitudeMismatch: false,
+                AdenaDisagreed: false,
+                PlayTimeDisagreed: true));
+
+    private static PlayReport ImpossibleLampSum()
+    {
+        var exceeds = LampXp.Decide(
+            new Dictionary<string, long?>
+            {
+                ["red"] = 500,
+                ["purple"] = 500,
+                ["blue"] = 500,
+                ["green"] = 500,
+            },
+            TestReports.OpenRows(),
+            dialogXp: 100,
+            dialogAdena: 10);
+        return PlayReport.From(100, 10, 1, exceeds, null);
+    }
 }

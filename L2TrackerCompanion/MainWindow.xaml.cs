@@ -1251,6 +1251,16 @@ public partial class MainWindow : Window
             : prefix + " · " + message;
     }
 
+    /// <summary>
+    /// A capture or parse failure the player cannot act on. The light follows
+    /// the sentence the banner will keep. The technical reason stays in the
+    /// debug parse text.
+    /// </summary>
+    private void ShowHeldOrIdle()
+    {
+        ShowLiveStatus(LiveStatus.ForInterruptedTick(CurrentGate()));
+    }
+
     private void ShowLiveStatus(LiveStatusSnapshot status)
     {
         // Same report Save would post. Nothing savable → no totals.
@@ -1693,14 +1703,19 @@ public partial class MainWindow : Window
             {
                 // Drop back to the bare "Tracking every Ns": leaving
                 // "Capturing…" up would claim work is in progress for as long
-                // as capture keeps failing. The reason itself is not the
-                // bottom bar's job – ShowLiveStatus below surfaces it through
-                // ReadProblemBanner in the messages section.
+                // as capture keeps failing. A technical failure does not go
+                // on the read-problem banner. Game not running does.
                 RefreshPollStatus(string.Empty);
-                ShowLiveStatus(capture.ErrorMessage is not null
-                        && capture.ErrorMessage.Contains("Game not running", StringComparison.Ordinal)
-                    ? LiveStatus.GameNotRunning()
-                    : LiveStatus.CaptureFailed(capture.ErrorMessage ?? "Capture failed"));
+                if (capture.ErrorMessage is not null
+                    && capture.ErrorMessage.Contains("Game not running", StringComparison.Ordinal))
+                {
+                    ShowLiveStatus(LiveStatus.GameNotRunning());
+                }
+                else
+                {
+                    CaptureStatusLabel.Text = capture.ErrorMessage ?? "Capture failed";
+                    ShowHeldOrIdle();
+                }
                 RefreshSaveEnabled();
                 return;
             }
@@ -1717,11 +1732,12 @@ public partial class MainWindow : Window
             // The timer discards this Task, so without a catch a throw here
             // (a locked session.db, a capture that failed inside the pipeline)
             // would be swallowed whole and tracking would look healthy while
-            // silently doing nothing every tick. Not the bottom bar – reported
-            // through ReadProblemBanner via ShowLiveStatus below, with the
-            // bar dropped back off "Capturing…" so it stops implying work.
+            // silently doing nothing every tick. Not the bottom bar, and not
+            // the read-problem banner – the technical text stays in the debug
+            // tools. The card falls back to the held frame, or idle.
             RefreshPollStatus(string.Empty);
-            ShowLiveStatus(LiveStatus.ParseFailed(ex.Message));
+            ParseStatusLabel.Text = ex.Message;
+            ShowHeldOrIdle();
             RefreshSaveEnabled();
         }
         finally
@@ -1810,9 +1826,9 @@ public partial class MainWindow : Window
 
             if (!result.Success || result.Report is null)
             {
-                // Not the bottom bar – ShowLiveStatus already surfaces this
-                // through ReadProblemBanner in the messages section. The bar
-                // only drops back off "Capturing…" so it stops implying work.
+                // Not the bottom bar, and not the read-problem banner. The
+                // technical reason stays in the debug parse text above. The
+                // card falls back to the held frame, or idle.
                 if (fromPoll)
                 {
                     RefreshPollStatus(string.Empty);
@@ -1820,7 +1836,7 @@ public partial class MainWindow : Window
 
                 var failure = result.ErrorMessage ?? "Parse failed";
                 SaveMisread(imagePath, "Parse failed", failure);
-                ShowLiveStatus(LiveStatus.ParseFailed(failure));
+                ShowHeldOrIdle();
                 RefreshSaveEnabled();
                 return;
             }

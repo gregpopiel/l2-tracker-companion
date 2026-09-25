@@ -44,8 +44,9 @@ public static class LiveStatus
     /// <summary>
     /// The light and sentence the player should see. <paramref name="discarded"/>
     /// is a monotonicity reject the session already dropped. A lamp column
-    /// withdrawn because a figure fell is the other quiet case, and only when
-    /// that withdrawal is the frame's only defect. Either one is painted as
+    /// withdrawn because a figure fell is quiet when that withdrawal is the
+    /// frame's only defect. A play-time contradiction and an impossible lamp
+    /// sum are quiet the same way. Any of these is painted as
     /// <paramref name="held"/>. A held frame that itself has a defect still
     /// says so. A genuinely unread lamp column, a closed panel, and every
     /// other defect pass through unchanged.
@@ -57,13 +58,42 @@ public static class LiveStatus
         bool discarded)
     {
         var quiet = discarded
-            || (candidate is not null && ReadIssues.WithdrawnColumnIsTheOnlyDefect(candidate));
+            || (candidate is not null
+                && (ReadIssues.WithdrawnColumnIsTheOnlyDefect(candidate)
+                    || ReadIssues.IsQuietDefect(candidate)));
         if (held is null || !quiet)
         {
             return tick;
         }
 
         return FromReport(held);
+    }
+
+    /// <summary>
+    /// What to paint when this tick produced no report. The light follows the
+    /// sentence the banner will keep. A hold reason or a block reason stays
+    /// red or orange. A quiet hold is the held frame. An empty session stays
+    /// idle.
+    /// </summary>
+    public static LiveStatusSnapshot ForInterruptedTick(SaveGateDecision gate)
+    {
+        ArgumentNullException.ThrowIfNull(gate);
+        if (gate.HoldReason is not null)
+        {
+            return new LiveStatusSnapshot(gate.Light, gate.HoldReason, gate.Source);
+        }
+
+        if (gate.Source is not null)
+        {
+            return FromReport(gate.Source);
+        }
+
+        if (gate.BlockReason is not null)
+        {
+            return new LiveStatusSnapshot(gate.Light, gate.BlockReason, null);
+        }
+
+        return Idle();
     }
 
     /// <summary>
