@@ -1323,7 +1323,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// "#N of M spots", hidden entirely rather than showing "#0 of 0" until
+    /// "#N of M", hidden entirely rather than showing "#0 of 0" until
     /// there is something real to place – see the handoff's idle-badge
     /// decision.
     /// </summary>
@@ -1339,7 +1339,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        label.Text = $"#{rank} of {total} spot{(total == 1 ? string.Empty : "s")}";
+        label.Text = $"#{rank} of {total}";
         badge.Visibility = Visibility.Visible;
     }
 

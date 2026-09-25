@@ -251,9 +251,14 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel x:Name="XpPerHourPanel" HorizontalAlignment="Center">
+                                        <!-- −3px is the old 8px gap minus Segoe UI's
+                                             Display-mode leading above the 30px digits
+                                             (~11px). A collapsed badge drops its margin,
+                                             so the figure stays put when the pill is hidden.
+                                             Retune if FontSizeBigNumber or TextFormattingMode changes. -->
                                         <Border x:Name="XpRankBadge"
                                                 Style="{StaticResource RankBadge}"
-                                                Margin="0,0,0,8"
+                                                Margin="0,0,0,-3"
                                                 Visibility="Collapsed">
                                             <TextBlock x:Name="XpRankBadgeLabel"
                                                        Text=""
@@ -271,7 +276,7 @@
                                                 HorizontalAlignment="Center">
                                         <Border x:Name="RawXpRankBadge"
                                                 Style="{StaticResource RankBadge}"
-                                                Margin="0,0,0,8"
+                                                Margin="0,0,0,-3"
                                                 Visibility="Collapsed">
                                             <TextBlock x:Name="RawXpRankBadgeLabel"
                                                        Text=""
@@ -289,7 +294,7 @@
                                                 HorizontalAlignment="Center">
                                         <Border x:Name="AdenaRankBadge"
                                                 Style="{StaticResource RankBadge}"
-                                                Margin="0,0,0,8"
+                                                Margin="0,0,0,-3"
                                                 Visibility="Collapsed">
                                             <TextBlock x:Name="AdenaRankBadgeLabel"
                                                        Text=""

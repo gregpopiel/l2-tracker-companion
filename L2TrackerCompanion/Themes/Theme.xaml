@@ -173,7 +173,7 @@
         <Setter Property="Foreground" Value="{StaticResource SignalWhiteBrush}" />
     </Style>
 
-    <!-- Small pill above a big number: "#N of M spots". Hidden entirely
+    <!-- Small pill above a big number: "#N of M". Hidden entirely
          (Visibility.Collapsed, set in code-behind) until at least one
          accepted read exists – an idle "#0 of 0" reads as broken, not empty. -->
     <Style x:Key="RankBadge" TargetType="Border">
