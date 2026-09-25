@@ -6,7 +6,7 @@
         Width="480"
         MinWidth="480"
         MaxWidth="480"
-        MinHeight="720"
+        MinHeight="550"
         SizeToContent="Height"
         ResizeMode="CanMinimize"
         Background="{StaticResource TerminalBlackBrush}"

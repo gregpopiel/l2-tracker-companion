@@ -70,7 +70,8 @@ public partial class MainWindow : Window
             TokenStore.GetDefault(),
             clientProduct: "companion/" + _updates.CurrentVersion);
         InitializeComponent();
-        MaxHeight = SystemParameters.WorkArea.Height;
+        SizeChanged += (_, _) => FitToWorkArea();
+        FitToWorkArea();
         if (!ShowXpPerHour)
         {
             XpColumn.Width = new GridLength(0);
@@ -115,6 +116,45 @@ public partial class MainWindow : Window
         ShowLiveStatus(LiveStatus.Idle());
         ApplyLoadedMode();
         AppVersionLabel.Text = $"Version {_updates.CurrentVersion}";
+    }
+
+    // The 550 floor and a short work area (1080p at 150%) would otherwise
+    // contradict. Growth keeps Top fixed, so a window sitting low would slide
+    // under the taskbar; lift it when the new height still fits above.
+    private bool _fittingWorkArea;
+
+    private void FitToWorkArea()
+    {
+        if (_fittingWorkArea)
+        {
+            return;
+        }
+
+        _fittingWorkArea = true;
+        try
+        {
+            var work = SystemParameters.WorkArea;
+            MaxHeight = work.Height;
+            if (MinHeight > work.Height)
+            {
+                MinHeight = work.Height;
+            }
+
+            if (ActualHeight <= 0 || double.IsNaN(Top))
+            {
+                return;
+            }
+
+            var overflow = Top + ActualHeight - work.Bottom;
+            if (overflow > 1)
+            {
+                Top = Math.Max(work.Top, Top - overflow);
+            }
+        }
+        finally
+        {
+            _fittingWorkArea = false;
+        }
     }
 
     private void MainTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
