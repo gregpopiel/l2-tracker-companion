@@ -211,6 +211,59 @@ public class SaveGateTests
     }
 
     [Fact]
+    public void AWithdrawnLampColumnDoesNotExplainTheHold()
+    {
+        var held = TestReports.Open(xp: 1_000_000, minutes: 30, green: 256_000);
+        var withdrawn = LampContinuity.Withdraw(
+            held,
+            held,
+            TestReports.Open(xp: 1_200_000, minutes: 31, green: 0));
+
+        var decision = SaveGate.EvaluateWithHold(withdrawn, At, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.True(decision.UsedHeldRead);
+        Assert.Equal(held, decision.Source);
+        Assert.Null(decision.HoldReason);
+        Assert.Equal(TrafficLight.Red, decision.Light);
+    }
+
+    [Fact]
+    public void AWithdrawnLampColumnWithUnreadXpStillExplainsTheHold()
+    {
+        // Describe reads UnreadFields before the lamp column, so the farm
+        // defect has to be on that list. Clearing Xp alone would leave the
+        // withdrawal as the only announced defect.
+        var held = TestReports.Open(xp: 1_000_000, minutes: 30, green: 256_000);
+        var withdrawn = LampContinuity.Withdraw(
+            held,
+            held,
+            TestReports.Open(xp: 1_200_000, minutes: 31, green: 0));
+        var alsoUnreadXp = withdrawn with { Xp = null, UnreadFields = ["XP"] };
+        Assert.True(LampContinuity.WasWithdrawn(alsoUnreadXp));
+
+        var decision = SaveGate.EvaluateWithHold(alsoUnreadXp, At, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.True(decision.UsedHeldRead);
+        Assert.Equal(held, decision.Source);
+        Assert.Equal("Couldn't read XP.", decision.HoldReason);
+    }
+
+    [Fact]
+    public void AGenuinelyUnreadLampColumnStillExplainsTheHold()
+    {
+        var held = TestReports.Open(xp: 1_000_000, minutes: 30);
+        var unread = TestReports.UnreadLamps(xp: 1_200_000, minutes: 31);
+
+        var decision = SaveGate.EvaluateWithHold(unread, At, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.Equal(held, decision.Source);
+        Assert.Contains("Magic Lamp XP column", decision.HoldReason, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnUnacceptedFrameDoesNotBeatTheHoldEvenWhenInFrameItAgrees()
     {
         var held = TestReports.Open(xp: 2_000_000, minutes: 90);

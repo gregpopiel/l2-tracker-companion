@@ -103,11 +103,16 @@ public static class SaveGate
         // The live card is already painted from this held frame, so a sentence
         // saying which read is being saved restated a fact nobody acts on.
         // HoldReason is why the current frame was passed over – only when
-        // Evaluate actually named a defect. A missing current frame (game not
-        // running, empty store) has BlockReason null on purpose; inventing
-        // "not trustworthy" there duplicated the live-status line
+        // Evaluate actually named a defect. A withdrawn lamp column is the
+        // exception: the drop is already handled, so it does not get a reason.
+        // A missing current frame (game not running, empty store) has
+        // BlockReason null on purpose; inventing "not trustworthy" there
+        // duplicated the live-status line
         // ("Game not running. · The current read is not trustworthy.").
         var light = live.Light == TrafficLight.Idle ? heldDecision.Light : live.Light;
+        var holdReason = current is not null && ReadIssues.WithdrawnColumnIsTheOnlyDefect(current)
+            ? null
+            : live.BlockReason;
         return new SaveGateDecision(
             CanSave: true,
             Light: light,
@@ -116,7 +121,7 @@ public static class SaveGate
             Source: held,
             UsedHeldRead: true,
             Issue: heldDecision.Issue,
-            HoldReason: live.BlockReason);
+            HoldReason: holdReason);
     }
 }
 

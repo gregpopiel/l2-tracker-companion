@@ -144,6 +144,94 @@ public class LiveStatusTests
     }
 
     [Fact]
+    public void AnXpDropWithACleanHoldStaysGreen()
+    {
+        var held = TestReports.Open();
+        var dropped = TestReports.Open(xp: 800_000);
+        var shown = LiveStatus.ForPlayer(
+            LiveStatus.TickRejected("Discarded: XP dropped from 1,200,000 to 800,000."),
+            dropped,
+            held,
+            discarded: true);
+
+        Assert.Equal(TrafficLight.Green, shown.Light);
+        Assert.Equal("Farm and lamps read.", shown.Detail);
+        Assert.DoesNotContain("Discarded", shown.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("dropped", shown.Detail, StringComparison.Ordinal);
+        Assert.Equal(held, shown.Report);
+    }
+
+    [Fact]
+    public void AWithdrawnLampColumnWithACleanHoldStaysGreen()
+    {
+        var held = TestReports.Open(minutes: 30, green: 256_000);
+        var withdrawn = LampContinuity.Withdraw(
+            held,
+            held,
+            TestReports.Open(xp: 1_200_000, minutes: 31, green: 0));
+        var shown = LiveStatus.ForPlayer(
+            LiveStatus.FromReport(withdrawn),
+            withdrawn,
+            held,
+            discarded: false);
+
+        Assert.True(LampContinuity.WasWithdrawn(withdrawn));
+        Assert.Equal(TrafficLight.Green, shown.Light);
+        Assert.Equal("Farm and lamps read.", shown.Detail);
+        Assert.DoesNotContain("Magic Lamp", shown.Detail, StringComparison.Ordinal);
+        Assert.Equal(held, shown.Report);
+    }
+
+    [Fact]
+    public void AGenuinelyUnreadLampColumnStillAnnouncesItself()
+    {
+        var unread = TestReports.UnreadLamps();
+        var held = TestReports.Open();
+        var tick = LiveStatus.FromReport(unread);
+        var shown = LiveStatus.ForPlayer(tick, unread, held, discarded: false);
+
+        Assert.Equal(TrafficLight.Red, shown.Light);
+        Assert.Equal(tick.Detail, shown.Detail);
+        Assert.Contains("Magic Lamp XP column", shown.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AClosedLampPanelStillAnnouncesItself()
+    {
+        var closed = TestReports.ClosedPanel();
+        var tick = LiveStatus.FromReport(closed);
+        var shown = LiveStatus.ForPlayer(tick, closed, TestReports.Open(), discarded: false);
+
+        Assert.Equal(TrafficLight.Orange, shown.Light);
+        Assert.Equal(tick.Detail, shown.Detail);
+        Assert.Contains("closed", shown.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ASilentMisreadStillSurfacesADefectOnTheHeldFrame()
+    {
+        var held = TestReports.Open(
+            xp: 9_210_400,
+            confidence: new ReadConfidence(
+                XpDisagreed: true,
+                XpSpliced: true,
+                XpMagnitudeMismatch: false,
+                AdenaDisagreed: false,
+                PlayTimeDisagreed: false,
+                XpFromTokens: 4_210_400,
+                XpFromCrop: 9_210_400));
+        var shown = LiveStatus.ForPlayer(
+            LiveStatus.TickRejected("Discarded: Adena dropped from 300,000 to 100,000."),
+            TestReports.Open(adena: 100_000),
+            held,
+            discarded: true);
+
+        Assert.Equal(TrafficLight.Orange, shown.Light);
+        Assert.Contains("spliced", shown.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Discarded", shown.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TickRejectedIsRedWithoutAReport()
     {
         var status = LiveStatus.TickRejected("Discarded: XP dropped from 200 to 100.");

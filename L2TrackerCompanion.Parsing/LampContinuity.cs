@@ -21,6 +21,26 @@ namespace L2TrackerCompanion.Parsing;
 /// </remarks>
 public static class LampContinuity
 {
+    /// <summary>
+    /// Tail of the warning <see cref="Withdraw"/> appends. The player-facing
+    /// status uses it to tell a dropped column from a column that never parsed.
+    /// </summary>
+    public const string WithdrawnMark = "the column was treated as unread";
+
+    public static bool WasWithdrawn(PlayReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        foreach (var warning in report.Warnings)
+        {
+            if (warning.Contains(WithdrawnMark, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static PlayReport Withdraw(PlayReport? previous, PlayReport? lastLampRead, PlayReport candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);
@@ -52,7 +72,7 @@ public static class LampContinuity
         var inv = CultureInfo.InvariantCulture;
         var warning =
             $"{name} read {after.ToString("N0", inv)} after {before.ToString("N0", inv)} "
-            + "– lamp XP only ever grows, so the column was treated as unread";
+            + "– lamp XP only ever grows, so " + WithdrawnMark;
         return candidate with
         {
             LampXpRead = false,

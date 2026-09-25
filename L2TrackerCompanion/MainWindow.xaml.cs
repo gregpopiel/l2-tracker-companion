@@ -1854,10 +1854,11 @@ public partial class MainWindow : Window
                 appended = tick.Appended;
                 if (!tick.Appended)
                 {
-                    // Not the bottom bar – a rejected tick already shows the
-                    // same message via ReadProblemBanner (ShowLiveStatus
-                    // below, with LiveStatus.TickRejected). The bar keeps
-                    // showing its last accepted tick instead.
+                    // Not the bottom bar, and not the read-problem banner
+                    // either: a monotonicity discard is already dropped, so
+                    // ForPlayer paints the held frame. The bar keeps showing
+                    // its last accepted tick. Debug parse text below still
+                    // records the reason.
                     rejected = tick.Message;
                     ParseStatusLabel.Text += "\n\n" + tick.Message;
                 }
@@ -1920,15 +1921,19 @@ public partial class MainWindow : Window
                     : $"\n\nLocation hint \"{report.LocationHint}\" did not move the picker.";
             }
 
-            // Light/detail describe this tick. XP / Adena / rates are the
-            // last verified frame – the same numbers Save would post.
-            // The banner's two sources are fields composed by one writer, so
-            // the order of this call and the refresh below no longer decides
-            // what the save line may repeat.
-            ShowLiveStatus(
+            // Light/detail are what the player should see for this tick.
+            // A discarded read or a withdrawn lamp column paints the held
+            // frame instead of a banner. XP / Adena / rates are that same
+            // frame – the numbers Save would post. The banner's sources are
+            // fields composed by one writer, so the order of this call and
+            // the refresh below no longer decides what the save line may repeat.
+            ShowLiveStatus(LiveStatus.ForPlayer(
                 rejected is null
                     ? LiveStatus.FromReport(report)
-                    : LiveStatus.TickRejected(rejected));
+                    : LiveStatus.TickRejected(rejected),
+                report,
+                CurrentGate().Source,
+                discarded: rejected is not null));
             RefreshSessionStatus();
         }
         finally

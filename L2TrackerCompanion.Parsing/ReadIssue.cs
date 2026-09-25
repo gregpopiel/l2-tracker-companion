@@ -23,6 +23,20 @@ public sealed record ReadIssue(TrafficLight Light, string Message, bool BlocksSa
 /// </remarks>
 public static class ReadIssues
 {
+    public const string UnreadLampColumn =
+        "The Magic Lamp XP column could not be read (no silent zeros).";
+
+    /// <summary>
+    /// The column was withdrawn because a lamp figure fell, and that is the
+    /// only defect this frame would announce. A stronger defect still speaks.
+    /// </summary>
+    public static bool WithdrawnColumnIsTheOnlyDefect(PlayReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        return LampContinuity.WasWithdrawn(report)
+            && Describe(report)?.Message == UnreadLampColumn;
+    }
+
     /// <returns>The first defect found, or null when the read is clean.</returns>
     public static ReadIssue? Describe(PlayReport report)
     {
@@ -91,9 +105,7 @@ public static class ReadIssues
             || report.RedLampXp is null || report.PurpleLampXp is null
             || report.BlueLampXp is null || report.GreenLampXp is null)
         {
-            return Blocking(
-                TrafficLight.Red,
-                "The Magic Lamp XP column could not be read (no silent zeros).");
+            return Blocking(TrafficLight.Red, UnreadLampColumn);
         }
 
         // The one non-blocking defect: the figure is usable, but it was
