@@ -369,6 +369,19 @@ public class SaveGateTests
         Assert.Equal(ReadIssues.LampXpExceedsDialogXp, decision.BlockReason);
     }
 
+    [Fact]
+    public void AnAdenaDisagreementWithACleanHoldStaysQuiet()
+    {
+        var held = TestReports.Open(minutes: 90, adena: 1_783_525);
+        var decision = SaveGate.EvaluateWithHold(DisagreedAdena(), At, held, At);
+
+        Assert.True(decision.CanSave);
+        Assert.Equal(held, decision.Source);
+        Assert.Equal(90, decision.Totals!.Minutes);
+        Assert.Null(decision.HoldReason);
+        Assert.Equal(TrafficLight.Red, decision.Light);
+    }
+
     private static PlayReport DisagreedPlayTime()
         => TestReports.Open(
             confidence: new ReadConfidence(
@@ -393,4 +406,15 @@ public class SaveGateTests
             dialogAdena: 10);
         return PlayReport.From(100, 10, 1, exceeds, null);
     }
+
+    private static PlayReport DisagreedAdena()
+        => TestReports.Open(
+            confidence: new ReadConfidence(
+                XpDisagreed: false,
+                XpSpliced: false,
+                XpMagnitudeMismatch: false,
+                AdenaDisagreed: true,
+                PlayTimeDisagreed: false,
+                AdenaFromTokens: 1_783_525,
+                AdenaFromCrop: 31_783_525));
 }

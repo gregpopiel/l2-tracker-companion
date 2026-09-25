@@ -32,6 +32,8 @@ public static class ReadIssues
     public const string LampXpExceedsDialogXp =
         "Lamp XP exceeds the dialog's own XP, which is impossible – the frame was misread.";
 
+    public const string AdenaDisagreed = "Adena's two reads disagreed";
+
     /// <summary>
     /// The column was withdrawn because a lamp figure fell, and that is the
     /// only defect this frame would announce. A stronger defect still speaks.
@@ -44,15 +46,18 @@ public static class ReadIssues
     }
 
     /// <summary>
-    /// A play-time contradiction or an impossible lamp sum. The frame still
-    /// cannot be saved. The player is not told when a good frame is already
-    /// held, because the sentence names nothing they can check or fix.
+    /// A play-time contradiction, an impossible lamp sum, or an Adena
+    /// disagreement. The frame still cannot be saved. The player is not told
+    /// when a good frame is already held: the Adena sentence names two OCR
+    /// passes of one number, and the player cannot choose either.
     /// </summary>
     public static bool IsQuietDefect(PlayReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
         var message = Describe(report)?.Message;
-        return message == PlayTimeDisagreed || message == LampXpExceedsDialogXp;
+        return message == PlayTimeDisagreed
+            || message == LampXpExceedsDialogXp
+            || message?.StartsWith(AdenaDisagreed, StringComparison.Ordinal) == true;
     }
 
     /// <returns>The first defect found, or null when the read is clean.</returns>
@@ -72,7 +77,7 @@ public static class ReadIssues
         {
             return Blocking(
                 TrafficLight.Red,
-                Detail("Adena's two reads disagreed", report.Confidence.DescribeAdenaDispute()));
+                Detail(AdenaDisagreed, report.Confidence.DescribeAdenaDispute()));
         }
 
         if (report.Confidence.XpMagnitudeMismatch)

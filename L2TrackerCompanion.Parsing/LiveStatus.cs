@@ -45,8 +45,8 @@ public static class LiveStatus
     /// The light and sentence the player should see. <paramref name="discarded"/>
     /// is a monotonicity reject the session already dropped. A lamp column
     /// withdrawn because a figure fell is quiet when that withdrawal is the
-    /// frame's only defect. A play-time contradiction and an impossible lamp
-    /// sum are quiet the same way. Any of these is painted as
+    /// frame's only defect. A play-time contradiction, an impossible lamp
+    /// sum, and an Adena disagreement are quiet the same way. Any of these is painted as
     /// <paramref name="held"/>. A held frame that itself has a defect still
     /// says so. A genuinely unread lamp column, a closed panel, and every
     /// other defect pass through unchanged.

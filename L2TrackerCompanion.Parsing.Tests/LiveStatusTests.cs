@@ -339,6 +339,34 @@ public class LiveStatusTests
     }
 
     [Fact]
+    public void AnAdenaDisagreementWithACleanHoldStaysGreen()
+    {
+        var held = TestReports.Open(minutes: 90, adena: 1_783_525);
+        var disagreed = DisagreedAdena();
+        var shown = LiveStatus.ForPlayer(
+            LiveStatus.FromReport(disagreed),
+            disagreed,
+            held,
+            discarded: false);
+
+        Assert.Equal(TrafficLight.Green, shown.Light);
+        Assert.Equal("Farm and lamps read.", shown.Detail);
+        Assert.DoesNotContain("Adena", shown.Detail, StringComparison.Ordinal);
+        Assert.Equal(held, shown.Report);
+    }
+
+    [Fact]
+    public void AnAdenaDisagreementWithNoHoldStillAnnouncesItself()
+    {
+        var disagreed = DisagreedAdena();
+        var tick = LiveStatus.FromReport(disagreed);
+        var shown = LiveStatus.ForPlayer(tick, disagreed, null, discarded: false);
+
+        Assert.Equal(TrafficLight.Red, shown.Light);
+        Assert.StartsWith(ReadIssues.AdenaDisagreed, shown.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnInterruptedTickWithUnreadXpKeepsTheHoldRed()
     {
         var held = TestReports.Open(minutes: 90);
@@ -395,6 +423,17 @@ public class LiveStatusTests
                 XpMagnitudeMismatch: false,
                 AdenaDisagreed: false,
                 PlayTimeDisagreed: true));
+
+    private static PlayReport DisagreedAdena()
+        => TestReports.Open(
+            confidence: new ReadConfidence(
+                XpDisagreed: false,
+                XpSpliced: false,
+                XpMagnitudeMismatch: false,
+                AdenaDisagreed: true,
+                PlayTimeDisagreed: false,
+                AdenaFromTokens: 1_783_525,
+                AdenaFromCrop: 31_783_525));
 
     private static LampXpDecision OpenLamps(long red, long purple, long blue, long green, long dialogXp)
         => LampXp.Decide(

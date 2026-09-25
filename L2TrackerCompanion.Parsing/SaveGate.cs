@@ -104,8 +104,9 @@ public static class SaveGate
         // saying which read is being saved restated a fact nobody acts on.
         // HoldReason is why the current frame was passed over – only when
         // Evaluate actually named a defect. A withdrawn lamp column, a
-        // play-time contradiction, and an impossible lamp sum do not get a
-        // reason: the drop or the bad frame is already handled.
+        // play-time contradiction, an impossible lamp sum, and an Adena
+        // disagreement do not get a reason: the drop or the bad frame is
+        // already handled.
         // A missing current frame (game not running, empty store) has
         // BlockReason null on purpose; inventing "not trustworthy" there
         // duplicated the live-status line
