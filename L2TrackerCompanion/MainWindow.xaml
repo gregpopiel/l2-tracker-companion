@@ -454,8 +454,8 @@
                         </Grid>
 
                         <!-- One action button doing double duty: "Start
-                             tracking" with nothing to save, "Save & send
-                             session" once tracking is on or there's a held
+                             tracking" with nothing to save, "Save session"
+                             once tracking is on or there's a held
                              frame from an earlier Stop – see
                              MainActionButton_Click/RefreshSaveEnabled. -->
                         <Button x:Name="MainActionButton"

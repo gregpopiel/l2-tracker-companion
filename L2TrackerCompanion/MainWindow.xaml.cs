@@ -629,7 +629,7 @@ public partial class MainWindow : Window
         var saveMode = _polling.IsRunning || gate.CanSave;
         MainActionButton.Content = _saveInFlight
             ? "Saving session…"
-            : saveMode ? "Save & send session" : "Start tracking";
+            : saveMode ? "Save session" : "Start tracking";
         // A poll tick lands here on every poll interval, including while a save is awaiting
         // its response – without this the button would re-arm mid-POST and a
         // second click would duplicate the log.
