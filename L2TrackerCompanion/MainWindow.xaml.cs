@@ -224,7 +224,7 @@ public partial class MainWindow : Window
         var debug = _options.DebugMode;
         var debugVisibility = debug ? Visibility.Visible : Visibility.Collapsed;
         DebugToolsPanel.Visibility = debugVisibility;
-        Title = debug ? "L2 Tracker Companion (Debug)" : "L2 Tracker Companion";
+        Title = debug ? "L2Tracker Companion (Debug)" : "L2Tracker Companion";
         TokenDebugHint.Visibility = debugVisibility;
         TokenPlaceholder.Text = "Paste your token";
 

@@ -1,6 +1,6 @@
-# L2 Tracker Companion
+# L2Tracker Companion
 
-Windows desktop companion for the [Lineage 2 Farm Tracker](https://l2tracker.cc). Watches a running L2 client, reads the in-game Play Report panel via OCR, and submits farm sessions through the existing backend API.
+Windows desktop companion for [L2Tracker](https://l2tracker.cc). Watches a running L2 client, reads the in-game Play Report panel via OCR, and submits farm sessions through the existing backend API.
 
 This repository is the desktop app only. The web UI and API live in [`l2-tracker-frontend`](https://github.com/gregpopiel/l2-tracker-frontend) and [`l2-tracker-backend`](https://github.com/gregpopiel/l2-tracker-backend) and are deployed independently.
 
@@ -165,7 +165,7 @@ chmod +x scripts/auth.sh   # once
 ./scripts/auth.sh --status
 ```
 
-A single window titled **L2 Tracker Companion** should open.
+A single window titled **L2Tracker Companion** should open.
 
 **Character + spot pickers (plan step 18):** after a valid token, the window lists characters from `GET /api/characters` and, on character change, spots from `GET /api/spots?characterId=`. Character is required. Spot may be left empty when Location is stable (see step 21). `% Bonus` prefills from `GET /api/settings` (`defaultBonus`; lamp values and `defaultMinutes` are ignored). Live rates use that same GET's `rateUnit` (`hour` or `minute`). If the GET fails, bonus is schema default 25 and rates are schema default `hour`, with a hint saying why. Session minutes on Save come from the Play Report's own duration, not from a form field and not from the wall clock (see step 20). Headless:
 
@@ -217,7 +217,7 @@ From Windows:
 
 ```bash
 dotnet publish L2TrackerCompanion/L2TrackerCompanion.csproj -c Release -r win-x64 --self-contained -p:DebugType=none -o publish-output
-vpk pack -u L2Tracker --packTitle "L2 Tracker Companion" -v <version-from-csproj> -p publish-output -e L2TrackerCompanion.exe -o releases
+vpk pack -u L2Tracker --packTitle "L2Tracker Companion" -v <version-from-csproj> -p publish-output -e L2TrackerCompanion.exe -o releases
 # then drop the channel suffix from the two user downloads (vpk names them {id}-win-*):
 #   L2Tracker-win-Setup.exe    → L2Tracker-Setup.exe
 #   L2Tracker-win-Portable.zip → L2Tracker-Portable.zip

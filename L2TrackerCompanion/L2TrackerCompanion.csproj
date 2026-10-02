@@ -10,7 +10,7 @@
     <RootNamespace>L2TrackerCompanion</RootNamespace>
     <AssemblyName>L2TrackerCompanion</AssemblyName>
     <Version>1.0.8</Version>
-    <Product>L2 Tracker Companion</Product>
+    <Product>L2Tracker Companion</Product>
     <!-- Program.cs owns startup (VelopackApp.Build().Run() must run before the
          WPF Application is constructed), not App.xaml's StartupUri. -->
     <StartupObject>L2TrackerCompanion.Program</StartupObject>

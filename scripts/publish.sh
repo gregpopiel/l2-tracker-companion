@@ -21,7 +21,7 @@ VERSION="$(grep -oP '(?<=<Version>)[^<]+' "$ROOT/L2TrackerCompanion/L2TrackerCom
 powershell.exe -NoProfile -Command \
   "Set-Location -LiteralPath '$WIN_ROOT'; \
    dotnet publish L2TrackerCompanion\\L2TrackerCompanion.csproj -c Release -r win-x64 --self-contained -p:DebugType=none -o '$PUBLISH_OUT_WIN'; \
-   vpk pack -u L2Tracker --packTitle 'L2 Tracker Companion' -v $VERSION -p '$PUBLISH_OUT_WIN' -e L2TrackerCompanion.exe -o '$RELEASES_OUT_WIN'"
+   vpk pack -u L2Tracker --packTitle 'L2Tracker Companion' -v $VERSION -p '$PUBLISH_OUT_WIN' -e L2TrackerCompanion.exe -o '$RELEASES_OUT_WIN'"
 
 # Drop the channel suffix from the two user downloads (nupkg is already L2Tracker-<ver>-*.nupkg).
 mv -f "$RELEASES_DIR/L2Tracker-win-Setup.exe" "$RELEASES_DIR/L2Tracker-Setup.exe"
