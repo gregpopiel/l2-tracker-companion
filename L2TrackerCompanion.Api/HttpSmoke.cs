@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace L2TrackerCompanion.Api;
 
 /// <summary>
-/// Plan step 19: record whether a native GET sent <c>Origin</c> and what
+/// Record whether a native GET sent <c>Origin</c> and what
 /// status/body came back. Does not change auth or CORS.
 /// </summary>
 public sealed class HttpSmokeHandler : DelegatingHandler

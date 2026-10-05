@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# One-shot Play Report parse (plan step 13). PNG → XP / Adena / play time /
+# One-shot Play Report parse. PNG → XP / Adena / play time /
 # lamp XP / location hint, printed as the WPF window would show them.
-# A successful parse also appends a SQLite snapshot (plan step 14).
+# A successful parse also appends a SQLite snapshot.
 # Pass --new-session to wipe the active session file instead.
 set -euo pipefail
 

@@ -14,7 +14,7 @@ public enum RateUnit
 }
 
 /// <summary>
-/// Plan step 23: XP/min and Adena/min from the latest Play Report screenshot
+/// XP/min and Adena/min from the latest Play Report screenshot
 /// (raw OCR totals ÷ play-time minutes). Display-only – not the Save delta.
 /// </summary>
 public static class LiveRates

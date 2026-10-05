@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Locate the Play Report dialog, crop with DIALOG_CROP_MARGIN, second OCR pass.
-# Writes crop PNGs + word dumps for the POC set (plan step 8).
+# Writes crop PNGs + word dumps for the POC set.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

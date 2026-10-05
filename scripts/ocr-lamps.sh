@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lamp-table XP (plan step 11). Table crop 3×, all-or-none, sum-vs-dialog-XP
+# Lamp-table XP. Table crop 3×, all-or-none, sum-vs-dialog-XP
 # gate. Compared to baselines/tesseract-lamps.tsv.
 set -euo pipefail
 

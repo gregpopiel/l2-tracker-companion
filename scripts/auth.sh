@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate a website JWT (plan step 17). On success the token is stored
+# Validate a website JWT. On success the token is stored
 # DPAPI-encrypted; a garbage token is not left on disk.
 set -euo pipefail
 
