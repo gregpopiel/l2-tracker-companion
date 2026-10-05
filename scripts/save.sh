@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# POST the active session as a FarmLog (plan step 20).
+# POST the active session as a FarmLog.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Play time from the dialog crop (plan step 10). Dual-read tokens + line crop,
+# Play time from the dialog crop. Dual-read tokens + line crop,
 # compared to baselines/tesseract-playtime.tsv.
 set -euo pipefail
 

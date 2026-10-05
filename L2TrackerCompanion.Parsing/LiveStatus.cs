@@ -4,7 +4,7 @@ using System.Text;
 namespace L2TrackerCompanion.Parsing;
 
 /// <summary>
-/// Plan step 16 / §5: one traffic-light colour for the latest parse.
+/// One traffic-light colour for the latest parse.
 /// Farm unread or a lamp table that is in frame but unreadable is red;
 /// a collapsed Magic Lamp panel is orange, not red; farm+lamps read is green.
 /// Missing minimap hint does not change the colour in v1.

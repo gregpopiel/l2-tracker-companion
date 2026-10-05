@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# XP + Adena from the dialog crop (plan step 9). Writes dumps for the POC set
+# XP + Adena from the dialog crop. Writes dumps for the POC set
 # and compares them to baselines/tesseract-farm.tsv.
 set -euo pipefail
 

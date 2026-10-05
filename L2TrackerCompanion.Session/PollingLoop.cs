@@ -3,7 +3,7 @@ using L2TrackerCompanion.Parsing;
 namespace L2TrackerCompanion.Session;
 
 /// <summary>
-/// Plan step 15: Start/Stop gate for the capture→OCR→accept tick, plus the
+/// Start/Stop gate for the capture→OCR→accept tick, plus the
 /// cadence that tick should run at. The WPF timer still owns the actual
 /// scheduling; this type only says whether tracking is on – so a tick that
 /// finishes after Stop does not append – and how long the gap before the next

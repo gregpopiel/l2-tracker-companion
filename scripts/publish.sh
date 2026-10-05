@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Velopack release build (plan step 22, revised for auto-update).
+# Velopack release build.
 # Output: releases/L2Tracker-Setup.exe + L2Tracker-Portable.zip +
 # L2Tracker-<ver>-full.nupkg + manifests (gitignored). Pack id is L2Tracker
 # (`-u`); vpk still suffixes the installer/zip with `-win-`, so those two are

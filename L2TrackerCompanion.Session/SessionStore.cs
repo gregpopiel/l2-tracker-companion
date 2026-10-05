@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace L2TrackerCompanion.Session;
 
 /// <summary>
-/// Append-only SQLite snapshots for the active session (plan step 14).
+/// Append-only SQLite snapshots for the active session.
 /// <see cref="NewSession"/> wipes the file when the player resets the
 /// Play Report in-game, which is what now starts a session.
 /// </summary>

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Minimap location hint (plan step 12). Same full-image pass as dialog
+# Minimap location hint. Same full-image pass as dialog
 # locate. Compared to baselines/tesseract-location.tsv.
 set -euo pipefail
 
