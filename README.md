@@ -82,4 +82,4 @@ Bump `<Version>` in `L2TrackerCompanion/L2TrackerCompanion.csproj`, run `./scrip
 | `docs/release.md` | Building and publishing a release, auto-update |
 | `baselines/README.md` | What the files in `baselines/` are |
 
-See `LICENSE` for the terms.
+The source is published for reading only; all rights are reserved (see `LICENSE`).
