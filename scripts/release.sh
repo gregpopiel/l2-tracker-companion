@@ -36,7 +36,7 @@ done
 
 NOTES="$(awk -v h="## $TAG" '$0 == h { f = 1; next } f && /^## / { exit } f' "$ROOT/CHANGELOG.md" | sed '/./,$!d')"
 FIRST_LINE="${NOTES%%$'\n'*}"
-# The template's last line: a section with nothing else was built from no files.
+# The template's first closing line: a section with nothing else was built from no files.
 FOOTER="Something not right? Tell us in #bug-reports."
 if [[ -z "$NOTES" ]]; then
   echo "No \"## $TAG\" section in CHANGELOG.md – build it with towncrier first (docs/release.md)." >&2

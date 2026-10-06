@@ -25,7 +25,7 @@ vpk pack -u L2Tracker --packTitle "L2Tracker Companion" -v <version-from-csproj>
 1. In a pull request, bump `<Version>` in `L2TrackerCompanion/L2TrackerCompanion.csproj` (that is what a running app compares against to detect an update, and it names the release, `v<Version>`) and build the release notes: `towncrier build --yes --version v<Version>` (below). Merge it.
 2. Run `./scripts/publish.sh` (above). It builds into `publish-output/` and packs into `releases/`.
 3. Run `./scripts/release.sh`. It needs the GitHub CLI (`gh`), signed in with write access to this repository, and creates a **draft** release `v<Version>`, titled `L2Tracker Companion v<Version>`, with the `## v<Version>` section of `CHANGELOG.md` as its notes and exactly the files users and the updater need: `L2Tracker-Setup.exe`, `L2Tracker-Portable.zip`, `L2Tracker-<Version>-full.nupkg` and `releases.win.json`. It refuses to run if one of them is missing, or if the section is missing or has no summary. `DRY_RUN=1 ./scripts/release.sh` prints the notes and the command instead.
-4. Read the draft on GitHub and publish it there (Edit → Publish release). Publishing is what announces it on the project's Discord, with the notes as they are at that moment; editing them afterwards does not announce again.
+4. Read the draft on GitHub and publish it there (Edit → Publish release). Publishing is what announces it on the project's Discord (`.github/workflows/announce-release.yml` posts the notes to `#companion-updates` through the secret `DISCORD_COMPANION_UPDATES_WEBHOOK`), with the notes as they are at that moment; editing them afterwards does not announce again.
 
 Notes on what is and is not attached:
 
