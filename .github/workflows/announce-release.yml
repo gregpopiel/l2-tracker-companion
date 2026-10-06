@@ -46,6 +46,9 @@ jobs:
           # in the notes (#bug-reports) becomes a clickable mention (<#id>);
           # the IDs are not secret, but a channel made again gets a new one
           # (the workspace's docs/discord.md).
+          # GitHub saves notes edited in its web page with CRLF line ends; a
+          # stray \r would keep a label (**New**) from becoming a heading, so
+          # the body is stripped of them in the jq program below.
           release_date=$(TZ=Europe/Warsaw date -d "$RELEASE_PUBLISHED" +%d.%m.%Y)
           payload=$(jq -n \
             --arg date "$release_date" \
@@ -53,7 +56,7 @@ jobs:
             --arg body "$RELEASE_BODY" \
             '{"Heads-up": "⚠️", "New": "🆕", "Improved": "✨", "Removed": "🗑️", "Fixed": "🐛", "Known issues": "🔎"} as $emoji
             | {"#bug-reports": "<#1556622382456901714>", "#feature-requests": "<#1556622399762595961>"} as $channels
-            | ($body | split("\n") | map(
+            | ($body | gsub("\r"; "") | split("\n") | map(
                 if test("^\\*\\*[^*]+\\*\\*$") then
                   (ltrimstr("**") | rtrimstr("**")) as $label
                   | "### " + (if $emoji[$label] then $emoji[$label] + " " else "" end) + $label
