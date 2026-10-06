@@ -1,0 +1,17 @@
+{#- One release in the format of the Discord update announcements: the
+    summary as a paragraph, then each type that has entries under its bold
+    label, in the order of towncrier.toml, then the fixed last line. -#}
+{%- set newline = "\n" -%}
+{%- for section, entries in sections.items() -%}
+    {%- for text in entries.get("summary", {}) -%}
+        {{- text ~ newline ~ newline -}}
+    {%- endfor -%}
+    {%- for category, definition in definitions.items() if category != "summary" and category in entries -%}
+        {{- "**" ~ definition["name"] ~ "**" ~ newline -}}
+        {%- for text in entries[category] -%}
+            {{- "- " ~ text ~ newline -}}
+        {%- endfor -%}
+        {{- newline -}}
+    {%- endfor -%}
+{%- endfor -%}
+{{- "Something not right? Tell us in #bug-reports." ~ newline ~ newline -}}

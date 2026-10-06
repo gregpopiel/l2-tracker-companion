@@ -1,0 +1,34 @@
+name: Changelog
+
+# A pull request that changes the app (the L2TrackerCompanion project and its
+# Api, Capture, Ocr, Parsing and Session libraries; not the tests or OcrDump)
+# adds a file to changelog.d/ (docs/release.md, "Release notes"). The label
+# no-changelog skips the check, for a change players cannot see. Unless the
+# branch protection of main requires this check, a red one is a reminder; the
+# hard stop is scripts/release.sh, which has no notes without the files.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  fragment:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Look for a changelog.d/ file
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          if ! git diff --name-only "origin/$BASE...HEAD" | grep -qE '^L2TrackerCompanion(\.(Api|Capture|Ocr|Parsing|Session))?/'; then
+            echo "Nothing in the app has changed."
+            exit 0
+          fi
+          pip install --quiet towncrier==26.9.0
+          towncrier check --compare-with "origin/$BASE" || {
+            echo "::error::Add a file to changelog.d/ (towncrier create +<slug>.<type>.md), or label the pull request no-changelog if players cannot see the change."
+            exit 1
+          }

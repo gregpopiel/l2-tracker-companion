@@ -1,0 +1,47 @@
+# Player-facing release notes, built from one small file per change in
+# changelog.d/ (see docs/release.md, "Release notes"). The output is the
+# format of the Discord update announcements: a summary, then bold labels.
+[tool.towncrier]
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## {version}"
+template = "changelog.d/template.md.jinja"
+ignore = ["template.md.jinja"]
+wrap = false
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "summary"
+name = "Summary"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "headsup"
+name = "Heads-up"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "new"
+name = "New"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "improved"
+name = "Improved"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "known"
+name = "Known issues"
+showcontent = true
