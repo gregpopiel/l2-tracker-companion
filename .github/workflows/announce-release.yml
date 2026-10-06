@@ -1,0 +1,80 @@
+name: Announce Release on Discord
+
+# A published release of the companion is posted to the community Discord's
+# #companion-updates channel, its notes in the message itself, in the same
+# format as the website's releases. GitHub's own Discord format (a webhook URL
+# ending in /github) is not used: it posts a bare embed with a link to the
+# release page. The repository's webhook of that kind must be deleted once
+# this workflow is in use, or each release is posted twice. The release notes
+# are written for players, in English, and a prerelease is not posted. This
+# repository is public: nothing secret goes in this file (the channel IDs
+# below are not secret; the webhook URL is a repository secret).
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  announce:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post the release notes to #companion-updates
+        env:
+          # The channel's webhook URL (Edit Channel → Integrations → Webhooks),
+          # without /github. Whoever has it can post in the channel.
+          WEBHOOK_URL: ${{ secrets.DISCORD_COMPANION_UPDATES_WEBHOOK }}
+          # Through env, never written into the script: release text is not
+          # code, and inlined it could be run as shell.
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+          RELEASE_PUBLISHED: ${{ github.event.release.published_at }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::error::The DISCORD_COMPANION_UPDATES_WEBHOOK secret is not set."
+            exit 1
+          fi
+          # A plain message, not an embed: an embed's side bar, narrow card and
+          # small text were hard to read. The notes' bold labels (**New**)
+          # become headings with an emoji, and the title a heading, under
+          # a smaller heading that links to the companion page and gives the day the
+          # release was published (Polish time). A message holds up to 2000
+          # characters; a longer one is cut at the last whole line. `parse: []`
+          # stops an @everyone or a role name in the notes from pinging anyone,
+          # and flag 4 hides the link previews. A channel's name
+          # in the notes (#bug-reports) becomes a clickable mention (<#id>);
+          # the IDs are not secret, but a channel made again gets a new one
+          # (the workspace's docs/discord.md).
+          # GitHub saves notes edited in its web page with CRLF line ends; a
+          # stray \r would keep a label (**New**) from becoming a heading, so
+          # the body is stripped of them in the jq program below.
+          release_date=$(TZ=Europe/Warsaw date -d "$RELEASE_PUBLISHED" +%d.%m.%Y)
+          payload=$(jq -n \
+            --arg date "$release_date" \
+            --arg title "${RELEASE_NAME:-$RELEASE_TAG}" \
+            --arg body "$RELEASE_BODY" \
+            '{"Heads-up": "⚠️", "New": "🆕", "Improved": "✨", "Removed": "🗑️", "Fixed": "🐛", "Known issues": "🔎"} as $emoji
+            | {"#bug-reports": "<#1556622382456901714>", "#feature-requests": "<#1556622399762595961>"} as $channels
+            | ($body | gsub("\r"; "") | split("\n") | map(
+                if test("^\\*\\*[^*]+\\*\\*$") then
+                  (ltrimstr("**") | rtrimstr("**")) as $label
+                  | "### " + (if $emoji[$label] then $emoji[$label] + " " else "" end) + $label
+                else . end
+              ) | join("\n") | sub("^\n+"; "")
+              | reduce ($channels | to_entries[]) as $c (.; split($c.key) | join($c.value))) as $text
+            | "### New in [L2Tracker Companion](https://l2tracker.cc/companion) - \($date)\n## \($title)\n\n" as $head
+            | (2000 - ($head | length)) as $room
+            | {
+                username: "L2Tracker",
+                allowed_mentions: { parse: [] },
+                flags: 4,
+                content: ($head
+                          + (if ($text | length) > $room
+                             then ($text[0:($room - 10)] | sub("\n[^\n]*$"; "")) + "\n…"
+                             else $text end))
+              }')
+          curl --fail-with-body --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "$WEBHOOK_URL"
