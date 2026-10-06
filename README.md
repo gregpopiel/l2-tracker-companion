@@ -66,11 +66,11 @@ All are `bash` scripts in `scripts/` that run the Windows tooling from WSL; none
 | `auth.sh` | Headless sign-in checks: `--token <jwt>`, `--status`, `--garbage`, `--spots`, `--http-smoke` (see `docs/account.md`) |
 | `save.sh` | Posts the last verified reading as a farm log (see `docs/behavior.md`) |
 | `ocr-dump.sh`, `ocr-batch.sh`, `ocr-crop.sh`, `ocr-farm.sh`, `ocr-playtime.sh`, `ocr-lamps.sh`, `ocr-location.sh`, `ocr-parse.sh` | Run the reading pipeline stage by stage, or whole, over screenshots and compare with `baselines/` (see `docs/ocr-tools.md`). **Windows required** |
-| `publish.sh`, `release.sh` | Build and publish a release (see `docs/release.md`) |
+| `publish.sh`, `release.sh` | Build a release and create it as a draft with its notes from `CHANGELOG.md` (see `docs/release.md`) |
 
 ## Releasing
 
-Bump `<Version>` in `L2TrackerCompanion/L2TrackerCompanion.csproj`, run `./scripts/publish.sh`, then `./scripts/release.sh`. Installed apps pick up the new release by themselves and never restart without the user's click. Details, and what to attach and not attach, are in `docs/release.md`.
+Bump `<Version>` in `L2TrackerCompanion/L2TrackerCompanion.csproj` and build the release notes from `changelog.d/` with towncrier, run `./scripts/publish.sh`, then `./scripts/release.sh`, which creates a draft release to publish on GitHub. Installed apps pick up the new release by themselves and never restart without the user's click. Details, and what to attach and not attach, are in `docs/release.md`.
 
 ## More
 
